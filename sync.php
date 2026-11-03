@@ -10,7 +10,7 @@ require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/api_utilities.php';
 
 try {
-    $r = api_utility_sync('cli') ?? ['clientes' => 0, 'maquinas' => 0];
+    $r = api_sync('cli') ?? ['clientes' => 0, 'maquinas' => 0];
     echo date('c') . " OK clientes={$r['clientes']} maquinas={$r['maquinas']}\n";
     exit(0);
 } catch (Throwable $e) {

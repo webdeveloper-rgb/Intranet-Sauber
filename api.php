@@ -85,16 +85,9 @@ $input  = json_decode((string)file_get_contents('php://input'), true);
 $input  = is_array($input) ? $input : [];
 
 try {
-    // ---------- API DE ENTRADA DE COPIAS (pendiente) ----------
-    // Aquí irá (o se hará en Node JS / otra API propia) la recepción de copias
-    // desde los equipos. Debe insertar en la tabla `copias` (ver database/schema.sql).
-    // Por ahora no existe ningún endpoint público de escritura.
-
-    // ---------- Resto: requieren sesión ----------
     $user = usuario_actual();
     if (!$user) fail('Sesión caducada', 401);
 
-    // Se revalida en cada petición: si desactivan o borran al usuario, pierde el acceso al momento
     $st = db()->prepare('SELECT nombre, rol, activo FROM usuarios WHERE id = ?');
     $st->execute([$user['id']]);
     $vivo = $st->fetch();
@@ -115,21 +108,21 @@ try {
         $notas = notas_de(array_column($rows, 'id'));
         foreach ($rows as &$r) $r['notas'] = $notas[$r['id']] ?? [];
         unset($r);
-        // Responde ya al navegador y, después, sincroniza si toca (así el panel no espera a la API)
+        
         $body = json_encode(['copias' => $rows, 'usuario' => $user['usuario']], JSON_UNESCAPED_UNICODE);
         http_response_code(200);
         header('Content-Length: ' . strlen($body));
         header('Connection: close');
         ignore_user_abort(true);
         echo $body;
-        session_write_close(); // libera la sesión para que otras peticiones no esperen
+        session_write_close();
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
         } else {
             while (ob_get_level() > 0) @ob_end_flush();
             flush();
         }
-        api_utility_sync_auto();
+        api_sync_auto();
         exit;
     }
 
@@ -143,24 +136,21 @@ try {
     }
 
     if ($action === 'catalogo') {
-        out(api_utility_catalogo());
+        out(api_sync_catalogo());
     }
 
-    // Acciones que modifican datos
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Método no permitido', 405);
     if (!csrf_ok($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) fail('Token de seguridad no válido, recarga la página', 403);
 
-    // ---------- Sincronización de clientes y máquinas (solo administradores) ----------
     if ($action === 'sync') {
         exigir_admin($user);
         try {
-            out(['ok' => true] + (api_utility_sync('web') ?? []));
+            out(['ok' => true] + (api_sync('web') ?? []));
         } catch (ApiError $ex) {
             fail($ex->getMessage(), 502);
         }
     }
 
-    // ---------- Cuenta propia y gestión de usuarios ----------
     if ($action === 'mi_password') {
         $st = db()->prepare('SELECT password_hash FROM usuarios WHERE id = ?');
         $st->execute([$user['id']]);
