@@ -8,6 +8,7 @@ import Filtros from './components/Filtros';
 import Tabla from './components/Tabla';
 import Detalle from './components/Detalle';
 import Usuarios from './components/Usuarios';
+import Clientes from './components/Clientes';
 
 const F0 = { cli: '', desde: '', hasta: '', horas: 24 };
 
@@ -18,6 +19,7 @@ export default function App() {
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), F0);
   const [sel, setSel] = useState(null);
   const [verUsuarios, setVerUsuarios] = useState(false);
+  const [vista, setVista] = useState('copias'); // 'copias' | 'clientes'
 
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
 
@@ -43,21 +45,28 @@ export default function App() {
 
   return (
     <>
-      <Header nombre={sesion ? sesion.nombre : ''} rol={sesion?.rol} onUsuarios={() => setVerUsuarios(true)} />
+      <Header nombre={sesion ? sesion.nombre : ''} rol={sesion?.rol} vista={vista} onVista={setVista}
+        onUsuarios={() => setVerUsuarios(true)} />
       <main>
-        {copias.fallo && (
-          <div className="errbox">
-            No se pudieron cargar los datos: {copias.fallo}{' '}
-            <button className="btn sec" onClick={copias.cargar}>Reintentar</button>
-          </div>
+        {vista === 'clientes' && sesion ? (
+          <Clientes sesion={sesion} />
+        ) : (
+          <>
+            {copias.fallo && (
+              <div className="errbox">
+                No se pudieron cargar los datos: {copias.fallo}{' '}
+                <button className="btn sec" onClick={copias.cargar}>Reintentar</button>
+              </div>
+            )}
+            <Kpis n={n} total={data.length} />
+            <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} />
+            <Tabla rows={rows} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
+            <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos cada minuto.</p>
+          </>
         )}
-        <Kpis n={n} total={data.length} />
-        <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} />
-        <Tabla rows={rows} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
-        <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos cada minuto.</p>
       </main>
       {verUsuarios && sesion && <Usuarios sesion={sesion} onClose={() => setVerUsuarios(false)} />}
-      {cur && (
+      {cur && vista === 'copias' && (
         <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0} />
       )}
     </>
