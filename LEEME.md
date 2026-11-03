@@ -8,12 +8,15 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 index.php, login.php, logout.php   Panel y acceso
 api.php                            API interna (copias, revisión, notas, usuarios)
 install.php                        Instalador (se usa UNA vez y se borra)
+sync.php                           Sincroniza clientes y máquinas (solo desde la tarea programada)
 build/                             Panel compilado (app.js, app.css). SE GUARDA EN GIT
 assets/                            logo.png y login.css
 config/config.example.php          Plantilla de configuración (va en Git)
 config/config.php                  TUS datos de BD. NO va en Git (.gitignore). Se crea a mano en el servidor
 database/schema.sql                Tablas
 src/bootstrap.php                  Sesión, BD, seguridad
+src/albelink.php                   Conexión con la API y sincronización
+database/sync.sql                  Tablas clientes, maquinas y sync_log (se crean solas)
 frontend/                          Código fuente de React (se despliega, pero .htaccess lo bloquea)
 ```
 
@@ -88,6 +91,47 @@ Desde el panel, como administrador: **👥 Usuarios** (arriba a la derecha). Cre
 
 `database/schema.sql` solo lo usa el instalador. Si un día cambias las tablas, el servidor **no** las migra solo (salvo los usuarios): aplica el cambio en phpMyAdmin o añade una migración como la de `migrar_usuarios()` en `src/bootstrap.php`.
 
+## Clientes y máquinas desde la API
+
+El panel copia los **clientes** (tabla `Cliente`) y las **máquinas** (tabla `Maquina`) de tu API a su propia base de datos. La conexión la hace siempre el servidor: el email y la contraseña de la API solo existen en `config/config.php` y nunca llegan al navegador.
+
+### 1. Configurar (una vez, en el servidor)
+Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) y añade, junto a `db`:
+```php
+'albelink' => [
+    'base_url' => 'https://api.albelink.es/api/v1',
+    'email'    => 'tu_usuario_de_la_api',
+    'password' => 'tu_contraseña_de_la_api',
+    'org'      => '1',        // según la documentación: /db/data/{org}/{proyecto}/{Tabla}
+    'proyecto' => 'demo',     // nombre del proyecto NocoDB (cámbialo por el tuyo)
+    'tabla_clientes' => 'Cliente',
+    'tabla_maquinas' => 'Maquina',
+],
+```
+`config/config.example.php` trae la plantilla. El panel necesita la extensión **cURL** de PHP (suele venir activa; si no, en Plesk → Ajustes de PHP).
+
+### 2. Es automático
+No hay que hacer nada más: cuando alguien usa el panel, el servidor comprueba cuándo fue la última sincronización y, si han pasado **15 minutos**, vuelve a sincronizar por su cuenta. Lo hace **después** de responder al navegador, así que nadie espera. Se cambia con `'sync_minutos'` en `config.php` (`0` la desactiva).
+
+Si falla (contraseña rechazada, API caída...), no se cae nada: el error queda registrado y el administrador lo ve en **🏢 Clientes**. El botón **🔄 Sincronizar ahora** (solo administradores) sirve para forzarla o para la primera prueba; al acabar muestra **"Campos que devuelve la API"**, útil si algún dato no aparece.
+
+### 3. Refuerzo opcional: tarea programada en Plesk
+La sincronización automática solo ocurre **mientras alguien tiene el panel abierto**. Si quieres que los datos estén al día aunque nadie entre (por ejemplo por la noche), añade además una tarea programada:
+*Sitios web y dominios → tu dominio → **Tareas programadas** → Añadir tarea*:
+- Tipo: **Ejecutar un script PHP** (o *Ejecutar un comando*).
+- Ruta del script: `httpdocs/sync.php`. Con *Ejecutar un comando*: `/opt/plesk/php/8.3/bin/php /var/www/vhosts/TU_DOMINIO/httpdocs/sync.php` (ajusta versión de PHP y ruta).
+- Frecuencia: la que prefieras, por ejemplo cada hora (`0 * * * *`).
+- Notificación: solo si hay errores.
+
+`sync.php` solo funciona por línea de comandos: desde el navegador devuelve 404 y el `.htaccess` además lo bloquea.
+
+### Cómo se guardan los datos
+- Cada registro se identifica por su `Clave` de la API: si ya existe se actualiza, si es nuevo se crea.
+- Lo que desaparece de la API se **desactiva**, no se borra. Si la API devolviera 0 filas, no se desactiva nada (más probable un fallo que un catálogo vacío).
+- Una máquina se asocia a su cliente por `Maquina.Cliente` = `Cliente.Codigo`. Las que no encajan salen en "Máquinas sin cliente asignado".
+- Se guarda además el registro completo en bruto (columna `datos`), por si necesitas campos que hoy no se muestran.
+- Es una copia de **solo lectura**: el panel nunca escribe en tu API.
+
 ## API de entrada de copias (pendiente)
 
 No hay API para recibir copias de los equipos; queda en blanco a propósito. Cuando la tengas (Node JS u otra), solo debe insertar filas en la tabla `copias` (campos en `database/schema.sql`).
@@ -97,5 +141,6 @@ No hay API para recibir copias de los equipos; queda en blanco a propósito. Cua
 - Contraseñas con `password_hash`, sesión HttpOnly/SameSite, bloqueo tras 5 intentos fallidos.
 - Consultas preparadas (PDO), salida escapada, token CSRF en acciones que modifican datos.
 - Reglas de negocio validadas también en el servidor.
+- Las credenciales de la API nunca salen del servidor; `sync.php` no es accesible desde la web.
 - `.htaccess` bloquea `config/`, `src/`, `database/`, `frontend/` y ficheros ocultos o de código fuente.
 - Los secretos (`config/config.php`) nunca van al repositorio.
