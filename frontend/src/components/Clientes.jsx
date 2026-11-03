@@ -3,110 +3,199 @@ import { api } from '../api';
 import { norm } from '../logic';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
+const CLIENTES_POR_PAGINA = 15;
 
 export default function Clientes({ sesion }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
   const [asignaciones, setAsignaciones] = useState({});
-  const [q, setQ] = useState('');
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+  const [busquedaEquipo, setBusquedaEquipo] = useState('');
+  const [filtroEquipos, setFiltroEquipos] = useState('pendientes');
+  const [pagina, setPagina] = useState(1);
   const [cargando, setCargando] = useState(true);
   const [sync, setSync] = useState(false);
+  const [correoSync, setCorreoSync] = useState(false);
   const [fallo, setFallo] = useState('');
   const [resumen, setResumen] = useState(null);
-  const [correoSync, setCorreoSync] = useState(false);
-  const [mensajeCorreo, setMensajeCorreo] = useState('');
+  const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(null);
 
-  const cargar = useCallback(async () => {
-    setCargando(true);
+  const cargar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setCargando(true);
     try {
       const [c, e] = await Promise.all([api('catalogo'), api('equipos')]);
-      setCat(c); setEquipos(e.equipos); setFallo('');
+      setCat(c);
+      setEquipos(e.equipos);
+      setFallo('');
+    } catch (e) {
+      setFallo(e.message);
+    } finally {
+      if (!silencioso) setCargando(false);
     }
-    catch (e) { setFallo(e.message); }
-    finally { setCargando(false); }
   }, []);
+
   useEffect(() => {
     cargar();
-    const timer = setInterval(cargar, 60000);
+    const timer = setInterval(() => cargar(true), 60000);
     return () => clearInterval(timer);
   }, [cargar]);
 
   const sincronizar = async () => {
     setSync(true);
-    try { setResumen(await api('sync', {})); await cargar(); }
+    setFallo('');
+    try { setResumen(await api('sync', {})); await cargar(true); }
     catch (e) { setFallo(e.message); }
     finally { setSync(false); }
   };
 
   const leerCorreo = async () => {
-    setCorreoSync(true); setMensajeCorreo('');
+    setCorreoSync(true);
+    setFallo('');
+    setMensaje('');
     try {
       const r = await api('correo_sync', {});
-      setMensajeCorreo(`Leídos ${r.leidas} avisos nuevos${r.omitidas ? `; ${r.omitidas} no reconocidos` : ''}.`);
-      await cargar();
+      setMensaje(`Leídos ${r.leidas} avisos nuevos${r.omitidas ? `; ${r.omitidas} no reconocidos` : ''}.`);
+      await cargar(true);
     } catch (e) { setFallo(e.message); }
     finally { setCorreoSync(false); }
   };
 
   const asignar = async (equipo) => {
     const cliente_id = Number(asignaciones[equipo.id] || equipo.cliente_id || 0);
-    if (!cliente_id) return setFallo('Selecciona un cliente para asignar el equipo.');
-    setGuardando(equipo.id); setFallo('');
+    if (!cliente_id) {
+      setFallo(`Selecciona un cliente para ${equipo.nombre}.`);
+      return;
+    }
+    setGuardando(equipo.id);
+    setFallo('');
+    setMensaje('');
     try {
       const r = await api('equipo_asignar', { id: equipo.id, cliente_id });
-      setMensajeCorreo(`${equipo.nombre}: ${r.copias_importadas} copia${r.copias_importadas === 1 ? '' : 's'} añadida${r.copias_importadas === 1 ? '' : 's'} al panel.`);
-      await cargar();
+      setMensaje(`${equipo.nombre}: asignación guardada. ${r.copias_importadas} copia${r.copias_importadas === 1 ? '' : 's'} nueva${r.copias_importadas === 1 ? '' : 's'} incorporada${r.copias_importadas === 1 ? '' : 's'}.`);
+      await cargar(true);
     } catch (e) { setFallo(e.message); }
     finally { setGuardando(null); }
   };
 
-  const filtro = norm(q.trim());
-  const lista = useMemo(() => {
+  const clientesFiltrados = useMemo(() => {
+    const f = norm(busquedaCliente.trim());
     if (!cat) return [];
-    return cat.clientes.filter((c) => !filtro || norm(unir(c.codigo, c.nombre, c.cif, c.email, c.localidad)).includes(filtro));
-  }, [cat, filtro]);
+    return cat.clientes.filter((c) => !f || norm(unir(c.codigo, c.nombre, c.cif, c.email, c.localidad)).includes(f));
+  }, [cat, busquedaCliente]);
+
+  const equiposFiltrados = useMemo(() => {
+    const f = norm(busquedaEquipo.trim());
+    return equipos
+      .filter((equipo) => filtroEquipos === 'todos' || !equipo.cliente_id)
+      .filter((equipo) => !f || norm(unir(equipo.nombre, equipo.software, equipo.cliente)).includes(f))
+      .sort((a, b) => Number(!!a.cliente_id) - Number(!!b.cliente_id) || a.nombre.localeCompare(b.nombre, 'es'));
+  }, [equipos, filtroEquipos, busquedaEquipo]);
+
+  const pendientes = equipos.filter((equipo) => !equipo.cliente_id).length;
+  const paginas = Math.max(1, Math.ceil(clientesFiltrados.length / CLIENTES_POR_PAGINA));
+  const paginaActual = Math.min(pagina, paginas);
+  const clientesPagina = clientesFiltrados.slice((paginaActual - 1) * CLIENTES_POR_PAGINA, paginaActual * CLIENTES_POR_PAGINA);
   const u = cat?.ultima;
 
-  return <>
-    <div className="fil">
-      <input type="search" placeholder="Buscar cliente, CIF o correo…" aria-label="Buscar cliente" value={q} onChange={(e) => setQ(e.target.value)} />
-      <span className="cnt">{lista.length} cliente{lista.length === 1 ? '' : 's'}</span>
-      {admin && <button className="btn" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : '🔄 Sincronizar clientes'}</button>}
-      {admin && <button className="btn" disabled={correoSync} onClick={leerCorreo}>{correoSync ? 'Leyendo correo…' : '✉️ Leer avisos'}</button>}
-    </div>
-    {fallo && <div className="errbox">{fallo} <button className="btn sec" onClick={cargar}>Reintentar</button></div>}
-    {cat && !cat.configurado && <div className="errbox">La API no está configurada en <code>config/config.php</code> (sección <code>api_sync</code>).</div>}
-    {u && u.ok === 0 && <div className="errbox">La última sincronización falló ({u.fecha}): {u.mensaje}</div>}
-    {resumen && <div className="okmsg">Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.</div>}
-    {mensajeCorreo && <div className="okmsg">{mensajeCorreo}</div>}
-    {lista.map((c) => <article key={c.id} className="cli">
-      <div className="det">
-        <strong className="nom">{c.nombre || '(sin nombre)'}</strong>
-        {c.codigo && <span className="sub">{c.codigo}</span>}
-        <p className="dat">{unir(c.cif, c.telefono, c.email, [c.localidad, c.provincia].filter(Boolean).join(', ')) || 'Sin más datos'}</p>
-      </div>
-    </article>)}
-    {!lista.length && <div className="wrap"><div className="vacio">{cargando ? 'Cargando…' : cat?.clientes.length ? 'Sin resultados' : 'Todavía no hay clientes sincronizados'}</div></div>}
-    {cat && <section className="notas">
-      <h3>Equipos detectados en los correos ({equipos.length})</h3>
-      <p className="note">Al leer el buzón, los avisos de Acronis e Iperius crean o actualizan su equipo. Al asignar un cliente, sus avisos pendientes se incorporan al panel de copias.</p>
-      {!equipos.length && <div className="vacio">Todavía no se han detectado equipos en el correo.</div>}
-      {equipos.map((equipo) => <div className="cli" key={equipo.id}>
-        <div className="det">
-          <strong className="nom">{equipo.nombre}</strong><span className="sub">{equipo.software}</span>
-          <p className="dat">{equipo.cliente || 'Sin cliente asignado'} · {equipo.pendientes} copia{equipo.pendientes === 1 ? '' : 's'} pendiente{equipo.pendientes === 1 ? '' : 's'}</p>
-          {admin && <div className="fil">
-            <select aria-label={'Cliente de ' + equipo.nombre} value={asignaciones[equipo.id] ?? equipo.cliente_id ?? ''} onChange={(e) => setAsignaciones((a) => ({ ...a, [equipo.id]: e.target.value }))}>
-              <option value="">Seleccionar cliente…</option>
-              {cat.clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre} {c.codigo ? `(${c.codigo})` : ''}</option>)}
-            </select>
-            <button className="btn" disabled={guardando === equipo.id} onClick={() => asignar(equipo)}>{guardando === equipo.id ? 'Guardando…' : 'Asignar cliente'}</button>
-          </div>}
+  return <div className="clientes-page">
+    <section className="mapeo-panel" aria-labelledby="titulo-mapeo">
+      <div className="mapeo-heading">
+        <div>
+          <span className="eyebrow">Trabajo técnico</span>
+          <h2 id="titulo-mapeo">Asignar equipos a clientes</h2>
+          <p>Vincula cada equipo detectado con su cliente. Las copias recibidas quedan asociadas automáticamente.</p>
         </div>
-      </div>)}
-    </section>}
-    <p className="note">{u ? `Última sincronización: ${u.fecha}${u.ok === 1 ? ' (correcta)' : u.ok === 0 ? ' (con error)' : ''}. ` : ''}{cat?.auto_minutos ? `Se actualiza sola cada ${cat.auto_minutos} min mientras alguien usa el panel.` : ''}</p>
-  </>;
+        <div className="mapeo-kpi" aria-label={`${pendientes} equipos pendientes`}>
+          <strong>{pendientes}</strong>
+          <span>por asignar</span>
+        </div>
+      </div>
+
+      <div className="mapeo-toolbar">
+        <label className="mapeo-busqueda">
+          <span className="sr-only">Buscar equipo o cliente</span>
+          <input type="search" placeholder="Buscar equipo, software o cliente…" value={busquedaEquipo} onChange={(e) => setBusquedaEquipo(e.target.value)} />
+        </label>
+        <div className="mapeo-filtros" role="group" aria-label="Filtrar equipos">
+          <button className={filtroEquipos === 'pendientes' ? 'activo' : ''} aria-pressed={filtroEquipos === 'pendientes'} onClick={() => setFiltroEquipos('pendientes')}>Pendientes <span>{pendientes}</span></button>
+          <button className={filtroEquipos === 'todos' ? 'activo' : ''} aria-pressed={filtroEquipos === 'todos'} onClick={() => setFiltroEquipos('todos')}>Todos <span>{equipos.length}</span></button>
+        </div>
+        {admin && <button className="btn" disabled={correoSync} onClick={leerCorreo}>{correoSync ? 'Leyendo buzón…' : 'Leer avisos'}</button>}
+      </div>
+
+      {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
+      {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
+      {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
+
+      {cargando && !equipos.length ? <div className="mapeo-vacio">Cargando equipos…</div> : equiposFiltrados.length ? (
+        <div className="mapeo-lista">
+          {equiposFiltrados.map((equipo) => {
+            const asignado = !!equipo.cliente_id;
+            return <article className={`equipo-card${asignado ? ' equipo-card-asignado' : ' equipo-card-pendiente'}`} key={equipo.id}>
+              <div className="equipo-info">
+                <div className="equipo-titulo">
+                  <h3 title={equipo.nombre}>{equipo.nombre}</h3>
+                  <span className="equipo-software">{equipo.software}</span>
+                </div>
+                <p className="equipo-estado">
+                  <span className={`estado-punto${asignado ? ' asignado' : ''}`} />
+                  {asignado ? equipo.cliente : 'Pendiente de asignación'}
+                </p>
+                <span className="equipo-copias">{equipo.pendientes} aviso{equipo.pendientes === 1 ? '' : 's'} {asignado ? 'por importar' : 'recibido'}</span>
+              </div>
+              <div className="equipo-accion">
+                <label htmlFor={`cliente-equipo-${equipo.id}`}>Cliente</label>
+                <select id={`cliente-equipo-${equipo.id}`} value={asignaciones[equipo.id] ?? equipo.cliente_id ?? ''} onChange={(e) => setAsignaciones((a) => ({ ...a, [equipo.id]: e.target.value }))} disabled={!admin && !cat?.clientes?.length}>
+                  <option value="">Seleccionar cliente…</option>
+                  {cat?.clientes?.map((c) => <option key={c.id} value={c.id}>{c.nombre}{c.codigo ? ` · ${c.codigo}` : ''}</option>)}
+                </select>
+                <button className="btn" disabled={guardando === equipo.id || !cat?.clientes?.length} onClick={() => asignar(equipo)}>
+                  {guardando === equipo.id ? 'Guardando…' : asignado ? 'Guardar cambio' : 'Asignar equipo'}
+                </button>
+              </div>
+            </article>;
+          })}
+        </div>
+      ) : <div className="mapeo-vacio">
+        {busquedaEquipo ? 'No hay equipos que coincidan con la búsqueda.' : filtroEquipos === 'pendientes' ? 'No hay equipos pendientes. Los nuevos avisos aparecerán aquí.' : 'Todavía no se han detectado equipos en los correos.'}
+      </div>}
+    </section>
+
+    <section className="directorio-panel" aria-labelledby="titulo-directorio">
+      <div className="directorio-heading">
+        <div>
+          <span className="eyebrow">Referencia</span>
+          <h2 id="titulo-directorio">Directorio de clientes</h2>
+          <p>{u ? `Última sincronización: ${u.fecha}${u.ok === 1 ? ' · Correcta' : u.ok === 0 ? ' · Con error' : ''}.` : 'Clientes disponibles para asignar equipos.'}</p>
+        </div>
+        {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Sincronizar clientes'}</button>}
+      </div>
+
+      {u && u.ok === 0 && <div className="errbox">Falló la última sincronización: {u.mensaje}</div>}
+      {resumen && <div className="okmsg">Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.</div>}
+      <div className="directorio-toolbar">
+        <label className="mapeo-busqueda">
+          <span className="sr-only">Buscar en el directorio de clientes</span>
+          <input type="search" placeholder="Buscar por nombre, código, CIF o correo…" value={busquedaCliente} onChange={(e) => { setBusquedaCliente(e.target.value); setPagina(1); }} />
+        </label>
+        <span className="directorio-total">{clientesFiltrados.length} cliente{clientesFiltrados.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {clientesPagina.map((c) => <article key={c.id} className="cliente-row">
+        <strong>{c.nombre || '(sin nombre)'}</strong>
+        {c.codigo && <span className="cliente-codigo">{c.codigo}</span>}
+        <p>{unir(c.cif, c.telefono, c.email, [c.localidad, c.provincia].filter(Boolean).join(', ')) || 'Sin más datos'}</p>
+      </article>)}
+      {!clientesFiltrados.length && <div className="mapeo-vacio">{cargando ? 'Cargando clientes…' : cat?.clientes.length ? 'No hay clientes que coincidan.' : 'Todavía no hay clientes sincronizados.'}</div>}
+
+      {clientesFiltrados.length > CLIENTES_POR_PAGINA && <nav className="paginacion-clientes" aria-label="Paginación de clientes">
+        <button className="btn sec" disabled={paginaActual === 1} onClick={() => setPagina((p) => Math.max(1, p - 1))}>Anterior</button>
+        <span>Página {paginaActual} de {paginas}</span>
+        <button className="btn sec" disabled={paginaActual === paginas} onClick={() => setPagina((p) => Math.min(paginas, p + 1))}>Siguiente</button>
+      </nav>}
+      {cat?.auto_minutos > 0 && <p className="note">El directorio se sincroniza automáticamente cada {cat.auto_minutos} minutos mientras se usa el panel.</p>}
+    </section>
+  </div>;
 }

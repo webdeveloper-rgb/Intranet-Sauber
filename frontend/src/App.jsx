@@ -10,18 +10,26 @@ import Detalle from './components/Detalle';
 import Usuarios from './components/Usuarios';
 import Clientes from './components/Clientes';
 
-const F0 = { cli: '', desde: '', hasta: '', horas: 24 };
+const fechaLocal = (fecha) => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, '0'), String(fecha.getDate()).padStart(2, '0')].join('-');
+const filtrosIniciales = () => {
+  const hoy = new Date();
+  const ayer = new Date(hoy);
+  ayer.setDate(hoy.getDate() - 1);
+  return { cli: '', desde: fechaLocal(ayer), hasta: fechaLocal(hoy), horas: 24 };
+};
 
 export default function App() {
   const [sesion, setSesion] = useState(null);
   const copias = useCopias();
   const [filtro, setFiltro] = useState('todos');
-  const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), F0);
+  const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
   const [sel, setSel] = useState(null);
   const [verUsuarios, setVerUsuarios] = useState(false);
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes'
+  const [paginaErrores, setPaginaErrores] = useState(1);
 
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
+  useEffect(() => { setPaginaErrores(1); }, [filtro, f.cli, f.desde, f.hasta]);
 
   const { data } = copias;
   const n = useMemo(() => contadores(data, f.horas), [data, f.horas]);
@@ -34,6 +42,12 @@ export default function App() {
       (!f.desde || c.fecha.slice(0, 10) >= f.desde) &&
       (!f.hasta || c.fecha.slice(0, 10) <= f.hasta));
   }, [data, filtro, f]);
+  const paginaErroresActiva = ['pend', 'rev', 'tras', 'venc', 'atr'].includes(filtro) && rows.length > 5;
+  const totalPaginasErrores = Math.ceil(rows.length / 5);
+  const paginaErroresActual = Math.min(paginaErrores, totalPaginasErrores || 1);
+  const filasVisibles = paginaErroresActiva
+    ? rows.slice((paginaErroresActual - 1) * 5, paginaErroresActual * 5)
+    : rows;
 
   const abrir = useCallback((id) => setSel(id), []);
   const cerrar = useCallback(() => setSel(null), []);
@@ -60,7 +74,12 @@ export default function App() {
             )}
             <Kpis n={n} total={data.length} />
             <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} />
-            <Tabla rows={rows} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
+            <Tabla rows={filasVisibles} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
+            {paginaErroresActiva && <nav className="paginacion-clientes paginacion-errores" aria-label="Paginación de errores">
+              <button className="btn sec" disabled={paginaErroresActual === 1} onClick={() => setPaginaErrores((p) => Math.max(1, p - 1))}>Anterior</button>
+              <span>Errores {((paginaErroresActual - 1) * 5) + 1}–{Math.min(paginaErroresActual * 5, rows.length)} de {rows.length}</span>
+              <button className="btn sec" disabled={paginaErroresActual === totalPaginasErrores} onClick={() => setPaginaErrores((p) => Math.min(totalPaginasErrores, p + 1))}>Siguiente</button>
+            </nav>}
             <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos cada minuto.</p>
           </>
         )}

@@ -128,7 +128,7 @@ function correo_importar(): array
             $equipo = $st->fetch();
             $pdo->prepare('INSERT IGNORE INTO correo_copias (message_key,equipo_id,fecha,estado,desc_error,software) VALUES (?,?,?,?,?,?)')
                 ->execute([$key, $equipo['id'], $parsed['fecha'], $parsed['estado'], $parsed['error'], $parsed['software']]);
-            if ($equipo['cliente_id']) correo_importar_equipo((int) $equipo['id'], (int) $equipo['cliente_id'], $pdo);
+            correo_importar_equipo((int) $equipo['id'], $equipo['cliente_id'] !== null ? (int)$equipo['cliente_id'] : null, $pdo);
             $pdo->commit();
             imap_setflag_full($imap, (string) $num, '\Seen');
             $nuevas++;
@@ -158,17 +158,19 @@ function correo_backup_auto(): void
     } catch (Throwable $e) { error_log('[copias] lectura IMAP automática: ' . $e->getMessage()); }
 }
 
-function correo_importar_equipo(int $equipoId, int $clienteId, ?PDO $pdo = null): int
+function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null): int
 {
     $pdo ??= db();
     $st = $pdo->prepare('SELECT nombre FROM equipos WHERE id=?'); $st->execute([$equipoId]); $nombreEquipo = $st->fetchColumn();
-    $st = $pdo->prepare('SELECT nombre FROM clientes WHERE id=? AND activo=1'); $st->execute([$clienteId]); $nombreCliente = $st->fetchColumn();
-    if (!$nombreEquipo || !$nombreCliente) return 0;
+    $nombreCliente = null;
+    if ($clienteId !== null) { $st = $pdo->prepare('SELECT nombre FROM clientes WHERE id=? AND activo=1'); $st->execute([$clienteId]); $nombreCliente = $st->fetchColumn(); }
+    if (!$nombreEquipo) return 0;
+    $clienteEtiqueta = $nombreCliente ?: 'Pendiente de asignar';
     $pend = $pdo->prepare('SELECT * FROM correo_copias WHERE equipo_id=? AND importada=0 ORDER BY fecha,id'); $pend->execute([$equipoId]);
     $insert = $pdo->prepare('INSERT INTO copias (fecha,cliente,equipo,equipo_id,estado,desc_error,software) VALUES (?,?,?,?,?,?,?)');
     $mark = $pdo->prepare('UPDATE correo_copias SET importada=1 WHERE id=?');
     $n = 0;
-    $pdo->prepare('UPDATE copias SET cliente=? WHERE equipo_id=?')->execute([$nombreCliente,$equipoId]);
-    foreach ($pend as $r) { $insert->execute([$r['fecha'],$nombreCliente,$nombreEquipo,$equipoId,$r['estado'],$r['desc_error'],$r['software']]); $mark->execute([$r['id']]); $n++; }
+    $pdo->prepare('UPDATE copias SET cliente=? WHERE equipo_id=?')->execute([$clienteEtiqueta,$equipoId]);
+    foreach ($pend as $r) { $insert->execute([$r['fecha'],$clienteEtiqueta,$nombreEquipo,$equipoId,$r['estado'],$r['desc_error'],$r['software']]); $mark->execute([$r['id']]); $n++; }
     return $n;
 }

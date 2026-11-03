@@ -155,7 +155,7 @@ try {
     if ($action === 'equipos') {
         asegurar_tablas_sync(db());
         $rows = db()->query('SELECT e.id,e.nombre,e.software,e.cliente_id,c.nombre AS cliente,
-            (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND cc.importada=0) AS pendientes
+            (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND (cc.importada=0 OR e.cliente_id IS NULL)) AS pendientes
             FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software')->fetchAll();
         foreach ($rows as &$r) { $r['id']=(int)$r['id']; $r['cliente_id']=$r['cliente_id'] !== null ? (int)$r['cliente_id'] : null; $r['pendientes']=(int)$r['pendientes']; }
         unset($r);
@@ -184,7 +184,6 @@ try {
     }
 
     if ($action === 'equipo_asignar') {
-        exigir_admin($user);
         asegurar_tablas_sync(db());
         $equipoId=(int)($input['id']??0); $clienteId=(int)($input['cliente_id']??0); $pdo=db();
         $pdo->beginTransaction();
