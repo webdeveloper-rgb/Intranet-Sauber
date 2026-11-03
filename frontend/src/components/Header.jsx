@@ -4,9 +4,9 @@ export default function Header({ nombre, rol, vista, onVista, onUsuarios }) {
     <header>
       <div className="logo"><img src="assets/logo.png" alt="Sauber Ofimática" /></div>
       <div className="titulo">
-        <h1>{enClientes ? 'Clientes y máquinas' : 'Panel de Control de Copias'}</h1>
+        <h1>{enClientes ? 'Clientes' : 'Panel de Control de Copias'}</h1>
         <p>{enClientes
-          ? 'Datos sincronizados desde la API. Pulsa un cliente para ver sus máquinas.'
+          ? 'Clientes disponibles para asignar las copias recibidas por correo.'
           : 'ERROR → EN REVISIÓN (al describir el arreglo) → OK (al cerrar la vigilancia)'}</p>
       </div>
       <div className="top">

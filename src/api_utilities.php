@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// Sincronización de clientes y máquinas desde la API (DSPYME / Euromanager sobre NocoDB).
+// Sincronización de clientes desde la API (DSPYME / Euromanager sobre NocoDB).
 // Las credenciales viven solo en config/config.php y la conexión se hace siempre desde el servidor.
 
 final class ApiError extends RuntimeException
@@ -35,7 +35,6 @@ function api_sync_cfg(): array
         'org' => '1',            // segmento tras /db/data/ en las URLs de la API
         'proyecto' => 'demo',    // nombre del proyecto NocoDB
         'tabla_clientes' => 'Cliente',
-        'tabla_maquinas' => 'Maquina',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
     ];
@@ -188,11 +187,17 @@ function asegurar_tablas_sync(PDO $pdo): void
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $s) {
         $pdo->exec($s);
     }
+    $cols = $pdo->query("SELECT column_name, character_maximum_length FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='copias'")->fetchAll(PDO::FETCH_KEY_PAIR);
+    if ($cols && !array_key_exists('equipo_id', $cols)) {
+        $pdo->exec('ALTER TABLE copias ADD COLUMN equipo_id INT UNSIGNED NULL AFTER equipo, ADD KEY idx_copias_equipo_id (equipo_id)');
+    }
+    if (isset($cols['cliente']) && (int)$cols['cliente'] < 200) $pdo->exec('ALTER TABLE copias MODIFY cliente VARCHAR(200) NOT NULL');
+    if (isset($cols['equipo']) && (int)$cols['equipo'] < 200) $pdo->exec('ALTER TABLE copias MODIFY equipo VARCHAR(200) NOT NULL');
     $hecho = true;
 }
 
 /**
- * Sincroniza clientes y máquinas. Devuelve un resumen o lanza ApiError.
+ * Sincroniza clientes. Devuelve un resumen o lanza ApiError.
  * $origen: 'cli' (tarea programada), 'web' (botón) o 'auto' (automática al usar el panel).
  * Con $cadaMinutos no sincroniza si ya hubo un intento hace menos de ese tiempo y devuelve null.
  */
@@ -219,7 +224,6 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $c = api_sync_cfg();
         $token = api_sync_token($c);
         $clientes = api_sync_todo($c, $token, (string) $c['tabla_clientes']);
-        $maquinas = api_sync_todo($c, $token, (string) $c['tabla_maquinas']);
 
         $ahora = date('Y-m-d H:i:s');
         $json = fn(array $r) => json_encode($r, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -257,52 +261,21 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
             $nCli++;
         }
 
-        $st = $pdo->prepare(
-            'INSERT INTO maquinas (clave, codigo, nombre, cliente_codigo, marca, matricula, datos, activo, visto)
-             VALUES (?,?,?,?,?,?,?,1,?)
-             ON DUPLICATE KEY UPDATE codigo=VALUES(codigo), nombre=VALUES(nombre), cliente_codigo=VALUES(cliente_codigo),
-                marca=VALUES(marca), matricula=VALUES(matricula), datos=VALUES(datos), activo=1, visto=VALUES(visto)'
-        );
-        $nMaq = 0;
-        foreach ($maquinas as $r) {
-            $clave = api_sync_primero($r, ['Clave', 'Id', 'Codigo'], 64);
-            if ($clave === null) {
-                $saltados++;
-                continue;
-            }
-            $st->execute([
-                $clave,
-                api_sync_primero($r, ['Codigo', 'Cod'], 40),
-                api_sync_primero($r, ['Nombre', 'Descripcion', 'Modelo']) ?? '',
-                api_sync_primero($r, ['Cliente', 'CodCliente', 'ClienteCodigo', 'Cliente_Codigo'], 40),
-                api_sync_primero($r, ['Marca'], 100),
-                api_sync_primero($r, ['Matricula', 'NumSerie', 'Serie'], 60),
-                $json($r),
-                $ahora,
-            ]);
-            $nMaq++;
-        }
-
         if ($nCli > 0) {
             $pdo->prepare('UPDATE clientes SET activo = 0 WHERE visto < ?')->execute([$ahora]);
-        }
-        if ($nMaq > 0) {
-            $pdo->prepare('UPDATE maquinas SET activo = 0 WHERE visto < ?')->execute([$ahora]);
         }
 
         $pdo->commit();
 
         $msg = $saltados ? "$saltados registros sin identificador (Clave/Id/Codigo) omitidos" : null;
-        $pdo->prepare('UPDATE sync_log SET fin = NOW(), ok = 1, clientes = ?, maquinas = ?, mensaje = ? WHERE id = ?')
-            ->execute([$nCli, $nMaq, $msg, $logId]);
+        $pdo->prepare('UPDATE sync_log SET fin = NOW(), ok = 1, clientes = ?, mensaje = ? WHERE id = ?')
+            ->execute([$nCli, $msg, $logId]);
 
         return [
             'clientes' => $nCli,
-            'maquinas' => $nMaq,
             'omitidos' => $saltados,
             'campos' => [
                 'clientes' => $clientes ? array_keys($clientes[0]) : [],
-                'maquinas' => $maquinas ? array_keys($maquinas[0]) : [],
             ],
         ];
     } catch (Throwable $e) {
@@ -335,51 +308,25 @@ function api_sync_auto(): void
     }
 }
 
-/** Catálogo guardado: clientes, cada uno con su lista de máquinas. */
+/** Catálogo guardado de clientes. */
 function api_sync_catalogo(): array
 {
     $pdo = db();
     asegurar_tablas_sync($pdo);
     $cl = $pdo->query('SELECT id, clave, codigo, nombre, cif, email, telefono, localidad, provincia FROM clientes WHERE activo = 1 ORDER BY nombre')->fetchAll();
-    $mq = $pdo->query('SELECT id, codigo, nombre, cliente_codigo, marca, matricula FROM maquinas WHERE activo = 1 ORDER BY nombre')->fetchAll();
-
-    $norm = fn($s) => mb_strtolower(trim((string) $s));
-
-    $porCliente = [];
-    foreach ($mq as $m) {
-        $m['id'] = (int) $m['id'];
-        $porCliente[$norm($m['cliente_codigo'])][] = $m;
-    }
     $out = [];
     foreach ($cl as $c) {
         $c['id'] = (int) $c['id'];
-        $lista = [];
-        // La máquina puede referirse al cliente por su Codigo o por su Clave
-        foreach (array_unique([$norm($c['codigo']), $norm($c['clave'])]) as $k) {
-            if ($k === '' || !isset($porCliente[$k])) {
-                continue;
-            }
-            $lista = array_merge($lista, $porCliente[$k]);
-            unset($porCliente[$k]);
-        }
         unset($c['clave']);
-        $c['maquinas'] = $lista;
         $out[] = $c;
     }
-    $huerfanas = [];
-    foreach ($porCliente as $lista) {
-        foreach ($lista as $m) {
-            $huerfanas[] = $m;
-        }
-    }
-    $ult = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha, ok, mensaje, clientes, maquinas, origen
+    $ult = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha, ok, mensaje, clientes, origen
                         FROM sync_log ORDER BY id DESC LIMIT 1")->fetch() ?: null;
     if ($ult) {
         $ult['ok'] = $ult['ok'] === null ? null : (int) $ult['ok'];
     }
     return [
         'clientes' => $out,
-        'sin_cliente' => $huerfanas,
         'ultima' => $ult,
         'configurado' => api_sync_configurado(),
         'auto_minutos' => api_sync_configurado() ? (int) (api_sync_conf()['sync_minutos'] ?? 15) : 0,
@@ -390,7 +337,7 @@ function api_sync_catalogo(): array
 function api_sync_catalogo_inicial(): array
 {
     $cat = api_sync_catalogo();
-    if (!$cat['clientes'] && !$cat['sin_cliente'] && !$cat['ultima'] && $cat['configurado']) {
+    if (!$cat['clientes'] && !$cat['ultima'] && $cat['configurado']) {
         try {
             api_sync('auto');
         } catch (Throwable $e) {

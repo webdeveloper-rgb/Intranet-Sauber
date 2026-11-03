@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/api_utilities.php';
+require __DIR__ . '/src/mail_import.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -131,6 +132,7 @@ try {
             flush();
         }
         api_sync_auto();
+        correo_backup_auto();
         exit;
     }
 
@@ -150,6 +152,16 @@ try {
         out(api_sync_catalogo_inicial());
     }
 
+    if ($action === 'equipos') {
+        asegurar_tablas_sync(db());
+        $rows = db()->query('SELECT e.id,e.nombre,e.software,e.cliente_id,c.nombre AS cliente,
+            (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND cc.importada=0) AS pendientes
+            FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software')->fetchAll();
+        foreach ($rows as &$r) { $r['id']=(int)$r['id']; $r['cliente_id']=$r['cliente_id'] !== null ? (int)$r['cliente_id'] : null; $r['pendientes']=(int)$r['pendientes']; }
+        unset($r);
+        out(['equipos'=>$rows]);
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST')
         fail('Método no permitido', 405);
     if (!csrf_ok($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null))
@@ -162,6 +174,30 @@ try {
         } catch (ApiError $ex) {
             fail($ex->getMessage(), 502);
         }
+    }
+
+    if ($action === 'correo_sync') {
+        exigir_admin($user);
+        asegurar_tablas_sync(db());
+        try { out(['ok'=>true] + correo_importar()); }
+        catch (CorreoError $ex) { fail($ex->getMessage(), 502); }
+    }
+
+    if ($action === 'equipo_asignar') {
+        exigir_admin($user);
+        asegurar_tablas_sync(db());
+        $equipoId=(int)($input['id']??0); $clienteId=(int)($input['cliente_id']??0); $pdo=db();
+        $pdo->beginTransaction();
+        try {
+            $st=$pdo->prepare('SELECT id FROM equipos WHERE id=? FOR UPDATE'); $st->execute([$equipoId]);
+            if (!$st->fetchColumn()) { $pdo->rollBack(); fail('Equipo no encontrado',404); }
+            $st=$pdo->prepare('SELECT id FROM clientes WHERE id=? AND activo=1'); $st->execute([$clienteId]);
+            if (!$st->fetchColumn()) { $pdo->rollBack(); fail('Cliente no válido'); }
+            $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([$clienteId,$equipoId]);
+            $copiasImportadas=correo_importar_equipo($equipoId,$clienteId,$pdo);
+            $pdo->commit();
+            out(['ok'=>true,'copias_importadas'=>$copiasImportadas]);
+        } catch (Throwable $ex) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $ex; }
     }
 
     if ($action === 'mi_password') {

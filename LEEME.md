@@ -8,7 +8,7 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 index.php, login.php, logout.php   Panel y acceso
 api.php                            API interna (copias, revisión, notas, usuarios)
 install.php                        Instalador (se usa UNA vez y se borra)
-sync.php                           Sincroniza clientes y máquinas (solo desde la tarea programada)
+sync.php                           Sincroniza clientes (solo desde la tarea programada)
 build/                             Panel compilado (app.js, app.css). SE GUARDA EN GIT
 assets/                            logo.png y login.css
 config/config.example.php          Plantilla de configuración (va en Git)
@@ -16,7 +16,7 @@ config/config.php                  TUS datos de BD. NO va en Git (.gitignore). S
 database/schema.sql                Tablas
 src/bootstrap.php                  Sesión, BD, seguridad
 src/albelink.php                   Conexión con la API y sincronización
-database/sync.sql                  Tablas clientes, maquinas y sync_log (se crean solas)
+database/sync.sql                  Tablas de clientes y registro de sincronización (se crean solas)
 frontend/                          Código fuente de React (se despliega, pero .htaccess lo bloquea)
 ```
 
@@ -91,9 +91,9 @@ Desde el panel, como administrador: **👥 Usuarios** (arriba a la derecha). Cre
 
 `database/schema.sql` solo lo usa el instalador. Si un día cambias las tablas, el servidor **no** las migra solo (salvo los usuarios): aplica el cambio en phpMyAdmin o añade una migración como la de `migrar_usuarios()` en `src/bootstrap.php`.
 
-## Clientes y máquinas desde la API
+## Clientes desde la API
 
-El panel copia los **clientes** (tabla `Cliente`) y las **máquinas** (tabla `Maquina`) de tu API a su propia base de datos. La conexión la hace siempre el servidor: el email y la contraseña de la API solo existen en `config/config.php` y nunca llegan al navegador.
+El panel copia los **clientes** (tabla `Cliente`) de tu API a su propia base de datos. La conexión la hace siempre el servidor: el email y la contraseña de la API solo existen en `config/config.php` y nunca llegan al navegador. La antigua sincronización de máquinas ya no se utiliza.
 
 ### 1. Configurar (una vez, en el servidor)
 Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) y añade, junto a `db`:
@@ -105,7 +105,6 @@ Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) 
     'org'      => '1',        // según la documentación: /db/data/{org}/{proyecto}/{Tabla}
     'proyecto' => 'demo',     // nombre del proyecto NocoDB (cámbialo por el tuyo)
     'tabla_clientes' => 'Cliente',
-    'tabla_maquinas' => 'Maquina',
 ],
 ```
 `config/config.example.php` trae la plantilla. El panel necesita la extensión **cURL** de PHP (suele venir activa; si no, en Plesk → Ajustes de PHP).
@@ -128,13 +127,16 @@ La sincronización automática solo ocurre **mientras alguien tiene el panel abi
 ### Cómo se guardan los datos
 - Cada registro se identifica por su `Clave` de la API: si ya existe se actualiza, si es nuevo se crea.
 - Lo que desaparece de la API se **desactiva**, no se borra. Si la API devolviera 0 filas, no se desactiva nada (más probable un fallo que un catálogo vacío).
-- Una máquina se asocia a su cliente por `Maquina.Cliente` = `Cliente.Codigo`. Las que no encajan salen en "Máquinas sin cliente asignado".
 - Se guarda además el registro completo en bruto (columna `datos`), por si necesitas campos que hoy no se muestran.
 - Es una copia de **solo lectura**: el panel nunca escribe en tu API.
 
-## API de entrada de copias (pendiente)
+## Copias recibidas por correo (IMAP)
 
-No hay API para recibir copias de los equipos; queda en blanco a propósito. Cuando la tengas (Node JS u otra), solo debe insertar filas en la tabla `copias` (campos en `database/schema.sql`).
+Configura en `config/config.php` la sección `correo_backup` con el servidor, puerto, usuario y contraseña del buzón que ya recibe los avisos. La plantilla está en `config/config.example.php`. La conexión se realiza en el servidor y necesita la extensión IMAP de PHP.
+
+El botón **Leer avisos** revisa los mensajes no leídos. Acronis e Iperius se reconocen por el asunto y el cuerpo del informe; los avisos que identifiquen VMware, vSphere o ESXi se procesan cuando el asunto o el informe indica equipo y resultado. Los correos de otros formatos quedan sin marcar como leídos para no perderlos.
+
+Cada aviso reconocido crea o reutiliza un equipo por nombre y programa. En **Clientes**, el administrador asigna ese equipo a un cliente. Desde ese momento las copias pendientes del equipo aparecen en el panel con fecha, resultado y descripción del error; los avisos nuevos de un equipo ya asignado se incorporan automáticamente. La lectura automática se ejecuta cada cinco minutos cuando se usa el panel. La tarea programada `sync.php` también lee el buzón.
 
 ## Seguridad incluida
 

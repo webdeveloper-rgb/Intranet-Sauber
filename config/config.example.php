@@ -17,6 +17,16 @@ return [
     // Nombre que aparece en el panel
     'titulo' => 'Panel de Control de Copias',
 
+    // Buzón IMAP que recibe informes de copias (configurar en config.php)
+    'correo_backup' => [
+        'host' => 'mail.ejemplo.com',
+        'puerto' => 993,
+        'usuario' => 'copias@ejemplo.com',
+        'password' => 'CONTRASEÑA_DEL_BUZON',
+        'carpeta' => 'INBOX',
+        'ssl' => true,
+    ],
+
     // Mostrar errores técnicos en pantalla (false en producción)
     'debug' => false,
 ];

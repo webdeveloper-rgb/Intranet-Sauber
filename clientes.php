@@ -10,7 +10,7 @@ try {
 } catch (Throwable $ex) {
     error_log('[copias] ' . $ex->getMessage());
     $err = cfg('debug') ? $ex->getMessage() : 'No se pudo leer el catálogo de clientes.';
-    $cat = ['clientes' => [], 'sin_cliente' => [], 'ultima' => null, 'configurado' => false, 'auto_minutos' => 0];
+    $cat = ['clientes' => [], 'ultima' => null, 'configurado' => false, 'auto_minutos' => 0];
 }
 $esAdmin = ($user['rol'] ?? '') === 'admin';
 ?><!DOCTYPE html>
@@ -170,10 +170,9 @@ $esAdmin = ($user['rol'] ?? '') === 'admin';
         </div>
     <?php endif; ?>
 
-    <input type="search" id="q" placeholder="Buscar cliente, código, CIF, máquina o matrícula…" autofocus>
+    <input type="search" id="q" placeholder="Buscar cliente, código, CIF o correo…" autofocus>
     <div class="estado" id="estado"></div>
     <div id="lista"></div>
-    <div id="huerfanas"></div>
 
     <script type="application/json"
         id="datos"><?= json_encode($cat, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
@@ -187,38 +186,21 @@ $esAdmin = ($user['rol'] ?? '') === 'admin';
             if (txt !== undefined) n.textContent = txt;
             return n;
         }
-        function tablaMaquinas(ms) {
-            if (!ms.length) return el('div', 'vacio', 'Este cliente no tiene máquinas.');
-            const t = el('table');
-            const h = t.createTHead().insertRow();
-            ['Código', 'Nombre', 'Marca', 'Matrícula / Serie'].forEach(x => h.appendChild(el('th', '', x)));
-            const b = t.createTBody();
-            ms.forEach(m => {
-                const r = b.insertRow();
-                [m.codigo, m.nombre, m.marca, m.matricula].forEach(v => r.insertCell().textContent = v || '—');
-            });
-            return t;
-        }
         function pintar(filtro) {
             const f = (filtro || '').trim().toLowerCase();
             const L = $('lista');
             L.replaceChildren();
             let n = 0;
             cat.clientes.forEach(c => {
-                const hay = [c.codigo, c.nombre, c.cif, c.email, c.localidad]
-                    .concat(c.maquinas.flatMap(m => [m.codigo, m.nombre, m.matricula, m.marca]))
-                    .join(' ').toLowerCase();
+                const hay = [c.codigo, c.nombre, c.cif, c.email, c.localidad].join(' ').toLowerCase();
                 if (f && !hay.includes(f)) return;
                 n++;
                 const d = el('details');
-                if (f && c.maquinas.length && c.maquinas.some(m => [m.codigo, m.nombre, m.matricula, m.marca].join(' ').toLowerCase().includes(f))) d.open = true;
                 const s = el('summary');
                 s.append(el('span', 'n', c.nombre || '(sin nombre)'),
-                    el('span', 'c', c.codigo || ''),
-                    el('span', 'c', c.maquinas.length + (c.maquinas.length === 1 ? ' máquina' : ' máquinas')));
+                    el('span', 'c', c.codigo || ''));
                 d.appendChild(s);
                 d.appendChild(el('p', 'datos', [c.cif, c.telefono, c.email, [c.localidad, c.provincia].filter(Boolean).join(', ')].filter(Boolean).join(' · ')));
-                d.appendChild(tablaMaquinas(c.maquinas));
                 L.appendChild(d);
             });
             if (!n) L.appendChild(el('div', 'vacio', cat.clientes.length ? 'Sin resultados.' : 'Todavía no hay clientes sincronizados.'));
@@ -226,16 +208,8 @@ $esAdmin = ($user['rol'] ?? '') === 'admin';
             $('estado').textContent = n + ' de ' + cat.clientes.length + ' clientes'
                 + (u ? ' · última sincronización: ' + u.fecha + (u.ok === 1 ? ' (OK)' : u.ok === 0 ? ' (con error)' : '') : '');
         }
-        function pintarHuerfanas() {
-            if (!cat.sin_cliente.length) return;
-            const H = $('huerfanas');
-            H.appendChild(el('h2', '', 'Máquinas sin cliente asignado (' + cat.sin_cliente.length + ')'));
-            const ms = cat.sin_cliente.map(m => ({ ...m, nombre: m.nombre + (m.cliente_codigo ? ' [cliente: ' + m.cliente_codigo + ']' : '') }));
-            H.appendChild(tablaMaquinas(ms));
-        }
         $('q').addEventListener('input', e => pintar(e.target.value));
         pintar('');
-        pintarHuerfanas();
 
         const bs = $('sync');
         if (bs) bs.addEventListener('click', async () => {
