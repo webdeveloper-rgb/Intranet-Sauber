@@ -6,8 +6,8 @@ return [
     // Datos de tu base de datos MySQL (los da tu hosting)
     'db' => [
         'host' => 'localhost',
-        'name' => 'NOMBRE_BASE_DATOS',
-        'user' => 'USUARIO_BD',
+        'name' => 'panel_intranet',
+        'user' => 'sauberofimatica',
         'pass' => 'CONTRASEÑA_BD',
     ],
 
