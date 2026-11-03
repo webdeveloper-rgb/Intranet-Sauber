@@ -1,24 +1,42 @@
 <?php
 declare(strict_types=1);
 // Sincronización de clientes y máquinas desde la API (DSPYME / Euromanager sobre NocoDB).
-// Las credenciales viven solo en config/config.php y esta conexión se hace siempre desde el servidor.
+// Las credenciales viven solo en config/config.php y la conexión se hace siempre desde el servidor.
 
 final class ApiError extends RuntimeException
 {
 }
 
+/** Sección de configuración de la API. Acepta 'api_sync' o 'albelink' (nombre usado en el LEEME). */
+function api_sync_conf(): ?array
+{
+    foreach (['api_sync', 'albelink'] as $k) {
+        $c = cfg($k);
+        if (is_array($c)) {
+            return $c;
+        }
+    }
+    return null;
+}
+
+function api_sync_configurado(): bool
+{
+    $c = api_sync_conf();
+    return $c !== null && !empty($c['base_url']) && !empty($c['email']) && !empty($c['password']);
+}
+
 function api_sync_cfg(): array
 {
-    $c = cfg('api_sync');
-    if (!is_array($c) || empty($c['base_url']) || empty($c['email']) || empty($c['password'])) {
-        throw new ApiError("Falta configurar la sección 'api_sync' en config/config.php (base_url, email y password).");
+    $c = api_sync_conf();
+    if (!api_sync_configurado()) {
+        throw new ApiError("Falta configurar la API en config/config.php (sección 'api_sync' o 'albelink' con base_url, email y password).");
     }
     return $c + [
-        'org' => '1',       // segmento tras /db/data/ en las URLs de la API
+        'org' => '1',            // segmento tras /db/data/ en las URLs de la API
         'proyecto' => 'demo',    // nombre del proyecto NocoDB
         'tabla_clientes' => 'Cliente',
         'tabla_maquinas' => 'Maquina',
-        'page_size' => 500,       // la API admite hasta 1000 por página
+        'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
     ];
 }
@@ -40,8 +58,9 @@ function api_sync_http(string $method, string $url, array $headers, ?string $bod
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
     ]);
-    if ($body !== null)
+    if ($body !== null) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+    }
     $res = curl_exec($ch);
     if ($res === false) {
         $err = curl_error($ch);
@@ -58,7 +77,7 @@ function api_sync_token(array $c): string
 {
     [$st, $j] = api_sync_http(
         'POST',
-        rtrim($c['base_url'], '/') . '/auth/user/signin',
+        rtrim((string) $c['base_url'], '/') . '/auth/user/signin',
         ['Content-Type: application/json', 'Accept: application/json'],
         json_encode(['email' => $c['email'], 'password' => $c['password']]),
         (int) $c['timeout']
@@ -75,7 +94,7 @@ function api_sync_token(array $c): string
 /** Descarga todas las filas de una tabla, página a página. */
 function api_sync_todo(array $c, string $token, string $tabla): array
 {
-    $base = rtrim($c['base_url'], '/') . '/db/data/' . rawurlencode((string) $c['org']) . '/'
+    $base = rtrim((string) $c['base_url'], '/') . '/db/data/' . rawurlencode((string) $c['org']) . '/'
         . rawurlencode((string) $c['proyecto']) . '/' . rawurlencode($tabla);
     $lim = max(1, min(1000, (int) $c['page_size']));
     $filas = [];
@@ -88,21 +107,36 @@ function api_sync_todo(array $c, string $token, string $tabla): array
             null,
             (int) $c['timeout']
         );
-        if ($st === 401)
+        if ($st === 401) {
             throw new ApiError('La API rechazó el token (HTTP 401) al leer ' . $tabla . '.');
-        if ($st === 404)
+        }
+        if ($st === 404) {
             throw new ApiError("No existe la tabla '$tabla' en el proyecto '{$c['proyecto']}' (HTTP 404). Revisa 'proyecto' y 'org' en config.php.");
-        if ($st !== 200 || !isset($j['list']) || !is_array($j['list'])) {
+        }
+        // Formato habitual: {"list":[...],"pageInfo":{...}}. Se aceptan también {"data":[...]} y [...]
+        $lista = null;
+        if (is_array($j)) {
+            if (isset($j['list']) && is_array($j['list'])) {
+                $lista = $j['list'];
+            } elseif (isset($j['data']) && is_array($j['data'])) {
+                $lista = $j['data'];
+            } elseif (isset($j[0]) && is_array($j[0])) {
+                $lista = $j;
+            }
+        }
+        if ($st !== 200 || $lista === null) {
             throw new ApiError('Error leyendo la tabla ' . $tabla . ' (HTTP ' . $st . ').');
         }
-        foreach ($j['list'] as $r) {
-            if (is_array($r))
+        foreach ($lista as $r) {
+            if (is_array($r)) {
                 $filas[] = $r;
+            }
         }
-        $n = count($j['list']);
+        $n = count($lista);
         $ultima = $j['pageInfo']['isLastPage'] ?? ($n < $lim);
-        if ($ultima || $n === 0)
+        if ($ultima || $n === 0) {
             break;
+        }
         $offset += $n;
     }
     return $filas;
@@ -120,17 +154,35 @@ function api_sync_campo(array $r, string $k, int $max = 200): ?string
             }
         }
     }
-    if ($v === null || is_array($v) || is_object($v))
+    // Campos enlazados (objeto): se intenta usar su código o nombre
+    if (is_array($v)) {
+        $v = $v['Codigo'] ?? $v['codigo'] ?? $v['Clave'] ?? $v['Id'] ?? null;
+    }
+    if ($v === null || is_array($v) || is_object($v)) {
         return null;
+    }
     $v = trim((string) $v);
     return $v === '' ? null : mb_substr($v, 0, $max);
+}
+
+/** Devuelve el primer campo no vacío de una lista de nombres posibles. */
+function api_sync_primero(array $r, array $claves, int $max = 200): ?string
+{
+    foreach ($claves as $k) {
+        $v = api_sync_campo($r, $k, $max);
+        if ($v !== null) {
+            return $v;
+        }
+    }
+    return null;
 }
 
 function asegurar_tablas_sync(PDO $pdo): void
 {
     static $hecho = false;
-    if ($hecho)
+    if ($hecho) {
         return;
+    }
     $sql = (string) file_get_contents(__DIR__ . '/../database/sync.sql');
     $sql = preg_replace('/^--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $s) {
@@ -157,8 +209,9 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
     try {
         if ($cadaMinutos !== null) { // se comprueba ya con el candado puesto, para no repetir
             $ult = $pdo->query('SELECT MAX(inicio) FROM sync_log')->fetchColumn();
-            if ($ult && strtotime((string) $ult) > time() - $cadaMinutos * 60)
+            if ($ult && strtotime((string) $ult) > time() - $cadaMinutos * 60) {
                 return null;
+            }
         }
         $pdo->prepare('INSERT INTO sync_log (inicio, origen) VALUES (NOW(), ?)')->execute([$origen]);
         $logId = (int) $pdo->lastInsertId();
@@ -183,20 +236,21 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         );
         $nCli = 0;
         foreach ($clientes as $r) {
-            $clave = api_sync_campo($r, 'Clave', 64);
+            $codigo = api_sync_primero($r, ['Codigo', 'Cod', 'CodCliente'], 40);
+            $clave = api_sync_primero($r, ['Clave', 'Id', 'Codigo'], 64);
             if ($clave === null) {
                 $saltados++;
                 continue;
             }
             $st->execute([
                 $clave,
-                api_sync_campo($r, 'Codigo', 40),
-                api_sync_campo($r, 'Nombre') ?? '',
-                api_sync_campo($r, 'Cif', 40),
-                api_sync_campo($r, 'Email', 150),
-                api_sync_campo($r, 'Tlfno1', 40),
-                api_sync_campo($r, 'Localidad', 100),
-                api_sync_campo($r, 'Provincia', 100),
+                $codigo,
+                api_sync_primero($r, ['Nombre', 'RazonSocial', 'Razon_Social']) ?? '',
+                api_sync_primero($r, ['Cif', 'Nif', 'CifNif'], 40),
+                api_sync_primero($r, ['Email', 'EMail', 'Correo'], 150),
+                api_sync_primero($r, ['Tlfno1', 'Telefono', 'Tlfno'], 40),
+                api_sync_primero($r, ['Localidad', 'Poblacion'], 100),
+                api_sync_primero($r, ['Provincia'], 100),
                 $json($r),
                 $ahora,
             ]);
@@ -211,32 +265,34 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         );
         $nMaq = 0;
         foreach ($maquinas as $r) {
-            $clave = api_sync_campo($r, 'Clave', 64);
+            $clave = api_sync_primero($r, ['Clave', 'Id', 'Codigo'], 64);
             if ($clave === null) {
                 $saltados++;
                 continue;
             }
             $st->execute([
                 $clave,
-                api_sync_campo($r, 'Codigo', 40),
-                api_sync_campo($r, 'Nombre') ?? '',
-                api_sync_campo($r, 'Cliente', 40),
-                api_sync_campo($r, 'Marca', 100),
-                api_sync_campo($r, 'Matricula', 60),
+                api_sync_primero($r, ['Codigo', 'Cod'], 40),
+                api_sync_primero($r, ['Nombre', 'Descripcion', 'Modelo']) ?? '',
+                api_sync_primero($r, ['Cliente', 'CodCliente', 'ClienteCodigo', 'Cliente_Codigo'], 40),
+                api_sync_primero($r, ['Marca'], 100),
+                api_sync_primero($r, ['Matricula', 'NumSerie', 'Serie'], 60),
                 $json($r),
                 $ahora,
             ]);
             $nMaq++;
         }
 
-        if ($nCli > 0)
+        if ($nCli > 0) {
             $pdo->prepare('UPDATE clientes SET activo = 0 WHERE visto < ?')->execute([$ahora]);
-        if ($nMaq > 0)
+        }
+        if ($nMaq > 0) {
             $pdo->prepare('UPDATE maquinas SET activo = 0 WHERE visto < ?')->execute([$ahora]);
+        }
 
         $pdo->commit();
 
-        $msg = $saltados ? "$saltados registros sin 'Clave' omitidos" : null;
+        $msg = $saltados ? "$saltados registros sin identificador (Clave/Id/Codigo) omitidos" : null;
         $pdo->prepare('UPDATE sync_log SET fin = NOW(), ok = 1, clientes = ?, maquinas = ?, mensaje = ? WHERE id = ?')
             ->execute([$nCli, $nMaq, $msg, $logId]);
 
@@ -250,8 +306,9 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
             ],
         ];
     } catch (Throwable $e) {
-        if ($pdo->inTransaction())
+        if ($pdo->inTransaction()) {
             $pdo->rollBack();
+        }
         if ($logId) {
             $pdo->prepare('UPDATE sync_log SET fin = NOW(), ok = 0, mensaje = ? WHERE id = ?')
                 ->execute([mb_substr($e->getMessage(), 0, 500), $logId]);
@@ -264,12 +321,13 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
 
 function api_sync_auto(): void
 {
-    $c = cfg('api_sync');
-    if (!is_array($c) || empty($c['email']) || empty($c['password']) || empty($c['base_url']))
+    if (!api_sync_configurado()) {
         return;
-    $min = (int) ($c['sync_minutos'] ?? 15);
-    if ($min <= 0)
+    }
+    $min = (int) (api_sync_conf()['sync_minutos'] ?? 15);
+    if ($min <= 0) {
         return;
+    }
     try {
         api_sync('auto', $min);
     } catch (Throwable $e) {
@@ -277,29 +335,42 @@ function api_sync_auto(): void
     }
 }
 
+/** Catálogo guardado: clientes, cada uno con su lista de máquinas. */
 function api_sync_catalogo(): array
 {
     $pdo = db();
     asegurar_tablas_sync($pdo);
-    $cl = $pdo->query('SELECT id, codigo, nombre, cif, email, telefono, localidad, provincia FROM clientes WHERE activo = 1 ORDER BY nombre')->fetchAll();
+    $cl = $pdo->query('SELECT id, clave, codigo, nombre, cif, email, telefono, localidad, provincia FROM clientes WHERE activo = 1 ORDER BY nombre')->fetchAll();
     $mq = $pdo->query('SELECT id, codigo, nombre, cliente_codigo, marca, matricula FROM maquinas WHERE activo = 1 ORDER BY nombre')->fetchAll();
+
+    $norm = fn($s) => mb_strtolower(trim((string) $s));
 
     $porCliente = [];
     foreach ($mq as $m) {
         $m['id'] = (int) $m['id'];
-        $porCliente[(string) $m['cliente_codigo']][] = $m;
+        $porCliente[$norm($m['cliente_codigo'])][] = $m;
     }
     $out = [];
     foreach ($cl as $c) {
         $c['id'] = (int) $c['id'];
-        $c['maquinas'] = $porCliente[(string) $c['codigo']] ?? [];
-        unset($porCliente[(string) $c['codigo']]);
+        $lista = [];
+        // La máquina puede referirse al cliente por su Codigo o por su Clave
+        foreach (array_unique([$norm($c['codigo']), $norm($c['clave'])]) as $k) {
+            if ($k === '' || !isset($porCliente[$k])) {
+                continue;
+            }
+            $lista = array_merge($lista, $porCliente[$k]);
+            unset($porCliente[$k]);
+        }
+        unset($c['clave']);
+        $c['maquinas'] = $lista;
         $out[] = $c;
     }
     $huerfanas = [];
     foreach ($porCliente as $lista) {
-        foreach ($lista as $m)
+        foreach ($lista as $m) {
             $huerfanas[] = $m;
+        }
     }
     $ult = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha, ok, mensaje, clientes, maquinas, origen
                         FROM sync_log ORDER BY id DESC LIMIT 1")->fetch() ?: null;
@@ -310,7 +381,22 @@ function api_sync_catalogo(): array
         'clientes' => $out,
         'sin_cliente' => $huerfanas,
         'ultima' => $ult,
-        'configurado' => is_array(cfg('api')) && !empty(cfg('api_sync')['email']),
-        'auto_minutos' => is_array(cfg('api_sync')) ? (int) (cfg('api')['sync_minutos'] ?? 15) : 0
+        'configurado' => api_sync_configurado(),
+        'auto_minutos' => api_sync_configurado() ? (int) (api_sync_conf()['sync_minutos'] ?? 15) : 0,
     ];
+}
+
+/** Como api_sync_catalogo(), pero si nunca se ha sincronizado lo hace ahora (primera vez). */
+function api_sync_catalogo_inicial(): array
+{
+    $cat = api_sync_catalogo();
+    if (!$cat['clientes'] && !$cat['sin_cliente'] && !$cat['ultima'] && $cat['configurado']) {
+        try {
+            api_sync('auto');
+        } catch (Throwable $e) {
+            error_log('[copias] primera sincronización: ' . $e->getMessage());
+        }
+        $cat = api_sync_catalogo();
+    }
+    return $cat;
 }
