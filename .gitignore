@@ -1,0 +1,10 @@
+# Contraseñas de la base de datos: NUNCA al repositorio
+config/config.php
+
+# Dependencias y ficheros de editor
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

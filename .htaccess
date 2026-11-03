@@ -1,0 +1,64 @@
+# ==========================================================
+#  Panel de Control de Copias · Sauber Ofimática
+#  .htaccess para Apache (Plesk). Colócalo en la carpeta copias/
+# ==========================================================
+
+Options -Indexes
+DirectoryIndex index.php
+
+# ---------- Reglas de acceso ----------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # (Opcional) Forzar HTTPS. Descomenta SOLO si el dominio ya tiene certificado SSL.
+  # RewriteCond %{HTTPS} !=on
+  # RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Carpetas privadas: nadie puede abrirlas desde el navegador (403)
+  RewriteRule ^(config|src|database|frontend)(/|$) - [F,L]
+
+  # Ficheros que no deben verse (permite .well-known para el certificado Let's Encrypt)
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule (^|/)\. - [F,L]
+  RewriteRule \.(sql|md|log|ini|bak|env|dist|json|lock|jsx)$ - [F,L]
+
+  # Tras instalar, descomenta esta línea para bloquear el instalador
+  # (aunque lo borres, no está de más):
+  # RewriteRule ^install\.php$ - [F,L]
+</IfModule>
+
+# Respaldo por si mod_rewrite no estuviera disponible
+<FilesMatch "\.(sql|md|log|ini|bak|env|dist)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# ---------- Cabeceras de seguridad ----------
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "same-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # Evita que los buscadores indexen la intranet
+  Header always set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
+# ---------- Rendimiento ----------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+
+# build/app.js y app.css llevan ?v=fecha en la URL, así que se pueden cachear sin riesgo
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType text/javascript "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+</IfModule>
