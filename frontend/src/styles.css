@@ -124,8 +124,8 @@ header p {
 }
 
 main {
-  padding: 20px;
-  max-width: 1180px;
+  padding: 24px;
+  max-width: 1680px;
   margin: 0 auto;
 }
 
@@ -256,7 +256,8 @@ main {
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 760px;
+  min-width: 1200px;
+  table-layout: fixed;
 }
 th,
 td {
@@ -273,6 +274,21 @@ th {
   background: var(--bg);
   white-space: nowrap;
 }
+/* Give the long text columns room to breathe on wide monitoring screens. */
+th:nth-child(1),
+td:nth-child(1) { width: 150px; }
+th:nth-child(2),
+td:nth-child(2) { width: 170px; }
+th:nth-child(3),
+td:nth-child(3) { width: 145px; }
+th:nth-child(4),
+td:nth-child(4) { width: 155px; }
+th.c-desc,
+td.c-desc { width: 26%; overflow-wrap: anywhere; }
+th.c-fix,
+td.c-fix { width: 31%; overflow-wrap: anywhere; }
+th.c-rev,
+td.c-rev { width: 64px; }
 tr:last-child td {
   border-bottom: 0;
 }
