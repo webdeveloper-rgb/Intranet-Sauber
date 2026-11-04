@@ -6,14 +6,12 @@ import SelectorCliente from './SelectorCliente';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
-const CLIENTES_POR_PAGINA = 15;
 
 export default function Clientes({ sesion }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
   const [asignaciones, setAsignaciones] = useState({});
-  const [busquedaCliente, setBusquedaCliente] = useState('');
   const [busquedaEquipo, setBusquedaEquipo] = useState('');
   const [filtroEquipos, setFiltroEquipos] = useState('pendientes');
   const [cargando, setCargando] = useState(true);
@@ -83,12 +81,6 @@ export default function Clientes({ sesion }) {
     finally { setGuardando(null); }
   };
 
-  const clientesFiltrados = useMemo(() => {
-    const f = norm(busquedaCliente.trim());
-    if (!cat) return [];
-    return cat.clientes.filter((c) => !f || norm(unir(c.codigo, c.nombre, c.cif, c.email, c.localidad)).includes(f));
-  }, [cat, busquedaCliente]);
-
   const equiposFiltrados = useMemo(() => {
     const f = norm(busquedaEquipo.trim());
     return equipos
@@ -97,7 +89,6 @@ export default function Clientes({ sesion }) {
       .sort((a, b) => Number(!!a.cliente_id) - Number(!!b.cliente_id) || a.nombre.localeCompare(b.nombre, 'es'));
   }, [equipos, filtroEquipos, busquedaEquipo]);
   const paginaEquipos = usePagination(equiposFiltrados, 20, `${filtroEquipos}|${busquedaEquipo}`);
-  const paginaClientes = usePagination(clientesFiltrados, CLIENTES_POR_PAGINA, busquedaCliente);
 
   const pendientes = equipos.filter((equipo) => !equipo.cliente_id).length;
   const u = cat?.ultima;
@@ -125,6 +116,7 @@ export default function Clientes({ sesion }) {
           <button className={filtroEquipos === 'pendientes' ? 'activo' : ''} aria-pressed={filtroEquipos === 'pendientes'} onClick={() => setFiltroEquipos('pendientes')}>Pendientes <span>{pendientes}</span></button>
           <button className={filtroEquipos === 'todos' ? 'activo' : ''} aria-pressed={filtroEquipos === 'todos'} onClick={() => setFiltroEquipos('todos')}>Todos <span>{equipos.length}</span></button>
         </div>
+        {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Sincronizar clientes'}</button>}
         {admin && <button className="btn" disabled={correoSync} onClick={leerCorreo}>{correoSync ? 'Leyendo buzón…' : 'Leer avisos'}</button>}
       </div>
 
@@ -132,10 +124,16 @@ export default function Clientes({ sesion }) {
         Última lectura: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : 'correcta'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos
         {ultimaLectura.mensaje ? ` · ${ultimaLectura.mensaje}` : ''}
       </p>}
+      {u && <p className={`mail-estado${u.ok === 0 ? ' mail-estado-error' : ''}`}>
+        Última sincronización de clientes: {u.fecha} · {u.ok === 1 ? 'correcta' : u.ok === 0 ? 'con errores' : 'sin sincronizar'}
+        {u.ok === 0 && u.mensaje ? ` · ${u.mensaje}` : ''}
+      </p>}
 
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
       {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
+      {u && u.ok === 0 && <div className="errbox">Falló la última sincronización de clientes: {u.mensaje}</div>}
+      {resumen && <div className="okmsg">Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.</div>}
 
       {cargando && !equipos.length ? <div className="mapeo-vacio">Cargando equipos…</div> : equiposFiltrados.length ? (
         <div className="mapeo-lista">
@@ -183,38 +181,6 @@ export default function Clientes({ sesion }) {
       </div>}
       <Paginacion total={equiposFiltrados.length} pagina={paginaEquipos.page} paginas={paginaEquipos.pageCount}
         porPagina={paginaEquipos.pageSize} onCambiar={paginaEquipos.setPage} etiqueta="equipos" />
-    </section>
-
-    <section className="directorio-panel" aria-labelledby="titulo-directorio">
-      <div className="directorio-heading">
-        <div>
-          <span className="eyebrow">Referencia</span>
-          <h2 id="titulo-directorio">Directorio de clientes</h2>
-          <p>{u ? `Última sincronización: ${u.fecha}${u.ok === 1 ? ' · Correcta' : u.ok === 0 ? ' · Con error' : ''}.` : 'Clientes disponibles para asignar equipos.'}</p>
-        </div>
-        {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Sincronizar clientes'}</button>}
-      </div>
-
-      {u && u.ok === 0 && <div className="errbox">Falló la última sincronización: {u.mensaje}</div>}
-      {resumen && <div className="okmsg">Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.</div>}
-      <div className="directorio-toolbar">
-        <label className="mapeo-busqueda">
-          <span className="sr-only">Buscar en el directorio de clientes</span>
-          <input type="search" placeholder="Buscar por nombre, código, CIF o correo…" value={busquedaCliente} onChange={(e) => setBusquedaCliente(e.target.value)} />
-        </label>
-      <span className="directorio-total">{clientesFiltrados.length} cliente{clientesFiltrados.length === 1 ? '' : 's'}</span>
-      </div>
-
-      {paginaClientes.items.map((c) => <article key={c.id} className="cliente-row">
-        <strong>{c.nombre || '(sin nombre)'}</strong>
-        {c.codigo && <span className="cliente-codigo">{c.codigo}</span>}
-        <p>{unir(c.cif, c.telefono, c.email, [c.localidad, c.provincia].filter(Boolean).join(', ')) || 'Sin más datos'}</p>
-      </article>)}
-      {!clientesFiltrados.length && <div className="mapeo-vacio">{cargando ? 'Cargando clientes…' : cat?.clientes.length ? 'No hay clientes que coincidan.' : 'Todavía no hay clientes sincronizados.'}</div>}
-
-      <Paginacion total={clientesFiltrados.length} pagina={paginaClientes.page} paginas={paginaClientes.pageCount}
-        porPagina={paginaClientes.pageSize} onCambiar={paginaClientes.setPage} etiqueta="clientes" />
-      {cat?.auto_minutos > 0 && <p className="note">El directorio se sincroniza automáticamente cada {cat.auto_minutos} minutos mientras se usa el panel.</p>}
     </section>
   </div>;
 }

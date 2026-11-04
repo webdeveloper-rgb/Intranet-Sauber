@@ -35,6 +35,8 @@ function api_sync_cfg(): array
         'org' => '1',            // segmento tras /db/data/ en las URLs de la API
         'proyecto' => 'demo',    // nombre del proyecto NocoDB
         'tabla_clientes' => 'Cliente',
+        'tabla_cliservicios' => 'Cliservicios',
+        'servicio_requerido' => 'VBA3KT7GN7',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
     ];
@@ -176,6 +178,67 @@ function api_sync_primero(array $r, array $claves, int $max = 200): ?string
     return null;
 }
 
+/** Values nested in linked fields returned by the API. */
+function api_sync_valores_relacion($valor): array
+{
+    if (is_array($valor) || is_object($valor)) {
+        $valores = [];
+        foreach ((array)$valor as $v) $valores = array_merge($valores, api_sync_valores_relacion($v));
+        return $valores;
+    }
+    if (is_string($valor) || is_int($valor) || is_float($valor)) {
+        $texto = trim((string)$valor);
+        return $texto === '' ? [] : [$texto];
+    }
+    return [];
+}
+
+function api_sync_valores_campos(array $fila, string $patron): array
+{
+    $valores = [];
+    foreach ($fila as $campo => $valor) {
+        if (preg_match($patron, (string)$campo)) {
+            $valores = array_merge($valores, api_sync_valores_relacion($valor));
+        }
+    }
+    return $valores;
+}
+
+/** Returns client keys linked to the required service in Cliservicios. */
+function api_sync_clientes_con_servicio(array $clientes, array $cliservicios, string $servicioId): array
+{
+    $normalizar = static fn($v) => mb_strtoupper(trim((string)$v), 'UTF-8');
+    $identidades = [];
+    foreach ($clientes as $cliente) {
+        $clave = api_sync_primero($cliente, ['Clave', 'Id', 'Codigo'], 64);
+        if ($clave === null) continue;
+        foreach ([$clave, api_sync_primero($cliente, ['Id'], 64), api_sync_primero($cliente, ['Codigo', 'Cod', 'CodCliente'], 64)] as $id) {
+            if ($id !== null) $identidades[$normalizar($id)] = $clave;
+        }
+    }
+
+    $permitidos = [];
+    $tieneRelacionCliente = false;
+    $tieneRelacionServicio = false;
+    $servicioBuscado = $normalizar($servicioId);
+    foreach ($cliservicios as $fila) {
+        $idsCliente = api_sync_valores_campos($fila, '/cliente|customer/i');
+        $idsServicio = api_sync_valores_campos($fila, '/servicio|service/i');
+        if ($idsCliente) $tieneRelacionCliente = true;
+        if ($idsServicio) $tieneRelacionServicio = true;
+        if (!$idsCliente || !$idsServicio || !in_array($servicioBuscado, array_map($normalizar, $idsServicio), true)) continue;
+        foreach ($idsCliente as $id) {
+            $id = $normalizar($id);
+            if (isset($identidades[$id])) $permitidos[$identidades[$id]] = true;
+        }
+    }
+
+    if ($cliservicios && (!$tieneRelacionCliente || !$tieneRelacionServicio)) {
+        throw new ApiError('No se reconocieron los campos Cliente y Servicio en Cliservicios. Campos recibidos: ' . implode(', ', array_keys($cliservicios[0])));
+    }
+    return $permitidos;
+}
+
 function asegurar_tablas_sync(PDO $pdo): void
 {
     static $hecho = false;
@@ -224,6 +287,8 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $c = api_sync_cfg();
         $token = api_sync_token($c);
         $clientes = api_sync_todo($c, $token, (string) $c['tabla_clientes']);
+        $cliservicios = api_sync_todo($c, $token, (string) $c['tabla_cliservicios']);
+        $clientesConServicio = api_sync_clientes_con_servicio($clientes, $cliservicios, (string)$c['servicio_requerido']);
 
         $ahora = date('Y-m-d H:i:s');
         $json = fn(array $r) => json_encode($r, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -238,6 +303,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 telefono=VALUES(telefono), localidad=VALUES(localidad), provincia=VALUES(provincia), datos=VALUES(datos),
                 activo=1, visto=VALUES(visto)'
         );
+        $pdo->exec('UPDATE clientes SET activo = 0');
         $nCli = 0;
         foreach ($clientes as $r) {
             $codigo = api_sync_primero($r, ['Codigo', 'Cod', 'CodCliente'], 40);
@@ -246,6 +312,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 $saltados++;
                 continue;
             }
+            if (!isset($clientesConServicio[$clave])) continue;
             $st->execute([
                 $clave,
                 $codigo,
@@ -261,10 +328,6 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
             $nCli++;
         }
 
-        if ($nCli > 0) {
-            $pdo->prepare('UPDATE clientes SET activo = 0 WHERE visto < ?')->execute([$ahora]);
-        }
-
         $pdo->commit();
 
         $msg = $saltados ? "$saltados registros sin identificador (Clave/Id/Codigo) omitidos" : null;
@@ -274,8 +337,10 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         return [
             'clientes' => $nCli,
             'omitidos' => $saltados,
+            'servicio' => (string)$c['servicio_requerido'],
             'campos' => [
                 'clientes' => $clientes ? array_keys($clientes[0]) : [],
+                'cliservicios' => $cliservicios ? array_keys($cliservicios[0]) : [],
             ],
         ];
     } catch (Throwable $e) {

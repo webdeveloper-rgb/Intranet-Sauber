@@ -110,8 +110,11 @@ Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) 
     'org'      => '1',        // según la documentación: /db/data/{org}/{proyecto}/{Tabla}
     'proyecto' => 'demo',     // nombre del proyecto NocoDB (cámbialo por el tuyo)
     'tabla_clientes' => 'Cliente',
+    'tabla_cliservicios' => 'Cliservicios',
+    'servicio_requerido' => 'VBA3KT7GN7',
 ],
 ```
+La sincronización consulta también `Cliservicios` y solo mantiene en el panel los clientes relacionados con el servicio `VBA3KT7GN7`. Si la estructura de campos enlazados de esa tabla no permite identificar las columnas Cliente y Servicio, la sincronización registra un error y conserva el último catálogo correcto.
 `config/config.example.php` trae la plantilla. El panel necesita la extensión **cURL** de PHP (suele venir activa; si no, en Plesk → Ajustes de PHP).
 
 ### 2. Es automático
