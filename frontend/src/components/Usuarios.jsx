@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
+import Paginacion from './Paginacion';
+import { usePagination } from '../hooks/usePagination';
 
 const MIN_PASS = 10;
 
@@ -114,6 +116,7 @@ export default function Usuarios({ sesion, onClose }) {
   const admin = sesion.rol === 'admin';
   const [lista, setLista] = useState([]);
   const [fallo, setFallo] = useState('');
+  const pagina = usePagination(lista, 20);
 
   const cargar = useCallback(async () => {
     if (!admin) return;
@@ -144,7 +147,9 @@ export default function Usuarios({ sesion, onClose }) {
           <section className="ucard">
             <h3>Usuarios registrados ({lista.length})</h3>
             {fallo && <div className="errbox">{fallo}</div>}
-            {lista.map((u) => <FilaUsuario key={u.id} u={u} yo={sesion.usuario} onCambio={cargar} />)}
+            {pagina.items.map((u) => <FilaUsuario key={u.id} u={u} yo={sesion.usuario} onCambio={cargar} />)}
+            <Paginacion total={lista.length} pagina={pagina.page} paginas={pagina.pageCount}
+              porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="usuarios" />
           </section>
         )}
         <MiPassword />

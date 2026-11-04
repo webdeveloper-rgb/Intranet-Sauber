@@ -12,7 +12,8 @@ require __DIR__ . '/src/mail_import.php';
 
 try {
     $r = api_sync('cli') ?? ['clientes' => 0];
-    $correo = is_array(cfg('correo_backup')) && !empty(cfg('correo_backup')['host']) ? correo_importar() : ['leidas' => 0];
+    $correoCfg = cfg('correo_backup') ?? cfg('correo');
+    $correo = is_array($correoCfg) && !empty($correoCfg['host']) ? (correo_importar('cli') ?? ['leidas' => 0]) : ['leidas' => 0];
     echo date('c') . " OK clientes={$r['clientes']} correos={$correo['leidas']}\n";
     exit(0);
 } catch (Throwable $e) {

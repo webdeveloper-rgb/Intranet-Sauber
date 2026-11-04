@@ -15,8 +15,13 @@ config/config.example.php          Plantilla de configuración (va en Git)
 config/config.php                  TUS datos de BD. NO va en Git (.gitignore). Se crea a mano en el servidor
 database/schema.sql                Tablas
 src/bootstrap.php                  Sesión, BD, seguridad
-src/albelink.php                   Conexión con la API y sincronización
+src/api_utilities.php              Sincronización de clientes con la API
+src/copy_service.php               Consultas de copias y notas
+src/equipos.php                    Catálogo, asignación e importación de equipos
+src/mail_parser.php                Análisis MIME y extracción de resultados
+src/mail_import.php                Lectura IMAP y deduplicación de avisos
 database/sync.sql                  Tablas de clientes y registro de sincronización (se crean solas)
+database/equipos.sql               Equipos detectados, avisos y registro de importaciones
 frontend/                          Código fuente de React (se despliega, pero .htaccess lo bloquea)
 ```
 
@@ -134,9 +139,11 @@ La sincronización automática solo ocurre **mientras alguien tiene el panel abi
 
 Configura en `config/config.php` la sección `correo_backup` con el servidor, puerto, usuario y contraseña del buzón que ya recibe los avisos. La plantilla está en `config/config.example.php`. La conexión se realiza en el servidor y necesita la extensión IMAP de PHP.
 
-El botón **Leer avisos** revisa los mensajes no leídos. Acronis e Iperius se reconocen por el asunto y el cuerpo del informe; los avisos que identifiquen VMware, vSphere o ESXi se procesan cuando el asunto o el informe indica equipo y resultado. Los correos de otros formatos quedan sin marcar como leídos para no perderlos.
+El botón **Leer avisos** revisa los últimos 14 días (ajustable con `dias`) en modo de solo lectura. Acronis e Iperius se reconocen por el asunto y el cuerpo del informe; los avisos que identifiquen VMware, vSphere o ESXi se procesan cuando el asunto o el informe indica equipo y resultado. La importación deduplica los mensajes y no cambia su estado de leído. Los correos que no reconoce se contabilizan.
 
-Cada aviso reconocido crea o reutiliza un equipo por nombre y programa. En **Clientes**, el administrador asigna ese equipo a un cliente. Desde ese momento las copias pendientes del equipo aparecen en el panel con fecha, resultado y descripción del error; los avisos nuevos de un equipo ya asignado se incorporan automáticamente. La lectura automática se ejecuta cada cinco minutos cuando se usa el panel. La tarea programada `sync.php` también lee el buzón.
+Cada aviso reconocido crea o reutiliza un equipo por nombre y programa. En **Clientes**, un técnico puede asignarlo a un cliente; una sugerencia detectada en el nombre de Acronis ayuda a encontrarlo. Desde la primera lectura, las copias aparecen en Monitoreo, primero con el cliente `Sin asignar`; al mapear el equipo, las copias existentes y futuras quedan vinculadas al cliente. La lectura automática se ejecuta cada cinco minutos cuando se usa el panel (`minutos` permite cambiarlo o desactivarlo). La tarea programada `sync.php` también lee el buzón.
+
+Las listas largas usan paginación: 20 filas por página para copias, equipos, usuarios, historial y notas; 15 para el directorio de clientes.
 
 ## Seguridad incluida
 

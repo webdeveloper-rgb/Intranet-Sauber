@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS copias (
   cliente VARCHAR(200) NOT NULL,
   equipo VARCHAR(200) NOT NULL,
   equipo_id INT UNSIGNED NULL,
+  huella CHAR(40) NULL,
   estado ENUM('OK','ERROR') NOT NULL,
   desc_error VARCHAR(500) NOT NULL DEFAULT '',
   codigo VARCHAR(40) NULL,
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS copias (
   KEY idx_fecha (fecha),
   KEY idx_cliente_equipo (cliente, equipo),
   KEY idx_copias_equipo_id (equipo_id),
+  UNIQUE KEY uq_copias_huella (huella),
   KEY idx_estado_rev (estado, revisado)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

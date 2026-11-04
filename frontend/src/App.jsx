@@ -9,6 +9,8 @@ import Tabla from './components/Tabla';
 import Detalle from './components/Detalle';
 import Usuarios from './components/Usuarios';
 import Clientes from './components/Clientes';
+import Paginacion from './components/Paginacion';
+import { usePagination } from './hooks/usePagination';
 
 const fechaLocal = (fecha) => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, '0'), String(fecha.getDate()).padStart(2, '0')].join('-');
 const filtrosIniciales = () => {
@@ -26,10 +28,7 @@ export default function App() {
   const [sel, setSel] = useState(null);
   const [verUsuarios, setVerUsuarios] = useState(false);
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes'
-  const [paginaErrores, setPaginaErrores] = useState(1);
-
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
-  useEffect(() => { setPaginaErrores(1); }, [filtro, f.cli, f.desde, f.hasta]);
 
   const { data } = copias;
   const n = useMemo(() => contadores(data, f.horas), [data, f.horas]);
@@ -42,12 +41,7 @@ export default function App() {
       (!f.desde || c.fecha.slice(0, 10) >= f.desde) &&
       (!f.hasta || c.fecha.slice(0, 10) <= f.hasta));
   }, [data, filtro, f]);
-  const paginaErroresActiva = ['pend', 'rev', 'tras', 'venc', 'atr'].includes(filtro) && rows.length > 5;
-  const totalPaginasErrores = Math.ceil(rows.length / 5);
-  const paginaErroresActual = Math.min(paginaErrores, totalPaginasErrores || 1);
-  const filasVisibles = paginaErroresActiva
-    ? rows.slice((paginaErroresActual - 1) * 5, paginaErroresActual * 5)
-    : rows;
+  const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.desde}|${f.hasta}`);
 
   const abrir = useCallback((id) => setSel(id), []);
   const cerrar = useCallback(() => setSel(null), []);
@@ -74,12 +68,9 @@ export default function App() {
             )}
             <Kpis n={n} total={data.length} />
             <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} />
-            <Tabla rows={filasVisibles} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
-            {paginaErroresActiva && <nav className="paginacion-clientes paginacion-errores" aria-label="Paginación de errores">
-              <button className="btn sec" disabled={paginaErroresActual === 1} onClick={() => setPaginaErrores((p) => Math.max(1, p - 1))}>Anterior</button>
-              <span>Errores {((paginaErroresActual - 1) * 5) + 1}–{Math.min(paginaErroresActual * 5, rows.length)} de {rows.length}</span>
-              <button className="btn sec" disabled={paginaErroresActual === totalPaginasErrores} onClick={() => setPaginaErrores((p) => Math.min(totalPaginasErrores, p + 1))}>Siguiente</button>
-            </nav>}
+            <Tabla rows={paginaCopias.items} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
+            <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
+              porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />
             <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos cada minuto.</p>
           </>
         )}

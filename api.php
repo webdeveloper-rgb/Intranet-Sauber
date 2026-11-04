@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/api_utilities.php';
 require __DIR__ . '/src/mail_import.php';
+require __DIR__ . '/src/copy_service.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -37,55 +38,6 @@ function txt($v, int $max): string
     return mb_substr(trim((string) $v), 0, $max);
 }
 
-function fila(array $r): array
-{
-    foreach (['id', 'revisado'] as $k)
-        $r[$k] = (int) $r[$k];
-    $r['intentos'] = $r['intentos'] !== null ? (int) $r['intentos'] : null;
-    $r['notas'] = [];
-    return $r;
-}
-
-const SQL_COPIA = "SELECT id, DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha, cliente, equipo, estado, desc_error,
-    codigo, software, destino, tamano, duracion, intentos, revisado, revisado_por,
-    DATE_FORMAT(revisado_fecha,'%Y-%m-%d %H:%i') AS revisado_fecha, revision_desc, seg,
-    DATE_FORMAT(recordar,'%Y-%m-%d') AS recordar FROM copias";
-
-function notas_de(array $ids): array
-{
-    if (!$ids)
-        return [];
-    $in = implode(',', array_fill(0, count($ids), '?'));
-    $st = db()->prepare("SELECT copia_id, usuario, texto, DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha
-                         FROM notas WHERE copia_id IN ($in) ORDER BY fecha, id");
-    $st->execute($ids);
-    $m = [];
-    foreach ($st as $n) {
-        $m[(int) $n['copia_id']][] = ['usuario' => $n['usuario'], 'texto' => $n['texto'], 'fecha' => $n['fecha']];
-    }
-    return $m;
-}
-
-function copia(int $id): ?array
-{
-    $st = db()->prepare(SQL_COPIA . " WHERE id = ?");
-    $st->execute([$id]);
-    $r = $st->fetch();
-    if (!$r)
-        return null;
-    $r = fila($r);
-    $r['notas'] = notas_de([$id])[$id] ?? [];
-    return $r;
-}
-
-function copia_o_404($id): array
-{
-    $c = copia((int) $id);
-    if (!$c)
-        fail('Copia no encontrada', 404);
-    return $c;
-}
-
 $action = $_GET['action'] ?? '';
 $input = json_decode((string) file_get_contents('php://input'), true);
 $input = is_array($input) ? $input : [];
@@ -111,8 +63,8 @@ try {
 
     if ($action === 'list') {
         $rows = db()->query(SQL_COPIA . " ORDER BY fecha DESC, id DESC LIMIT 3000")->fetchAll();
-        $rows = array_map('fila', $rows);
-        $notas = notas_de(array_column($rows, 'id'));
+        $rows = array_map('copia_fila', $rows);
+        $notas = copia_notas_de(array_column($rows, 'id'));
         foreach ($rows as &$r)
             $r['notas'] = $notas[$r['id']] ?? [];
         unset($r);
@@ -153,13 +105,7 @@ try {
     }
 
     if ($action === 'equipos') {
-        asegurar_tablas_sync(db());
-        $rows = db()->query('SELECT e.id,e.nombre,e.software,e.cliente_id,c.nombre AS cliente,
-            (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND (cc.importada=0 OR e.cliente_id IS NULL)) AS pendientes
-            FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software')->fetchAll();
-        foreach ($rows as &$r) { $r['id']=(int)$r['id']; $r['cliente_id']=$r['cliente_id'] !== null ? (int)$r['cliente_id'] : null; $r['pendientes']=(int)$r['pendientes']; }
-        unset($r);
-        out(['equipos'=>$rows]);
+        out(equipos_listado());
     }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST')
@@ -184,19 +130,10 @@ try {
     }
 
     if ($action === 'equipo_asignar') {
-        asegurar_tablas_sync(db());
-        $equipoId=(int)($input['id']??0); $clienteId=(int)($input['cliente_id']??0); $pdo=db();
-        $pdo->beginTransaction();
         try {
-            $st=$pdo->prepare('SELECT id FROM equipos WHERE id=? FOR UPDATE'); $st->execute([$equipoId]);
-            if (!$st->fetchColumn()) { $pdo->rollBack(); fail('Equipo no encontrado',404); }
-            $st=$pdo->prepare('SELECT id FROM clientes WHERE id=? AND activo=1'); $st->execute([$clienteId]);
-            if (!$st->fetchColumn()) { $pdo->rollBack(); fail('Cliente no válido'); }
-            $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([$clienteId,$equipoId]);
-            $copiasImportadas=correo_importar_equipo($equipoId,$clienteId,$pdo);
-            $pdo->commit();
-            out(['ok'=>true,'copias_importadas'=>$copiasImportadas]);
-        } catch (Throwable $ex) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $ex; }
+            $importadas = equipos_asignar_cliente((int)($input['id'] ?? 0), (int)($input['cliente_id'] ?? 0));
+            out(['ok' => true, 'copias_importadas' => $importadas]);
+        } catch (ApiError $ex) { fail($ex->getMessage()); }
     }
 
     if ($action === 'mi_password') {
@@ -276,7 +213,8 @@ try {
         out(['ok' => true]);
     }
 
-    $c = copia_o_404($input['id'] ?? 0);
+    $c = copia_obtener((int) ($input['id'] ?? 0));
+    if (!$c) fail('Copia no encontrada',404);
     $id = $c['id'];
 
     switch ($action) {
@@ -338,7 +276,7 @@ try {
             fail('Acción desconocida', 404);
     }
 
-    out(['copia' => copia($id)]);
+    out(['copia' => copia_obtener($id)]);
 } catch (Throwable $ex) {
     error_log('[copias] ' . $ex->getMessage());
     fail(cfg('debug') ? $ex->getMessage() : 'Error interno del servidor', 500);
