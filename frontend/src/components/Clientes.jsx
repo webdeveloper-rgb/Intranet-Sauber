@@ -144,28 +144,36 @@ export default function Clientes({ sesion }) {
             const sugerencia = equipo.sugerido && cat?.clientes?.find((c) =>
               norm(unir(c.nombre, c.codigo)) === norm(equipo.sugerido));
             const clienteSeleccionado = asignaciones[equipo.id] ?? equipo.cliente_id ?? sugerencia?.id ?? '';
+            const clienteElegido = cat?.clientes?.find((c) => Number(c.id) === Number(clienteSeleccionado));
+            const hayCambios = Number(clienteSeleccionado) > 0 && Number(clienteSeleccionado) !== Number(equipo.cliente_id || 0);
             return <article className={`equipo-card${asignado ? ' equipo-card-asignado' : ' equipo-card-pendiente'}`} key={equipo.id}>
               <div className="equipo-info">
                 <div className="equipo-titulo">
                   <h3 title={equipo.nombre}>{equipo.nombre}</h3>
                   <span className="equipo-software">{equipo.software}</span>
                 </div>
-                <p className="equipo-estado">
-                  <span className={`estado-punto${asignado ? ' asignado' : ''}`} />
-                  {asignado ? equipo.cliente : 'Pendiente de asignación'}
-                </p>
-                {equipo.sugerido && <p className="equipo-sugerencia">Cliente sugerido: <strong>{equipo.sugerido}</strong></p>}
-                <span className="equipo-copias">{equipo.pendientes} aviso{equipo.pendientes === 1 ? '' : 's'} {asignado ? 'por importar' : 'recibido'}</span>
+                <div className="equipo-detalles">
+                  <span className={`equipo-badge${asignado ? ' asignado' : ''}`}>
+                    <span className="estado-punto" />{asignado ? 'Asignado' : 'Pendiente'}
+                  </span>
+                  <span className="equipo-copias">{equipo.pendientes} aviso{equipo.pendientes === 1 ? '' : 's'} {asignado ? 'por importar' : 'recibido'}</span>
+                </div>
+                {asignado && <p className="equipo-cliente-actual">Cliente actual <strong>{equipo.cliente}</strong></p>}
+                {!asignado && sugerencia && <p className="equipo-sugerencia">Coincidencia sugerida <strong>{sugerencia.nombre}</strong>{sugerencia.codigo ? ` · ${sugerencia.codigo}` : ''}</p>}
+                {!asignado && equipo.sugerido && !sugerencia && <p className="equipo-sugerencia">Referencia del aviso <strong>{equipo.sugerido}</strong></p>}
               </div>
               <div className="equipo-accion">
-                <label htmlFor={`cliente-equipo-${equipo.id}`}>Cliente</label>
+                <label htmlFor={`cliente-equipo-${equipo.id}`}>{asignado ? 'Cambiar cliente asociado' : 'Selecciona el cliente de este equipo'}</label>
                 <SelectorCliente id={`cliente-equipo-${equipo.id}`} clientes={cat?.clientes || []}
                   value={clienteSeleccionado}
                   onChange={(value) => setAsignaciones((a) => ({ ...a, [equipo.id]: value }))}
                   disabled={!cat?.clientes?.length} />
-                <button className="btn" disabled={guardando === equipo.id || !cat?.clientes?.length} onClick={() => asignar(equipo)}>
+                <button className="btn" disabled={guardando === equipo.id || !cat?.clientes?.length || !hayCambios} onClick={() => asignar(equipo)}>
                   {guardando === equipo.id ? 'Guardando…' : asignado ? 'Guardar cambio' : 'Asignar equipo'}
                 </button>
+                <p className={`equipo-seleccion${hayCambios ? ' hay-cambios' : ''}`} aria-live="polite">
+                  {hayCambios ? `Se asociará a ${clienteElegido?.nombre || 'el cliente seleccionado'}` : asignado ? 'Sin cambios pendientes' : 'Elige un cliente para continuar'}
+                </p>
               </div>
             </article>;
           })}

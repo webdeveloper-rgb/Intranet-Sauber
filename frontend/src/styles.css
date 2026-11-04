@@ -802,21 +802,26 @@ dd {
 }
 .mapeo-lista {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 .equipo-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(260px, 1.25fr);
+  grid-template-columns: minmax(280px, 0.85fr) minmax(360px, 1.3fr);
   align-items: center;
-  gap: 16px 22px;
+  gap: 20px 32px;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 18px 22px;
   border: 1px solid var(--bd);
   border-left: 3px solid var(--wa);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--card);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.equipo-card:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--bd));
+  box-shadow: var(--sh);
 }
 .equipo-card:focus-within {
   z-index: 2;
@@ -838,7 +843,7 @@ dd {
 .equipo-titulo h3 {
   min-width: 0;
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.35;
   font-weight: 700;
   overflow-wrap: anywhere;
@@ -880,15 +885,60 @@ dd {
   background: var(--ok);
 }
 .equipo-copias {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 9px;
+  border: 1px solid var(--bd);
+  border-radius: 99px;
+  background: var(--bg);
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
-.equipo-sugerencia {
-  margin: 4px 0 2px;
+.equipo-detalles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.equipo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--wa) 12%, transparent);
+  color: var(--wa);
+  font-size: 12px;
+  font-weight: 700;
+}
+.equipo-badge.asignado {
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: var(--ok);
+}
+.equipo-badge .estado-punto {
+  margin: 0;
+}
+.equipo-badge.asignado .estado-punto {
+  background: var(--ok);
+}
+.equipo-cliente-actual {
+  margin: 9px 0 0;
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
+}
+.equipo-cliente-actual strong {
+  color: var(--tx);
+  font-weight: 650;
+}
+.equipo-sugerencia {
+  margin: 9px 0 0;
+  padding-left: 1px;
+  color: var(--mut);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .equipo-sugerencia strong {
@@ -899,12 +949,14 @@ dd {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 5px 9px;
+  gap: 8px 12px;
+  padding-left: 22px;
+  border-left: 1px solid var(--bd);
 }
 .equipo-accion label {
   grid-column: 1 / -1;
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 .equipo-accion select {
@@ -925,12 +977,30 @@ dd {
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 40px;
-  padding: 7px 10px;
+  min-height: 46px;
+  padding: 9px 12px;
   border: 1px solid var(--bd);
   border-radius: 8px;
   background: var(--card);
   color: var(--tx);
+}
+.equipo-accion > .btn {
+  min-height: 46px;
+  padding-inline: 18px;
+  white-space: nowrap;
+}
+.equipo-accion > .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.equipo-seleccion {
+  grid-column: 1 / -1;
+  margin: -1px 0 0;
+  color: var(--mut);
+  font-size: 11px;
+}
+.equipo-seleccion.hay-cambios {
+  color: var(--brand-t);
 }
 .selector-cliente > input:disabled {
   opacity: 0.6;
@@ -975,8 +1045,8 @@ dd {
   font-size: 12px;
 }
 .equipo-accion .btn {
-  min-height: 40px;
-  padding: 7px 12px;
+  min-height: 46px;
+  padding: 9px 16px;
   white-space: nowrap;
 }
 .mapeo-vacio {
@@ -1137,6 +1207,11 @@ table.mq {
   .equipo-card {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
+  }
+  .equipo-accion {
+    padding: 14px 0 0;
+    border-top: 1px solid var(--bd);
+    border-left: 0;
   }
   .mapeo-toolbar {
     display: grid;
