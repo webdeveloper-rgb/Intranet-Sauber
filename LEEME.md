@@ -111,10 +111,11 @@ Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) 
     'proyecto' => 'demo',     // nombre del proyecto NocoDB (cámbialo por el tuyo)
     'tabla_clientes' => 'Cliente',
     'tabla_cliservicios' => 'Cliservicios',
+    'tabla_articulos' => 'Articulo',
     'servicio_requerido' => 'VBA3KT7GN7',
 ],
 ```
-La sincronización consulta también `Cliservicios` y solo mantiene en el panel los clientes relacionados con el servicio `VBA3KT7GN7`. Si la estructura de campos enlazados de esa tabla no permite identificar las columnas Cliente y Servicio, la sincronización registra un error y conserva el último catálogo correcto.
+La sincronización resuelve `VBA3KT7GN7` en `Articulo` y solo mantiene clientes relacionados con ese artículo mediante `Cliservicios`. En la primera sincronización correcta, elimina del catálogo local los clientes que no cumplen el filtro y desasigna sus equipos para que puedan mapearse de nuevo. Conserva las copias, notas e historial existentes. Si la API no permite resolver las relaciones, registra un error y no cambia los datos locales.
 `config/config.example.php` trae la plantilla. El panel necesita la extensión **cURL** de PHP (suele venir activa; si no, en Plesk → Ajustes de PHP).
 
 ### 2. Es automático

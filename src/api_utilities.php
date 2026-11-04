@@ -36,6 +36,7 @@ function api_sync_cfg(): array
         'proyecto' => 'demo',    // nombre del proyecto NocoDB
         'tabla_clientes' => 'Cliente',
         'tabla_cliservicios' => 'Cliservicios',
+        'tabla_articulos' => 'Articulo',
         'servicio_requerido' => 'VBA3KT7GN7',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
@@ -204,8 +205,32 @@ function api_sync_valores_campos(array $fila, string $patron): array
     return $valores;
 }
 
-/** Returns client keys linked to the required service in Cliservicios. */
-function api_sync_clientes_con_servicio(array $clientes, array $cliservicios, string $servicioId): array
+/** Resolve the configured article code to all identifiers used by linked API fields. */
+function api_sync_articulo_identificadores(array $articulos, string $articuloId): array
+{
+    $normalizar = static fn($v) => mb_strtoupper(trim((string)$v), 'UTF-8');
+    $identificadores = [];
+    $camposArticulo = false;
+    $objetivo = $normalizar($articuloId);
+    foreach ($articulos as $articulo) {
+        $ids = api_sync_valores_campos($articulo, '/^(id|clave|codigo|cod|referencia|id_?articulo|cod_?articulo)$/i');
+        if ($ids) $camposArticulo = true;
+        if (in_array($objetivo, array_map($normalizar, $ids), true)) {
+            foreach ($ids as $id) $identificadores[$normalizar($id)] = true;
+        }
+    }
+    if (!$articulos || !$camposArticulo) {
+        $campos = $articulos ? implode(', ', array_keys($articulos[0])) : '(tabla vacía)';
+        throw new ApiError('No se reconocieron los identificadores de Articulo. Campos recibidos: ' . $campos);
+    }
+    if (!$identificadores) {
+        throw new ApiError("No se encontró el artículo '$articuloId' en la tabla Articulo. No se modificó el catálogo local.");
+    }
+    return $identificadores;
+}
+
+/** Returns client keys linked to the required article through Cliservicios. */
+function api_sync_clientes_con_servicio(array $clientes, array $cliservicios, array $articuloIds): array
 {
     $normalizar = static fn($v) => mb_strtoupper(trim((string)$v), 'UTF-8');
     $identidades = [];
@@ -219,22 +244,22 @@ function api_sync_clientes_con_servicio(array $clientes, array $cliservicios, st
 
     $permitidos = [];
     $tieneRelacionCliente = false;
-    $tieneRelacionServicio = false;
-    $servicioBuscado = $normalizar($servicioId);
+    $tieneRelacionArticulo = false;
     foreach ($cliservicios as $fila) {
         $idsCliente = api_sync_valores_campos($fila, '/cliente|customer/i');
-        $idsServicio = api_sync_valores_campos($fila, '/servicio|service/i');
+        $idsArticulo = api_sync_valores_campos($fila, '/articulo|item/i');
         if ($idsCliente) $tieneRelacionCliente = true;
-        if ($idsServicio) $tieneRelacionServicio = true;
-        if (!$idsCliente || !$idsServicio || !in_array($servicioBuscado, array_map($normalizar, $idsServicio), true)) continue;
+        if ($idsArticulo) $tieneRelacionArticulo = true;
+        $coincideArticulo = array_intersect(array_map($normalizar, $idsArticulo), array_keys($articuloIds));
+        if (!$idsCliente || !$coincideArticulo) continue;
         foreach ($idsCliente as $id) {
             $id = $normalizar($id);
             if (isset($identidades[$id])) $permitidos[$identidades[$id]] = true;
         }
     }
 
-    if ($cliservicios && (!$tieneRelacionCliente || !$tieneRelacionServicio)) {
-        throw new ApiError('No se reconocieron los campos Cliente y Servicio en Cliservicios. Campos recibidos: ' . implode(', ', array_keys($cliservicios[0])));
+    if ($cliservicios && (!$tieneRelacionCliente || !$tieneRelacionArticulo)) {
+        throw new ApiError('No se reconocieron los campos Cliente y Articulo en Cliservicios. Campos recibidos: ' . implode(', ', array_keys($cliservicios[0])));
     }
     return $permitidos;
 }
@@ -288,11 +313,15 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $token = api_sync_token($c);
         $clientes = api_sync_todo($c, $token, (string) $c['tabla_clientes']);
         $cliservicios = api_sync_todo($c, $token, (string) $c['tabla_cliservicios']);
-        $clientesConServicio = api_sync_clientes_con_servicio($clientes, $cliservicios, (string)$c['servicio_requerido']);
+        $articulos = api_sync_todo($c, $token, (string) $c['tabla_articulos']);
+        $articuloIds = api_sync_articulo_identificadores($articulos, (string)$c['servicio_requerido']);
+        $clientesConServicio = api_sync_clientes_con_servicio($clientes, $cliservicios, $articuloIds);
 
         $ahora = date('Y-m-d H:i:s');
         $json = fn(array $r) => json_encode($r, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         $saltados = 0;
+
+        if (function_exists('asegurar_tablas_equipos')) asegurar_tablas_equipos($pdo);
 
         $pdo->beginTransaction();
 
@@ -328,6 +357,11 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
             $nCli++;
         }
 
+        // El catálogo arranca limpio: equipos pierden la asignación a clientes excluidos,
+        // pero el historial de copias/notas se conserva con su texto original.
+        $pdo->exec('UPDATE equipos e INNER JOIN clientes c ON c.id=e.cliente_id SET e.cliente_id=NULL WHERE c.activo=0');
+        $pdo->exec('DELETE FROM clientes WHERE activo=0');
+
         $pdo->commit();
 
         $msg = $saltados ? "$saltados registros sin identificador (Clave/Id/Codigo) omitidos" : null;
@@ -341,6 +375,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
             'campos' => [
                 'clientes' => $clientes ? array_keys($clientes[0]) : [],
                 'cliservicios' => $cliservicios ? array_keys($cliservicios[0]) : [],
+                'articulos' => $articulos ? array_keys($articulos[0]) : [],
             ],
         ];
     } catch (Throwable $e) {
