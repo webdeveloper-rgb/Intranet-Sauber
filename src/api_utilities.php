@@ -145,7 +145,7 @@ function api_sync_todo(array $c, string $token, string $tabla): array
     return $filas;
 }
 
-/** Authenticate by DNI, using the API user row to resolve the email required by its sign-in endpoint. */
+/** Authenticate by DNI/email against the bcrypt hash stored in the API Securepassword field. */
 function api_autenticar_usuario(string $identificador, string $password): ?array
 {
     $c = api_sync_cfg();
@@ -162,7 +162,7 @@ function api_autenticar_usuario(string $identificador, string $password): ?array
     foreach ($allowedUsers as $row) {
         $dniApi = api_sync_primero($row, ['DNI', 'NIF', 'Documento', 'NumeroDocumento', 'Identificacion'], 30);
         $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
-        $primerNombre = $normalize((string)(preg_split('/\s+/u', trim($nombre))[0] ?? ''));
+        $primerNombre = $normalize((string)(preg_split('/\\s+/u', trim($nombre))[0] ?? ''));
         $emailApi = api_sync_primero($row, ['Email', 'Correo', 'Mail', 'EMail'], 150);
 
         if ($esCorreo) {
@@ -176,25 +176,17 @@ function api_autenticar_usuario(string $identificador, string $password): ?array
             if ($value === false || $value === 0 || (is_string($value) && in_array($normalize($value), ['0', 'false', 'no', 'inactivo', 'desactivado', 'baja'], true))) return null;
         }
 
-        $email = $emailApi;
-        if ($email === null) throw new ApiError('El registro de Usuarios no tiene un campo de correo para validar la contraseña en la API.');
-        [$status, $response] = api_sync_http(
-            'POST',
-            rtrim((string)$c['base_url'], '/') . '/auth/user/signin',
-            ['Content-Type: application/json', 'Accept: application/json'],
-            json_encode(['email' => $email, 'password' => $password]),
-            (int)$c['timeout']
-        );
-        if (in_array($status, [400, 401, 403], true)) return null;
-        if ($status !== 200 || empty($response['token']) || !is_string($response['token'])) {
-            throw new ApiError('No se pudo validar el acceso personal con la API (HTTP ' . $status . ').');
+        $hash = api_sync_campo($row, 'Securepassword', 255);
+        if ($hash === null || !preg_match('/^\\$2[aby]\\$\\d{2}\\$/', $hash)) {
+            throw new ApiError('El campo Securepassword no contiene un hash bcrypt compatible.');
         }
-        $usuarioLocal = $esCorreo ? $email : $dniApi;
+        if (!password_verify($password, $hash)) return null;
+
+        $usuarioLocal = $esCorreo ? ($emailApi ?? $identificador) : $dniApi;
         return ['usuario' => $usuarioLocal, 'nombre' => $nombre !== '' ? $nombre : $usuarioLocal];
     }
     return null;
 }
-
 /** Lee un campo sin importar mayúsculas/minúsculas; devuelve texto recortado o null. */
 function api_sync_campo(array $r, string $k, int $max = 200): ?string
 {
