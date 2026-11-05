@@ -145,49 +145,52 @@ function api_sync_todo(array $c, string $token, string $tabla): array
     return $filas;
 }
 
-/** Authenticate with a person's API credentials and require an entry in the API Users table. */
-function api_autenticar_usuario(string $email, string $password): ?array
+/** Authenticate by DNI, using the API user row to resolve the email required by its sign-in endpoint. */
+function api_autenticar_usuario(string $identificador, string $password): ?array
 {
     $c = api_sync_cfg();
-    [$status, $response] = api_sync_http(
-        'POST',
-        rtrim((string)$c['base_url'], '/') . '/auth/user/signin',
-        ['Content-Type: application/json', 'Accept: application/json'],
-        json_encode(['email' => $email, 'password' => $password]),
-        (int)$c['timeout']
-    );
-    if (in_array($status, [400, 401, 403], true)) return null;
-    if ($status !== 200 || empty($response['token']) || !is_string($response['token'])) {
-        throw new ApiError('No se pudo validar el acceso personal con la API (HTTP ' . $status . ').');
-    }
-
-    // Read the allowlist using the server account; the user's token only proves their password.
     $serviceToken = api_sync_token($c);
     $allowedUsers = api_sync_todo($c, $serviceToken, (string)$c['tabla_usuarios']);
+    $normalizeDni = static fn($value) => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper(trim((string)$value), 'UTF-8'));
     $normalize = static fn($value) => mb_strtolower(trim((string)$value), 'UTF-8');
-    $login = $normalize($email);
+    $esCorreo = strpos($identificador, '@') !== false;
+    $identificadorBuscado = $esCorreo ? $normalize($identificador) : $normalizeDni($identificador);
+    $permitidos = (array)$c['usuarios_permitidos'];
+    $dnisPermitidos = array_map($normalizeDni, (array)($permitidos['dni'] ?? []));
+    $nombresConCorreo = array_map($normalize, (array)($permitidos['correo_nombre'] ?? []));
+
     foreach ($allowedUsers as $row) {
-        $identities = [];
-        foreach (['Email', 'Correo', 'Usuario', 'Login', 'Username', 'User', 'NombreUsuario', 'Cuenta'] as $field) {
-            $value = api_sync_campo($row, $field, 150);
-            if ($value !== null) $identities[] = $normalize($value);
+        $dniApi = api_sync_primero($row, ['DNI', 'NIF', 'Documento', 'NumeroDocumento', 'Identificacion'], 30);
+        $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
+        $primerNombre = $normalize((string)(preg_split('/\s+/u', trim($nombre))[0] ?? ''));
+        $emailApi = api_sync_primero($row, ['Email', 'Correo', 'Mail', 'EMail'], 150);
+
+        if ($esCorreo) {
+            if ($emailApi === null || $normalize($emailApi) !== $identificadorBuscado || !in_array($primerNombre, $nombresConCorreo, true)) continue;
+        } else {
+            if ($dniApi === null || $normalizeDni($dniApi) !== $identificadorBuscado || !in_array($identificadorBuscado, $dnisPermitidos, true)) continue;
         }
-        if (!in_array($login, $identities, true)) continue;
 
         foreach ($row as $field => $value) {
             if (!in_array(mb_strtolower((string)$field, 'UTF-8'), ['activo', 'active', 'enabled', 'habilitado', 'estado'], true)) continue;
             if ($value === false || $value === 0 || (is_string($value) && in_array($normalize($value), ['0', 'false', 'no', 'inactivo', 'desactivado', 'baja'], true))) return null;
         }
 
-        $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
-        $primerNombre = $normalize((string)(preg_split('/\s+/u', trim($nombre))[0] ?? ''));
-        $permitidos = array_map($normalize, (array)$c['usuarios_permitidos']);
-        if ($primerNombre === '' || !in_array($primerNombre, $permitidos, true)) return null;
-
-        return [
-            'usuario' => api_sync_primero($row, ['Usuario', 'Login', 'Username', 'User', 'Email', 'Correo', 'NombreUsuario'], 50) ?? $email,
-            'nombre' => $nombre !== '' ? $nombre : $email,
-        ];
+        $email = $emailApi;
+        if ($email === null) throw new ApiError('El registro de Usuarios no tiene un campo de correo para validar la contraseña en la API.');
+        [$status, $response] = api_sync_http(
+            'POST',
+            rtrim((string)$c['base_url'], '/') . '/auth/user/signin',
+            ['Content-Type: application/json', 'Accept: application/json'],
+            json_encode(['email' => $email, 'password' => $password]),
+            (int)$c['timeout']
+        );
+        if (in_array($status, [400, 401, 403], true)) return null;
+        if ($status !== 200 || empty($response['token']) || !is_string($response['token'])) {
+            throw new ApiError('No se pudo validar el acceso personal con la API (HTTP ' . $status . ').');
+        }
+        $usuarioLocal = $esCorreo ? $email : $dniApi;
+        return ['usuario' => $usuarioLocal, 'nombre' => $nombre !== '' ? $nombre : $usuarioLocal];
     }
     return null;
 }

@@ -21,7 +21,10 @@ return [
         'tabla_clientes' => 'Cliente',
         'tabla_cliservicios' => 'Cliservicios',
         'tabla_usuarios' => 'Usuarios',
-        'usuarios_permitidos' => ['Maximiliano', 'Miguel', 'Alberto'],
+        'usuarios_permitidos' => [
+            'dni' => ['DNI_MAXIMILIANO', 'DNI_MIGUEL'],
+            'correo_nombre' => ['Alberto'],
+        ],
         'servicio_requerido' => 'VBA3KT7GN7',
         'sync_minutos' => 15,
     ],
