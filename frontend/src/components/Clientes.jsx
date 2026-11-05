@@ -143,14 +143,18 @@ export default function Clientes({ sesion }) {
       </p>}
       {u && <p className={`mail-estado${u.ok === 0 ? ' mail-estado-error' : ''}`}>
         Última sincronización de clientes: {u.fecha} · {u.ok === 1 ? 'correcta' : u.ok === 0 ? 'con errores' : 'sin sincronizar'}
-        {u.ok === 0 && u.mensaje ? ` · ${u.mensaje}` : ''}
+        {u.mensaje ? ` · ${u.mensaje}` : ''}
       </p>}
 
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
       {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
       {u && u.ok === 0 && <div className="errbox">Falló la última sincronización de clientes: {u.mensaje}</div>}
-      {resumen && <div className="okmsg">Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.</div>}
+      {resumen && <div className="okmsg">
+        Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.
+        {resumen.total_api_clientes != null && ` En la API: ${resumen.total_api_clientes} clientes y ${resumen.filas_con_servicio} filas con el servicio ${resumen.servicio}.`}
+        {resumen.filas_sin_cliente > 0 && ` ${resumen.filas_sin_cliente} filas con el servicio no encuentran su cliente (${(resumen.ejemplos_sin_cliente || []).slice(0, 5).join(' | ')}).`}
+      </div>}
 
       {cargando && !equipos.length ? <div className="mapeo-vacio">Cargando equipos…</div> : equiposFiltrados.length ? (
         <div className="mapeo-lista">
