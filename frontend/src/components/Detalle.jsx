@@ -10,18 +10,19 @@ function Campo({ t, v }) {
   return (<><dt>{t}</dt><dd>{v}</dd></>);
 }
 
-export default function Detalle({ c, onClose, acciones, hist, r, onOpen }) {
+export default function Detalle({ c, onClose, acciones, hist, r, onOpen, modo = 'drawer', manejarEscape = true }) {
   useEffect(() => {
+    if (!manejarEscape) return undefined;
     const k = (e) => e.key === 'Escape' && onClose();
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
-  }, [onClose]);
+  }, [onClose, manejarEscape]);
 
   const esError = c.estado === 'ERROR';
   return (
     <>
-      <div className="ov" onClick={onClose} />
-      <aside role="dialog" aria-label="Detalle de la copia">
+      <div className={`ov${modo === 'dialog' ? ' ov-detalle' : ''}`} onClick={onClose} />
+      <aside className={modo === 'dialog' ? 'detalle-modal' : ''} role="dialog" aria-modal="true" aria-label="Detalle de la copia">
         <button className="x" onClick={onClose} aria-label="Cerrar">×</button>
         <h2>Copia #{c.id}</h2>
         <Tag c={c} />

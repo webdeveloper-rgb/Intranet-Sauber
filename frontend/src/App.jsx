@@ -26,6 +26,7 @@ export default function App() {
   const [filtro, setFiltro] = useState('todos');
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
   const [sel, setSel] = useState(null);
+  const [selDialogo, setSelDialogo] = useState(null);
   const [verUsuarios, setVerUsuarios] = useState(false);
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes'
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
@@ -46,6 +47,7 @@ export default function App() {
   const abrir = useCallback((id) => setSel(id), []);
   const cerrar = useCallback(() => setSel(null), []);
   const cur = data.find((c) => c.id === sel);
+  const copiaDialogo = data.find((c) => c.id === selDialogo);
   const hist = cur
     ? data.filter((x) => claveEquipo(x) === claveEquipo(cur) && x.id !== cur.id)
         .sort((a, b) => b.fecha.localeCompare(a.fecha))
@@ -77,7 +79,14 @@ export default function App() {
       </main>
       {verUsuarios && sesion && <Usuarios sesion={sesion} onClose={() => setVerUsuarios(false)} />}
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0} onOpen={abrir} />
+        <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0}
+          onOpen={(id) => setSelDialogo(id)} manejarEscape={!copiaDialogo} />
+      )}
+      {copiaDialogo && vista === 'copias' && (
+        <Detalle modo="dialog" c={copiaDialogo} onClose={() => setSelDialogo(null)} acciones={copias}
+          hist={data.filter((x) => claveEquipo(x) === claveEquipo(copiaDialogo) && x.id !== copiaDialogo.id)
+            .sort((a, b) => b.fecha.localeCompare(a.fecha))}
+          r={rep[claveEquipo(copiaDialogo)] || 0} onOpen={(id) => setSelDialogo(id)} />
       )}
     </>
   );

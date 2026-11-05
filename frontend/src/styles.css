@@ -429,6 +429,26 @@ aside {
   box-shadow: -10px 0 34px rgba(0, 0, 0, 0.22);
   animation: slide 0.2s ease-out;
 }
+.ov-detalle {
+  z-index: 40;
+  background: rgba(8, 12, 18, 0.72);
+  backdrop-filter: blur(2px);
+}
+aside.detalle-modal {
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(760px, calc(100vw - 32px));
+  height: min(88vh, 900px);
+  z-index: 50;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--bd);
+  border-top: 3px solid var(--brand);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  animation: fade 0.16s ease-out;
+}
 aside h2 {
   margin: 0 0 6px;
   font-size: 19px;
