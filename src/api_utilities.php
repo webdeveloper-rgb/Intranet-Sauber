@@ -160,19 +160,27 @@ function api_autenticar_usuario(string $identificador, string $password): ?array
     $nombresConCorreo = array_map($normalize, (array)($permitidos['correo_nombre'] ?? []));
 
     foreach ($allowedUsers as $row) {
-        $dniApi = api_sync_primero($row, ['DNI', 'NIF', 'Documento', 'NumeroDocumento', 'Identificacion'], 30);
+        // En la respuesta real de Usuario, el DNI puede venir en Cif o User.
+        $dniApi = api_sync_primero($row, ['DNI', 'NIF', 'Cif', 'Documento', 'NumeroDocumento', 'Identificacion', 'User'], 30);
         $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
         $primerNombre = $normalize((string)(preg_split('/\\s+/u', trim($nombre))[0] ?? ''));
         $emailApi = api_sync_primero($row, ['Email', 'Correo', 'Mail', 'EMail'], 150);
 
         if ($esCorreo) {
-            if ($emailApi === null || $normalize($emailApi) !== $identificadorBuscado || !in_array($primerNombre, $nombresConCorreo, true)) continue;
+            $nombreCorreo = $emailApi !== null ? $normalize((string)(strstr($emailApi, '@', true) ?: '')) : '';
+            if ($emailApi === null || $normalize($emailApi) !== $identificadorBuscado
+                || (!in_array($primerNombre, $nombresConCorreo, true) && !in_array($nombreCorreo, $nombresConCorreo, true))) continue;
         } else {
             if ($dniApi === null || $normalizeDni($dniApi) !== $identificadorBuscado || !in_array($identificadorBuscado, $dnisPermitidos, true)) continue;
         }
 
         foreach ($row as $field => $value) {
-            if (!in_array(mb_strtolower((string)$field, 'UTF-8'), ['activo', 'active', 'enabled', 'habilitado', 'estado'], true)) continue;
+            $field = mb_strtolower((string)$field, 'UTF-8');
+            if (in_array($field, ['baja', 'deleted', 'eliminado'], true)) {
+                if ($value === true || $value === 1 || (is_string($value) && in_array($normalize($value), ['1', 'true', 'si', 'sí'], true))) return null;
+                continue;
+            }
+            if (!in_array($field, ['activo', 'active', 'enabled', 'habilitado', 'estado'], true)) continue;
             if ($value === false || $value === 0 || (is_string($value) && in_array($normalize($value), ['0', 'false', 'no', 'inactivo', 'desactivado', 'baja'], true))) return null;
         }
 

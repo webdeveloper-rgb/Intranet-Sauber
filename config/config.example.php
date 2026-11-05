@@ -20,7 +20,7 @@ return [
         'proyecto' => 'demo',
         'tabla_clientes' => 'Cliente',
         'tabla_cliservicios' => 'Cliservicios',
-        'tabla_usuarios' => 'Usuarios',
+        'tabla_usuarios' => 'Usuario',
         'usuarios_permitidos' => [
             'dni' => ['DNI_MAXIMILIANO', 'DNI_MIGUEL'],
             'correo_nombre' => ['Alberto'],
