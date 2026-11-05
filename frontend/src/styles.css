@@ -620,38 +620,6 @@ dd {
   }
 }
 
-@media (min-width: 1200px) {
-  .mapeo-lista {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
-  }
-  .equipo-card {
-    grid-template-columns: minmax(0, 1fr);
-    align-content: start;
-  }
-  .equipo-accion {
-    padding: 14px 0 0;
-    border-top: 1px solid var(--bd);
-    border-left: 0;
-  }
-}
-
-@media (min-width: 1500px) {
-  .mapeo-lista {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .equipo-accion {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .equipo-accion label,
-  .equipo-seleccion {
-    grid-column: 1;
-  }
-  .equipo-accion > .btn {
-    width: 100%;
-  }
-}
-
 /* ===== Usuarios ===== */
 .linkbtn {
   background: none;
@@ -1392,5 +1360,37 @@ table.mq {
     flex: 1 1 100%;
     order: -1;
     text-align: center;
+  }
+}
+
+/* Equipment assignment grid: rules live last so they override base card styles. */
+@media (min-width: 1200px) {
+  .mapeo-lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+  .equipo-card {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+  }
+  .equipo-accion {
+    padding: 14px 0 0;
+    border-top: 1px solid var(--bd);
+    border-left: 0;
+  }
+}
+@media (min-width: 1500px) {
+  .mapeo-lista {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .equipo-accion {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .equipo-accion label,
+  .equipo-seleccion {
+    grid-column: 1;
+  }
+  .equipo-accion > .btn {
+    width: 100%;
   }
 }
