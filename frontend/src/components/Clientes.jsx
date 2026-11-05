@@ -81,6 +81,23 @@ export default function Clientes({ sesion }) {
     finally { setGuardando(null); }
   };
 
+  const desasignar = async (equipo) => {
+    setGuardando(equipo.id);
+    setFallo('');
+    setMensaje('');
+    try {
+      const r = await api('equipo_desasignar', { id: equipo.id });
+      setAsignaciones((actuales) => {
+        const nuevas = { ...actuales };
+        delete nuevas[equipo.id];
+        return nuevas;
+      });
+      setMensaje(`${equipo.nombre}: equipo desasignado. ${r.copias_desasignadas} copias quedaron sin cliente.`);
+      await cargar(true);
+    } catch (e) { setFallo(e.message); }
+    finally { setGuardando(null); }
+  };
+
   const equiposFiltrados = useMemo(() => {
     const f = norm(busquedaEquipo.trim());
     return equipos
@@ -169,6 +186,9 @@ export default function Clientes({ sesion }) {
                 <button className="btn" disabled={guardando === equipo.id || !cat?.clientes?.length || !hayCambios} onClick={() => asignar(equipo)}>
                   {guardando === equipo.id ? 'Guardando…' : asignado ? 'Guardar cambio' : 'Asignar equipo'}
                 </button>
+                {asignado && <button className="btn sec" disabled={guardando === equipo.id} onClick={() => desasignar(equipo)}>
+                  {guardando === equipo.id ? 'Guardando…' : 'Desasignar equipo'}
+                </button>}
                 <p className={`equipo-seleccion${hayCambios ? ' hay-cambios' : ''}`} aria-live="polite">
                   {hayCambios ? `Se asociará a ${clienteElegido?.nombre || 'el cliente seleccionado'}` : asignado ? 'Sin cambios pendientes' : 'Elige un cliente para continuar'}
                 </p>

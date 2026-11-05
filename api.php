@@ -136,6 +136,16 @@ try {
         } catch (ApiError $ex) { fail($ex->getMessage()); }
     }
 
+    if ($action === 'equipo_desasignar') {
+        try {
+            $actualizadas = equipos_desasignar_cliente((int)($input['id'] ?? 0));
+            out(['ok' => true, 'copias_desasignadas' => $actualizadas]);
+        } catch (ApiError $ex) { fail($ex->getMessage()); }
+    }
+
+    if (in_array($action, ['mi_password', 'usuario_crear'], true))
+        fail('Las credenciales se gestionan en la API; los usuarios autorizados se aprovisionan al iniciar sesión.');
+
     if ($action === 'mi_password') {
         $st = db()->prepare('SELECT password_hash FROM usuarios WHERE id = ?');
         $st->execute([$user['id']]);

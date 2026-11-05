@@ -36,6 +36,8 @@ function api_sync_cfg(): array
         'proyecto' => 'demo',    // nombre del proyecto NocoDB
         'tabla_clientes' => 'Cliente',
         'tabla_cliservicios' => 'Cliservicios',
+        'tabla_usuarios' => 'Usuarios',
+        'usuarios_permitidos' => ['Maximiliano', 'Miguel', 'Alberto'],
         'servicio_requerido' => 'VBA3KT7GN7',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
@@ -141,6 +143,53 @@ function api_sync_todo(array $c, string $token, string $tabla): array
         $offset += $n;
     }
     return $filas;
+}
+
+/** Authenticate with a person's API credentials and require an entry in the API Users table. */
+function api_autenticar_usuario(string $email, string $password): ?array
+{
+    $c = api_sync_cfg();
+    [$status, $response] = api_sync_http(
+        'POST',
+        rtrim((string)$c['base_url'], '/') . '/auth/user/signin',
+        ['Content-Type: application/json', 'Accept: application/json'],
+        json_encode(['email' => $email, 'password' => $password]),
+        (int)$c['timeout']
+    );
+    if (in_array($status, [400, 401, 403], true)) return null;
+    if ($status !== 200 || empty($response['token']) || !is_string($response['token'])) {
+        throw new ApiError('No se pudo validar el acceso personal con la API (HTTP ' . $status . ').');
+    }
+
+    // Read the allowlist using the server account; the user's token only proves their password.
+    $serviceToken = api_sync_token($c);
+    $allowedUsers = api_sync_todo($c, $serviceToken, (string)$c['tabla_usuarios']);
+    $normalize = static fn($value) => mb_strtolower(trim((string)$value), 'UTF-8');
+    $login = $normalize($email);
+    foreach ($allowedUsers as $row) {
+        $identities = [];
+        foreach (['Email', 'Correo', 'Usuario', 'Login', 'Username', 'User', 'NombreUsuario', 'Cuenta'] as $field) {
+            $value = api_sync_campo($row, $field, 150);
+            if ($value !== null) $identities[] = $normalize($value);
+        }
+        if (!in_array($login, $identities, true)) continue;
+
+        foreach ($row as $field => $value) {
+            if (!in_array(mb_strtolower((string)$field, 'UTF-8'), ['activo', 'active', 'enabled', 'habilitado', 'estado'], true)) continue;
+            if ($value === false || $value === 0 || (is_string($value) && in_array($normalize($value), ['0', 'false', 'no', 'inactivo', 'desactivado', 'baja'], true))) return null;
+        }
+
+        $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
+        $primerNombre = $normalize((string)(preg_split('/\s+/u', trim($nombre))[0] ?? ''));
+        $permitidos = array_map($normalize, (array)$c['usuarios_permitidos']);
+        if ($primerNombre === '' || !in_array($primerNombre, $permitidos, true)) return null;
+
+        return [
+            'usuario' => api_sync_primero($row, ['Usuario', 'Login', 'Username', 'User', 'Email', 'Correo', 'NombreUsuario'], 50) ?? $email,
+            'nombre' => $nombre !== '' ? $nombre : $email,
+        ];
+    }
+    return null;
 }
 
 /** Lee un campo sin importar mayúsculas/minúsculas; devuelve texto recortado o null. */

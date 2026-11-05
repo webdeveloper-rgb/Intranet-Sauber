@@ -68,6 +68,28 @@ function equipos_asignar_cliente(int $equipoId, int $clienteId): int
     }
 }
 
+function equipos_desasignar_cliente(int $equipoId): int
+{
+    $pdo = db();
+    asegurar_tablas_equipos($pdo);
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT id FROM equipos WHERE id=? FOR UPDATE');
+        $st->execute([$equipoId]);
+        if (!$st->fetchColumn()) throw new ApiError('Equipo no encontrado');
+
+        $pdo->prepare('UPDATE equipos SET cliente_id=NULL WHERE id=?')->execute([$equipoId]);
+        $copias = $pdo->prepare("UPDATE copias SET cliente='Sin asignar' WHERE equipo_id=?");
+        $copias->execute([$equipoId]);
+        $actualizadas = $copias->rowCount();
+        $pdo->commit();
+        return $actualizadas;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
 function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null): int
 {
     $pdo ??= db();

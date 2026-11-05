@@ -89,8 +89,7 @@ frontend/src/
 ```
 
 ## Usuarios
-
-Desde el panel, como administrador: **👥 Usuarios** (arriba a la derecha). Crear usuarios (Técnico o Administrador), desactivar/activar, restablecer contraseñas. Cada usuario cambia la suya en **🔑 Mi cuenta**. Un administrador no puede desactivarse ni quitarse el rol a sí mismo.
+El acceso se valida con las credenciales personales en la API y su presencia en la tabla Usuarios. Solo se permiten Maximiliano, Miguel y Alberto. La primera vez que cada persona inicia sesión se crea su perfil local. Un administrador puede asignar roles o bloquear el perfil; las contraseñas se gestionan en la API.
 
 ## Cambios en la base de datos
 
@@ -111,6 +110,8 @@ Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) 
     'proyecto' => 'demo',     // nombre del proyecto NocoDB (cámbialo por el tuyo)
     'tabla_clientes' => 'Cliente',
     'tabla_cliservicios' => 'Cliservicios',
+    'tabla_usuarios' => 'Usuarios',
+    'usuarios_permitidos' => ['Maximiliano', 'Miguel', 'Alberto'],
     'servicio_requerido' => 'VBA3KT7GN7',
 ],
 ```

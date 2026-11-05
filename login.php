@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/src/bootstrap.php';
+require __DIR__ . '/src/api_utilities.php';
 
 if (usuario_actual()) {
     header('Location: index.php');
@@ -16,12 +17,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Demasiados intentos. Espera un minuto.';
     } else {
         try {
-            $st = db()->prepare('SELECT id, usuario, nombre, rol, activo, password_hash FROM usuarios WHERE usuario = ?');
-            $st->execute([trim((string)($_POST['usuario'] ?? ''))]);
-            $u = $st->fetch();
-            // Se verifica siempre un hash para no revelar si el usuario existe
-            $hash = $u['password_hash'] ?? '$2y$10$usesomesillystringforsalt.invalidhashinvalidhashinvalidha';
-            if (password_verify((string)($_POST['password'] ?? ''), $hash) && $u && (int)$u['activo'] === 1) {
+            $email = trim((string)($_POST['usuario'] ?? ''));
+            $identidad = api_autenticar_usuario($email, (string)($_POST['password'] ?? ''));
+            if ($identidad) {
+                $hashLocal = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
+                $st = db()->prepare("INSERT INTO usuarios (usuario,nombre,rol,activo,password_hash) VALUES (?,?, 'usuario',1,?)
+                    ON DUPLICATE KEY UPDATE nombre=VALUES(nombre)");
+                $st->execute([$identidad['usuario'], $identidad['nombre'], $hashLocal]);
+                $st = db()->prepare('SELECT id, usuario, nombre, rol, activo FROM usuarios WHERE usuario = ?');
+                $st->execute([$identidad['usuario']]);
+                $u = $st->fetch();
+            } else {
+                $u = null;
+            }
+            if ($u && (int)$u['activo'] === 1) {
                 session_regenerate_id(true);
                 $_SESSION['user'] = ['id' => (int)$u['id'], 'usuario' => $u['usuario'], 'nombre' => $u['nombre'], 'rol' => $u['rol']];
                 unset($_SESSION['intentos'], $_SESSION['bloqueo']);
@@ -35,9 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             sleep(1);
             $error = 'Usuario o contraseña incorrectos.';
+        } catch (ApiError $ex) {
+            error_log('[copias] autenticación de usuario API: ' . $ex->getMessage());
+            $error = 'No se pudo comprobar el acceso con la API. Inténtalo de nuevo más tarde.';
         } catch (Throwable $ex) {
             error_log('[copias] ' . $ex->getMessage());
-            $error = cfg('debug') ? $ex->getMessage() : 'Error de conexión con la base de datos.';
+            $error = cfg('debug') ? $ex->getMessage() : 'No se pudo comprobar el acceso. Inténtalo de nuevo más tarde.';
         }
     }
 }
@@ -57,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php if ($error): ?><div class="errbox"><?= e($error) ?></div><?php endif; ?>
   <form method="post" autocomplete="on">
     <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-    <label>Usuario <input name="usuario" required autofocus autocomplete="username"></label>
+    <label>Correo de la API <input name="usuario" type="email" required autofocus autocomplete="username"></label>
     <label>Contraseña <input name="password" type="password" required autocomplete="current-password"></label>
     <button class="btn" type="submit">Entrar</button>
   </form>
