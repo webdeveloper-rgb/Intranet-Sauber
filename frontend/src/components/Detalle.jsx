@@ -23,7 +23,7 @@ export default function Detalle({ c, onClose, acciones, hist, r, onOpen, modo = 
     <>
       <div className={`ov${modo === 'dialog' ? ' ov-detalle' : ''}`} onClick={onClose} />
       <aside className={modo === 'dialog' ? 'detalle-modal' : ''} role="dialog" aria-modal="true" aria-label="Detalle de la copia">
-        <button className="x" onClick={onClose} aria-label="Cerrar">×</button>
+        <button className="x" onClick={onClose} aria-label="Cerrar">Cerrar</button>
         <h2>Copia #{c.id}</h2>
         <Tag c={c} />
         {c.desc_error && <div className="errbox"><b>{c.codigo || 'Error'}</b> · {c.desc_error}</div>}

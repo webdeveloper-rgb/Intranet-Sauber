@@ -7,19 +7,19 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
   const notas = (c.notas || []).length;
   return (
     <tr className={k === 'ERR' ? 'err' : k === 'REV' ? 'pen' : ''} onClick={() => onOpen(c.id)}>
-      <td className="nowrap">{c.fecha}</td>
+      <td>{c.fecha}</td>
       <td>{c.cliente}</td>
       <td>{c.equipo}</td>
-      <td>
+      <td className="estado-celda">
         <Tag c={c} />
-        {notas > 0 && <span className="nb" title="Tiene notas de seguimiento">📝 {notas}</span>}
-        {vencido(c) && <span className="nb al" title="Recordatorio vencido">⏰ Vencido</span>}
-        {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">⚠ +{h} h</span>}
-        {r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">🔁 {r}</span>}
+        {notas > 0 && <span className="nb" title="Tiene notas de seguimiento">Notas: {notas}</span>}
+        {vencido(c) && <span className="nb al" title="Recordatorio vencido">Recordatorio vencido</span>}
+        {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
+        {r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
       <td className="c-desc">{c.desc_error || '—'}</td>
       <td className="c-fix">{c.revisado ? c.revision_desc : '—'}</td>
-      <td className="c-rev">{c.estado === 'ERROR' ? (c.revisado ? '✔' : '✖') : '—'}</td>
+      <td className="c-rev">{c.estado === 'ERROR' ? (c.revisado ? 'Sí' : 'No') : '—'}</td>
     </tr>
   );
 });

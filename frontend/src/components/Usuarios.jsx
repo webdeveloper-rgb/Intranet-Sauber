@@ -139,7 +139,7 @@ export default function Usuarios({ sesion, onClose }) {
     <>
       <div className="ov" onClick={onClose} />
       <aside role="dialog" aria-label="Usuarios">
-        <button className="x" onClick={onClose} aria-label="Cerrar">×</button>
+        <button className="x" onClick={onClose} aria-label="Cerrar">Cerrar</button>
         <h2>{admin ? 'Usuarios' : 'Mi cuenta'}</h2>
         <p className="mut">Sesión iniciada como <b>{sesion.usuario}</b>{admin ? ' (administrador)' : ''}.</p>
         {admin && <NuevoUsuario onCreado={cargar} />}

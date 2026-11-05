@@ -152,7 +152,7 @@ export default function Clientes({ sesion }) {
                 </div>
                 <div className="equipo-detalles">
                   <span className={`equipo-badge${asignado ? ' asignado' : ''}`}>
-                    <span className="estado-punto" />{asignado ? 'Asignado' : 'Pendiente'}
+                    {asignado ? 'Asignado' : 'Pendiente de asignación'}
                   </span>
                   <span className="equipo-copias">{equipo.pendientes} aviso{equipo.pendientes === 1 ? '' : 's'} {asignado ? 'por importar' : 'recibido'}</span>
                 </div>

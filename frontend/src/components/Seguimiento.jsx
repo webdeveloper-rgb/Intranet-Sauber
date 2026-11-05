@@ -2,8 +2,8 @@ import { vencido } from '../logic';
 import { descargarICS } from '../ics';
 
 const ESTADOS = [
-  ['vigilancia', '👁 En vigilancia · EN REVISIÓN'],
-  ['cerrado', '✔ Cerrado · pasa a OK'],
+  ['vigilancia', 'En vigilancia · En revisión'],
+  ['cerrado', 'Cerrado · pasa a OK'],
 ];
 
 export default function Seguimiento({ c, onSeg }) {
@@ -26,10 +26,10 @@ export default function Seguimiento({ c, onSeg }) {
           </label>
         )}
         {c.seg === 'vigilancia' && c.recordar && (
-          <button className="btn sec" onClick={() => descargarICS(c)}>📅 Añadir al calendario de Windows</button>
+          <button className="btn sec" onClick={() => descargarICS(c)}>Añadir al calendario de Windows</button>
         )}
       </div>
-      {vencido(c) && <div className="errbox">⏰ El recordatorio ha vencido: toca volver a revisar este equipo.</div>}
+      {vencido(c) && <div className="errbox">El recordatorio ha vencido: toca volver a revisar este equipo.</div>}
     </div>
   );
 }

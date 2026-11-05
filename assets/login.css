@@ -516,3 +516,28 @@ dd {
 .errbox.top-err {
   margin: 0 0 12px;
 }
+
+/* Match the restrained dashboard styling on the PHP login screen. */
+header {
+  border-bottom: 1px solid var(--bd);
+}
+.kpi {
+  border-top: 1px solid var(--bd);
+}
+.bar button.on {
+  background: var(--brand-s);
+  border-color: var(--bd);
+  color: var(--tx);
+}
+tr.err td:first-child,
+tr.pen td:first-child {
+  box-shadow: none;
+}
+aside {
+  border-left: 1px solid var(--bd);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+}
+.login {
+  border-top: 1px solid var(--bd);
+  border-radius: 9px;
+}

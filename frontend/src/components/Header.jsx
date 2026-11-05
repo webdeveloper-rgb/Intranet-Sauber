@@ -7,16 +7,16 @@ export default function Header({ nombre, rol, vista, onVista, onUsuarios }) {
         <h1>{enClientes ? 'Asignación de equipos' : 'Panel de Control de Copias'}</h1>
         <p>{enClientes
           ? 'Revisa los equipos detectados y vincúlalos con el cliente correspondiente.'
-          : 'ERROR → EN REVISIÓN (al describir el arreglo) → OK (al cerrar la vigilancia)'}</p>
+          : 'ERROR pasa a EN REVISIÓN al describir el arreglo y a OK al cerrar la vigilancia'}</p>
       </div>
       <div className="top">
-        <span>👤 {nombre}</span>
+        <span>{nombre}</span>
         {nombre && (
           <button className="linkbtn" onClick={() => onVista(enClientes ? 'copias' : 'clientes')}>
-            {enClientes ? '📋 Copias' : '🖥️ Asignar equipos'}
+            {enClientes ? 'Copias' : 'Asignar equipos'}
           </button>
         )}
-        {nombre && <button className="linkbtn" onClick={onUsuarios}>{rol === 'admin' ? '👥 Usuarios' : '🔑 Mi cuenta'}</button>}
+        {nombre && <button className="linkbtn" onClick={onUsuarios}>{rol === 'admin' ? 'Usuarios' : 'Mi cuenta'}</button>}
         <a href="logout.php">Salir</a>
       </div>
     </header>
