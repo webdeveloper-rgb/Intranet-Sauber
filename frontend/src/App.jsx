@@ -36,11 +36,11 @@ export default function App() {
   const rows = useMemo(() => {
     const q = norm(f.cli.trim());
     return data.filter((c) =>
-      TEST[filtro](c, f.horas) &&
+      TEST[filtro](c, f.horas, rep) &&
       (!q || norm(c.cliente).includes(q)) &&
       (!f.desde || c.fecha.slice(0, 10) >= f.desde) &&
       (!f.hasta || c.fecha.slice(0, 10) <= f.hasta));
-  }, [data, filtro, f]);
+  }, [data, filtro, f, rep]);
   const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.desde}|${f.hasta}`);
 
   const abrir = useCallback((id) => setSel(id), []);
@@ -77,7 +77,7 @@ export default function App() {
       </main>
       {verUsuarios && sesion && <Usuarios sesion={sesion} onClose={() => setVerUsuarios(false)} />}
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0} />
+        <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0} onOpen={abrir} />
       )}
     </>
   );

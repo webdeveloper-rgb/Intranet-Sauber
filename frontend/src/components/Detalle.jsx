@@ -10,7 +10,7 @@ function Campo({ t, v }) {
   return (<><dt>{t}</dt><dd>{v}</dd></>);
 }
 
-export default function Detalle({ c, onClose, acciones, hist, r }) {
+export default function Detalle({ c, onClose, acciones, hist, r, onOpen }) {
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && onClose();
     addEventListener('keydown', k);
@@ -41,7 +41,7 @@ export default function Detalle({ c, onClose, acciones, hist, r }) {
         {esError && <Revision c={c} onRevisar={acciones.revisar} onReabrir={acciones.reabrir} />}
         {esError && c.revisado && <Seguimiento c={c} onSeg={acciones.seguimiento} />}
         {esError && c.revisado && <Notas c={c} onNote={acciones.nota} />}
-        <Historial c={c} hist={hist} r={r} />
+        <Historial c={c} hist={hist} r={r} onOpen={onOpen} />
       </aside>
     </>
   );

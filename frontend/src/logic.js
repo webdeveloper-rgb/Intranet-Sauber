@@ -20,6 +20,7 @@ export const vencido = (c) =>
 export const FILTROS = [
   ['todos', 'Todos'],
   ['pend', 'Errores'],
+  ['rep', 'Errores repetidos'],
   ['rev', 'En revisión'],
   ['ok', 'OK'],
   ['notas', 'Con notas'],
@@ -31,6 +32,7 @@ export const FILTROS = [
 export const TEST = {
   todos: () => true,
   pend: (c) => ef(c) === 'ERR',
+  rep: (c, h, rep) => c.estado === 'ERROR' && (rep?.[claveEquipo(c)] || 0) > 1,
   rev: (c) => ef(c) === 'REV',
   ok: (c) => ef(c) === 'OK',
   notas: (c) => (c.notas || []).length > 0,
@@ -40,12 +42,14 @@ export const TEST = {
 };
 
 // Filtros que muestran contador (clave del contador) y los que avisan en rojo
-export const EXTRA = { notas: 'c', tras: 'r', venc: 'v', atr: 'a' };
+export const EXTRA = { rep: 'rr', notas: 'c', tras: 'r', venc: 'v', atr: 'a' };
 export const ALERTA = { venc: 1, atr: 1 };
 
 export function contadores(data, horas) {
+  const rep = repeticiones(data);
   return {
     p: data.filter(TEST.pend).length,
+    rr: data.filter((c) => TEST.rep(c, horas, rep)).length,
     w: data.filter(TEST.rev).length,
     r: data.filter(TEST.tras).length,
     o: data.filter(TEST.ok).length,

@@ -533,6 +533,19 @@ dd {
   border-bottom: 1px solid var(--bd);
   font-size: 14px;
 }
+.hrow-button {
+  width: 100%;
+  color: var(--tx);
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.hrow-button:hover,
+.hrow-button:focus-visible {
+  background: var(--brand-s);
+  outline: none;
+}
 
 @keyframes fade {
   from {

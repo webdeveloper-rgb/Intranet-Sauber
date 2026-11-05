@@ -21,7 +21,8 @@ function correo_backup_cfg(): array
     if (!in_array($config['seguridad'], ['ssl','tls','starttls','none','notls'], true)) {
         throw new CorreoError("Seguridad IMAP no válida: usa 'ssl', 'tls' o 'none'.");
     }
-    $config['dias'] = max(1, min(90, (int) ($config['dias'] ?? 14)));
+    // 0 means search the whole mailbox; positive values limit the lookback window.
+    $config['dias'] = max(0, min(36500, (int) ($config['dias'] ?? 14)));
     $config['max'] = max(1, min(1000, (int) ($config['max'] ?? 300)));
     return $config;
 }
@@ -63,8 +64,10 @@ function correo_importar(string $origen = 'web', ?int $cadaMinutos = null): ?arr
         $imap = @imap_open($mailbox, (string) $config['usuario'], (string) $config['password'], OP_READONLY, 1);
         if (!$imap) throw new CorreoError('No se pudo conectar con el buzón IMAP: ' . (imap_last_error() ?: 'comprueba el servidor y el certificado.'));
 
-        $since = date('d-M-Y', strtotime('-' . $config['dias'] . ' days'));
-        $messages = imap_search($imap, 'SINCE "' . $since . '"') ?: [];
+        $criteria = $config['dias'] === 0
+            ? 'ALL'
+            : 'SINCE "' . date('d-M-Y', strtotime('-' . $config['dias'] . ' days')) . '"';
+        $messages = imap_search($imap, $criteria) ?: [];
         sort($messages, SORT_NUMERIC);
         $new = $ignored = $failed = 0;
         $lastError = null;
