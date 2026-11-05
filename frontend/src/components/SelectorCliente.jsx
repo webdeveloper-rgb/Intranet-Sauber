@@ -10,7 +10,7 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
   const seleccionado = clientes.find((c) => Number(c.id) === Number(value));
   const opciones = useMemo(() => {
     const q = norm(busqueda.trim());
-    return clientes.filter((c) => !q || norm(etiqueta(c)).includes(q)).slice(0, 10);
+    return clientes.filter((c) => !q || norm(etiqueta(c)).includes(q));
   }, [clientes, busqueda]);
 
   const elegir = (cliente) => {
