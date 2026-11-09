@@ -36,7 +36,7 @@ function api_sync_cfg(): array
         'proyecto' => 'demo',    // nombre del proyecto NocoDB
         'tabla_clientes' => 'Cliente',
         'tabla_cliservicios' => 'Cliservicios',
-        'tabla_usuarios' => 'Usuarios',
+        'tabla_usuarios' => 'Usuario',
         'usuarios_permitidos' => ['Maximiliano', 'Miguel', 'Alberto'],
         'servicio_requerido' => 'VBA3KT7GN7',
         'page_size' => 500,      // la API admite hasta 1000 por página

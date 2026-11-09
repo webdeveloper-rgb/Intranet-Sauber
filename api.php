@@ -2,7 +2,8 @@
 declare(strict_types=1);
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/api_utilities.php';
-require __DIR__ . '/src/mail_import.php';
+require __DIR__ . '/src/equipos.php';
+require __DIR__ . '/src/tokens.php';
 require __DIR__ . '/src/copy_service.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -84,7 +85,6 @@ try {
             flush();
         }
         api_sync_auto();
-        correo_backup_auto();
         exit;
     }
 
@@ -98,6 +98,20 @@ try {
         }
         unset($r);
         out(['usuarios' => $rows]);
+    }
+
+    if ($action === 'tokens') {
+        exigir_admin($user);
+        tokens_asegurar_tabla(db());
+        $rows = db()->query("SELECT id, nombre, prefijo, creado_por, activo,
+                DATE_FORMAT(creado,'%Y-%m-%d %H:%i') AS creado,
+                DATE_FORMAT(ultimo_uso,'%Y-%m-%d %H:%i') AS ultimo_uso, ultima_ip,
+                DATE_FORMAT(caduca,'%Y-%m-%d') AS caduca
+                FROM api_tokens ORDER BY id DESC")->fetchAll();
+        foreach ($rows as &$r)
+            $r['activo'] = (int) $r['activo'];
+        unset($r);
+        out(['tokens' => $rows]);
     }
 
     if ($action === 'catalogo') {
@@ -122,11 +136,28 @@ try {
         }
     }
 
-    if ($action === 'correo_sync') {
+    // Alias para el botón "Leer avisos" del frontend: ya no hay nada que leer, los avisos llegan por ingest.php.
+    if ($action === 'copias_sync' || $action === 'correo_sync') {
         exigir_admin($user);
-        asegurar_tablas_sync(db());
-        try { out(['ok'=>true] + correo_importar()); }
-        catch (CorreoError $ex) { fail($ex->getMessage(), 502); }
+        out(['ok' => true, 'leidas' => 0, 'ignoradas' => 0, 'omitidas' => 0, 'errores' => 0,
+            'mensaje' => 'Los avisos llegan solos desde n8n.']);
+    }
+
+    if ($action === 'token_crear') {
+        exigir_admin($user);
+        $nombre = txt($input['nombre'] ?? '', 100);
+        if ($nombre === '')
+            fail('Pon un nombre al token (por ejemplo: n8n producción)');
+        $dias = (int) ($input['dias'] ?? 0);
+        // El token en claro solo se devuelve en esta respuesta; en BD queda su hash.
+        out(['ok' => true] + token_crear($nombre, $user['usuario'], $dias > 0 ? min(3650, $dias) : null), 201);
+    }
+
+    if ($action === 'token_revocar') {
+        exigir_admin($user);
+        tokens_asegurar_tabla(db());
+        db()->prepare('UPDATE api_tokens SET activo = 0 WHERE id = ?')->execute([(int) ($input['id'] ?? 0)]);
+        out(['ok' => true]);
     }
 
     if ($action === 'equipo_asignar') {

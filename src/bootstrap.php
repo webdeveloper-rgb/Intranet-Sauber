@@ -20,7 +20,10 @@ session_set_cookie_params([
     'httponly' => true,
     'samesite' => 'Lax',
 ]);
-session_start();
+// ingest.php (llamado por n8n) no usa sesión: se autentica solo con token.
+if (!defined('SIN_SESION')) {
+    session_start();
+}
 
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
