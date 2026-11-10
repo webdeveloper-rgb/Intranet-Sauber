@@ -23,7 +23,12 @@ try {
         respuesta(['error' => 'Método no permitido'], 405);
     }
 
-    $token = token_validar(token_de_peticion());
+    // Token fijo de config.php ('ingest_token', mínimo 32 caracteres); si no coincide, se prueba con los de tokens.php.
+    $enviado = token_de_peticion();
+    $fijo = (string) cfg('ingest_token', '');
+    $token = (strlen($fijo) >= 32 && is_string($enviado) && hash_equals($fijo, $enviado))
+        ? ['nombre' => 'config']
+        : token_validar($enviado);
     if (!$token) {
         usleep(300000); // frena la fuerza bruta
         header('WWW-Authenticate: Bearer');
@@ -31,24 +36,37 @@ try {
     }
 
     $raw = (string) file_get_contents('php://input', false, null, 0, 1048577);
-    if (strlen($raw) > 1048576) respuesta(['error' => 'Cuerpo demasiado grande (máx. 1 MB)'], 413);
+    if (strlen($raw) > 1048576)
+        respuesta(['error' => 'Cuerpo demasiado grande (máx. 1 MB)'], 413);
     $data = json_decode($raw, true);
-    if (!is_array($data)) respuesta(['error' => 'JSON no válido'], 400);
+    if (!is_array($data))
+        respuesta(['error' => 'JSON no válido'], 400);
 
     // Acepta un objeto, una lista, o {"copias":[...]}
     $items = isset($data['copias']) && is_array($data['copias']) ? $data['copias']
         : (array_is_list($data) ? $data : [$data]);
-    if (!$items) respuesta(['error' => 'No hay copias que procesar'], 400);
-    if (count($items) > INGESTA_MAX_ITEMS) respuesta(['error' => 'Máximo ' . INGESTA_MAX_ITEMS . ' copias por petición'], 413);
+    if (!$items)
+        respuesta(['error' => 'No hay copias que procesar'], 400);
+    if (count($items) > INGESTA_MAX_ITEMS)
+        respuesta(['error' => 'Máximo ' . INGESTA_MAX_ITEMS . ' copias por petición'], 413);
 
     $pdo = db();
     asegurar_tablas_equipos($pdo);
 
     $nuevos = $duplicados = 0;
     $errores = [];
+    $detalle = [];
     foreach ($items as $i => $item) {
         try {
-            ingesta_guardar($pdo, ingesta_normalizar(ingesta_adaptar($item))) ? $nuevos++ : $duplicados++;
+            $r = ingesta_guardar($pdo, ingesta_normalizar(ingesta_adaptar($item)));
+            $r['nuevo'] ? $nuevos++ : $duplicados++;
+            $detalle[] = [
+                'equipo' => $r['equipo'],
+                'software' => $r['software'],
+                'asignado' => $r['asignado'],
+                'cliente' => $r['cliente'],
+                'nuevo' => $r['nuevo']
+            ];
         } catch (InvalidArgumentException $e) {
             $errores[] = ['indice' => $i, 'error' => $e->getMessage()];
         } catch (Throwable $e) {
@@ -67,8 +85,14 @@ try {
         error_log('[copias] log ingesta: ' . $e->getMessage());
     }
 
-    respuesta(['ok' => !$errores, 'recibidos' => count($items), 'nuevos' => $nuevos,
-        'duplicados' => $duplicados, 'errores' => $errores], $nuevos + $duplicados > 0 || !$errores ? 200 : 422);
+    respuesta([
+        'ok' => !$errores,
+        'recibidos' => count($items),
+        'nuevos' => $nuevos,
+        'duplicados' => $duplicados,
+        'detalle' => $detalle,
+        'errores' => $errores
+    ], $nuevos + $duplicados > 0 || !$errores ? 200 : 422);
 } catch (Throwable $e) {
     error_log('[copias] ingest: ' . $e->getMessage());
     respuesta(['error' => cfg('debug') ? $e->getMessage() : 'Error interno del servidor'], 500);
