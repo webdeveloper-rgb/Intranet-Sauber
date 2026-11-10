@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useCallback, useReducer } from 'react';
-import { iniciarSesion } from './api';
+import { useState, useMemo, useEffect, useCallback, useReducer, useRef } from 'react';
+import { iniciarSesion, api } from './api';
 import { useCopias } from './hooks/useCopias';
 import { TEST, norm, contadores, repeticiones, claveEquipo } from './logic';
 import Header from './components/Header';
@@ -30,6 +30,23 @@ export default function App() {
   const [verUsuarios, setVerUsuarios] = useState(false);
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes'
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
+
+  // Casi tiempo real: cada 15 s pregunta (consulta ligera) si hay copias nuevas y, solo entonces, recarga la lista.
+  const cargarRef = useRef(copias.cargar);
+  cargarRef.current = copias.cargar;
+  useEffect(() => {
+    let ultima = null;
+    const t = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const d = await api('novedades');
+        const clave = d.n + ':' + d.m;
+        if (ultima === null) { ultima = clave; return; }
+        if (clave !== ultima) { ultima = clave; cargarRef.current(); }
+      } catch { /* se reintenta en el siguiente ciclo */ }
+    }, 15000);
+    return () => clearInterval(t);
+  }, []);
 
   const { data } = copias;
   const n = useMemo(() => contadores(data, f.horas), [data, f.horas]);
@@ -73,7 +90,7 @@ export default function App() {
             <Tabla rows={paginaCopias.items} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
             <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
               porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />
-            <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos cada minuto.</p>
+            <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos en cuanto llegan copias nuevas.</p>
           </>
         )}
       </main>
