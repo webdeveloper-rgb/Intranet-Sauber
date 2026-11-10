@@ -58,6 +58,8 @@ try {
     $user['rol'] = $vivo['rol'];
     $user['nombre'] = $vivo['nombre'];
 
+    asegurar_tablas_equipos(db()); // migración de columnas (tipo) antes de cualquier consulta
+
     if ($action === 'sesion') {
         out(['usuario' => $user['usuario'], 'nombre' => $user['nombre'] ?: $user['usuario'], 'rol' => $user['rol'], 'csrf' => csrf_token()]);
     }
@@ -139,8 +141,14 @@ try {
     // Alias para el botón "Leer avisos" del frontend: ya no hay nada que leer, los avisos llegan por ingest.php.
     if ($action === 'copias_sync' || $action === 'correo_sync') {
         exigir_admin($user);
-        out(['ok' => true, 'leidas' => 0, 'ignoradas' => 0, 'omitidas' => 0, 'errores' => 0,
-            'mensaje' => 'Los avisos llegan solos desde n8n.']);
+        out([
+            'ok' => true,
+            'leidas' => 0,
+            'ignoradas' => 0,
+            'omitidas' => 0,
+            'errores' => 0,
+            'mensaje' => 'Los avisos llegan solos desde n8n.'
+        ]);
     }
 
     if ($action === 'token_crear') {
@@ -162,16 +170,29 @@ try {
 
     if ($action === 'equipo_asignar') {
         try {
-            $importadas = equipos_asignar_cliente((int)($input['id'] ?? 0), (int)($input['cliente_id'] ?? 0));
+            $importadas = equipos_asignar_cliente((int) ($input['id'] ?? 0), (int) ($input['cliente_id'] ?? 0));
             out(['ok' => true, 'copias_importadas' => $importadas]);
-        } catch (ApiError $ex) { fail($ex->getMessage()); }
+        } catch (ApiError $ex) {
+            fail($ex->getMessage());
+        }
+    }
+
+    if ($action === 'equipo_tipo') {
+        try {
+            equipos_cambiar_tipo((int) ($input['id'] ?? 0), (string) ($input['tipo'] ?? ''));
+            out(['ok' => true]);
+        } catch (ApiError $ex) {
+            fail($ex->getMessage());
+        }
     }
 
     if ($action === 'equipo_desasignar') {
         try {
-            $actualizadas = equipos_desasignar_cliente((int)($input['id'] ?? 0));
+            $actualizadas = equipos_desasignar_cliente((int) ($input['id'] ?? 0));
             out(['ok' => true, 'copias_desasignadas' => $actualizadas]);
-        } catch (ApiError $ex) { fail($ex->getMessage()); }
+        } catch (ApiError $ex) {
+            fail($ex->getMessage());
+        }
     }
 
     if (in_array($action, ['mi_password', 'usuario_crear'], true))
@@ -255,7 +276,8 @@ try {
     }
 
     $c = copia_obtener((int) ($input['id'] ?? 0));
-    if (!$c) fail('Copia no encontrada',404);
+    if (!$c)
+        fail('Copia no encontrada', 404);
     $id = $c['id'];
 
     switch ($action) {

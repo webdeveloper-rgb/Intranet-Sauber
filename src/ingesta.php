@@ -8,6 +8,25 @@ declare(strict_types=1);
 
 const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'VMware', 'Otro'];
 const INGESTA_MAX_ITEMS = 100;
+const INGESTA_TIPOS = ['servidor', 'equipo'];
+
+/**
+ * Decide si un equipo es 'servidor' o 'equipo' (PC/portátil). Devuelve null si no hay datos para decidir
+ * (en ese caso no se toca lo que ya hubiera guardado). Orden: nombre > software > pista de la IA.
+ * Ajusta la expresión a las convenciones de nombres reales de vuestros clientes.
+ */
+function ingesta_detectar_tipo(?string $nombre, ?string $software, $pista = null): ?string
+{
+    $n = (string) $nombre;
+    if (preg_match('/(^|[\s_-])(SRV|SERVER|SERVIDOR|DC|SQL|HV|ESXI?|NAS|TS|RDS|FS|BCK)\d*($|[\s_-])|^(SRV|SERVER|SERVIDOR|DC\d|ESX|NAS)/iu', $n))
+        return 'servidor';
+    if (preg_match('/^(DESKTOP|LAPTOP|PC|WIN)-/iu', $n))
+        return 'equipo';
+    if ($software === 'VMware')
+        return 'servidor';
+    $p = strtolower(trim((string) $pista));
+    return in_array($p, INGESTA_TIPOS, true) ? $p : null;
+}
 
 function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = ''): ?string
 {
@@ -34,7 +53,8 @@ function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = 
 function ingesta_parsear_asunto(string $asunto): array
 {
     $r = ['software' => null, 'nombre' => null, 'sugerido' => null];
-    if (preg_match('/Notificaci[oó]n de Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
+    // Cubre "Notificación de Acronis True Image de X" y "Copia de seguridad execution failed - Acronis True Image de X"
+    if (preg_match('/Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
         $origen = trim($m[1]);
         $r['software'] = 'Acronis';
         $r['nombre'] = $origen;
@@ -100,6 +120,7 @@ function ingesta_adaptar($it)
         'nombre' => $nombre,
         'origen' => $asunto !== '' ? $asunto : $nombre,
         'sugerido' => $cliente !== '' ? $cliente : $p['sugerido'],
+        'tipo_hint' => $it['tipo_equipo'] ?? null,
         'estado' => $estado,
         'desc_error' => $desc,
         'codigo' => $it['codigo'] ?? null,
@@ -146,6 +167,9 @@ function ingesta_normalizar($it): array
         'nombre' => $nombre,
         'origen' => ingesta_texto($it['origen'] ?? null, 200) ?? $nombre,
         'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200),
+        'tipo' => in_array($it['tipo'] ?? null, INGESTA_TIPOS, true)
+            ? $it['tipo']
+            : ingesta_detectar_tipo($nombre, $software, $it['tipo_hint'] ?? $it['tipo_equipo'] ?? null),
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
         'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 2000) : null,
@@ -167,6 +191,11 @@ function ingesta_guardar(PDO $pdo, array $d): array
         $st = $pdo->prepare('SELECT id, cliente_id FROM equipos WHERE software=? AND nombre=?');
         $st->execute([$d['software'], $d['nombre']]);
         $eq = $st->fetch();
+
+        // Tipo detectado: solo si hay dato y el equipo no ha sido corregido a mano desde el panel.
+        if (($d['tipo'] ?? null) !== null) {
+            $pdo->prepare('UPDATE equipos SET tipo=? WHERE id=? AND tipo_manual=0')->execute([$d['tipo'], $eq['id']]);
+        }
 
         // Si el equipo aún no tiene cliente y el nombre sugerido (el de las llaves del asunto) coincide
         // con UN solo cliente activo, se asigna solo. Si no coincide, queda "Sin asignar" con la sugerencia.
