@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api';
 import { norm, TIPOS } from '../logic';
 import Paginacion from './Paginacion';
@@ -37,19 +37,34 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
   const [resumen, setResumen] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(null);
+  const cargaActual = useRef(0);
+  const equiposActuales = useRef([]);
+  const sincronizando = useRef(false);
+  const [cambiosAsignacion, setCambiosAsignacion] = useState(null);
 
-  const cargar = useCallback(async (silencioso = false) => {
-    if (!silencioso) setCargando(true);
+  const cargar = useCallback(async (silencioso = false, duranteSync = false) => {
+    if (sincronizando.current && !duranteSync) return { error: '', actualizado: false };
+    const carga = ++cargaActual.current;
+    if (!silencioso && !equiposActuales.current.length) setCargando(true);
     try {
       const [c, e] = await Promise.all([api('catalogo'), api('equipos')]);
+      if (carga !== cargaActual.current) return { error: '', actualizado: false };
+      if (!Array.isArray(e.equipos)) throw new Error('La respuesta de equipos no es válida.');
+      if (equiposActuales.current.length && !e.equipos.length) {
+        throw new Error('La actualización devolvió una lista de equipos vacía. Se mantienen los datos anteriores.');
+      }
       setCat(c);
+      equiposActuales.current = e.equipos;
       setEquipos(e.equipos);
-      setUltimaLectura(e.correo);
+      if (e.correo) setUltimaLectura(e.correo);
       setFallo('');
+      return { error: '', actualizado: true };
     } catch (e) {
+      if (carga !== cargaActual.current) return { error: '', actualizado: false };
       setFallo(e.message);
+      return { error: e.message, actualizado: false };
     } finally {
-      if (!silencioso) setCargando(false);
+      if (carga === cargaActual.current) setCargando(false);
     }
   }, []);
 
@@ -60,11 +75,39 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
   }, [cargar]);
 
   const sincronizar = async () => {
+    if (sincronizando.current) return;
+    sincronizando.current = true;
+    cargaActual.current += 1;
+    const asignacionesAnteriores = new Map(equiposActuales.current.map((equipo) => [equipo.id, equipo.cliente_id ?? null]));
     setSync(true);
     setFallo('');
-    try { setResumen(await api('sync', {})); await cargar(true); }
-    catch (e) { setFallo(e.message); }
-    finally { setSync(false); }
+    setResumen(null);
+    setCambiosAsignacion(null);
+    let falloSync = '';
+    try { setResumen(await api('sync', {})); }
+    catch (e) { falloSync = e.message; }
+    try {
+      const resultado = await cargar(true, true);
+      if (resultado.actualizado) {
+        const actuales = new Map(equiposActuales.current.map((equipo) => [equipo.id, equipo.cliente_id ?? null]));
+        const ids = new Set([...asignacionesAnteriores.keys(), ...actuales.keys()]);
+        const idsCambiados = [...ids].filter((id) => (asignacionesAnteriores.get(id) ?? null) !== (actuales.get(id) ?? null));
+        setCambiosAsignacion(idsCambiados.length);
+        if (idsCambiados.length) {
+          setAsignaciones((actuales) => {
+            const nuevas = { ...actuales };
+            idsCambiados.forEach((id) => delete nuevas[id]);
+            return nuevas;
+          });
+        }
+      }
+      if (falloSync) {
+        setFallo(resultado.error ? `${falloSync}. No se pudieron actualizar los datos: ${resultado.error}` : falloSync);
+      }
+    } finally {
+      sincronizando.current = false;
+      setSync(false);
+    }
   };
 
   const asignar = async (equipo) => {
@@ -147,6 +190,9 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
         </div>
         {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Sincronizar clientes'}</button>}
       </div>
+      {sync && <p className="sync-estado" role="status" aria-live="polite">
+        Sincronizando clientes. Los equipos actuales permanecen visibles.
+      </p>}
 
       {ultimaLectura && <p className={`mail-estado${ultimaLectura.ok === 0 ? ' mail-estado-error' : ''}`}>
         Última recepción de avisos: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : 'correcta'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos
@@ -166,6 +212,11 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
         {resumen.total_api_clientes != null && ` En la API: ${resumen.total_api_clientes} clientes y ${resumen.filas_con_servicio} filas con el servicio ${resumen.servicio}.`}
         {resumen.filas_sin_cliente > 0 && ` ${resumen.filas_sin_cliente} filas con el servicio no encuentran su cliente (${(resumen.ejemplos_sin_cliente || []).slice(0, 5).join(' | ')}).`}
       </div>}
+      {cambiosAsignacion !== null && <p className="sync-cambios" role="status">
+        {cambiosAsignacion
+          ? `La asignación de ${cambiosAsignacion} equipo${cambiosAsignacion === 1 ? '' : 's'} cambió durante la sincronización.`
+          : 'No cambiaron las asignaciones de equipos.'}
+      </p>}
 
       {cargando && !equipos.length ? <div className="mapeo-vacio">Cargando equipos…</div> : equiposFiltrados.length ? (
         <div className="mapeo-lista">

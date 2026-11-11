@@ -3,19 +3,27 @@ import { FILTROS, EXTRA, ALERTA, PROGRAMAS } from '../logic';
 export default function Filtros({ filtro, setFiltro, n, f, setF, resultados }) {
   const { cli, tipo, desde, hasta, horas } = f;
   const hayFiltros = cli || tipo || desde || hasta;
+  const filtroAlerta = ALERTA[filtro] && n[EXTRA[filtro]] > 0;
+  const alertas = (n.sc || 0) + (n.v || 0) + (n.a || 0);
   return (
-    <>
-      <div className="bar">
-        {FILTROS.map(([k, t]) => {
-          const cls = (filtro === k ? 'on' : '') + (ALERTA[k] && n[EXTRA[k]] > 0 && filtro !== k ? ' al' : '');
-          return (
-            <button key={k} className={cls} onClick={() => setFiltro(k)}>
-              {t}{EXTRA[k] ? ` (${n[EXTRA[k]]})` : ''}
-            </button>
-          );
-        })}
-      </div>
       <div className="fil">
+        <label className="fil-estado" htmlFor="filtro-copias">
+          <span>Estado</span>
+          <select id="filtro-copias" aria-label="Filtrar copias por estado"
+          className={filtroAlerta ? 'al' : ''}
+          value={filtro} onChange={(e) => setFiltro(e.target.value)}>
+            {FILTROS.map(([k, t]) => (
+              <option key={k} value={k}>
+                {t}{EXTRA[k] ? ` (${n[EXTRA[k]]})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className={`aviso-cuenta${alertas ? ' activa' : ''}`}
+          title={`Avisos: ${n.sc || 0} sin copia, ${n.v || 0} recordatorios vencidos y ${n.a || 0} errores atrasados`}
+          aria-label={`Avisos: ${alertas}`}>
+          Avisos <strong>{alertas}</strong>
+        </span>
         <input type="search" placeholder="Buscar cliente…" aria-label="Buscar cliente" value={cli}
           onChange={(e) => setF({ cli: e.target.value })} />
         <label>Tipo{' '}
@@ -41,6 +49,5 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados }) {
           </select>
         </label>
       </div>
-    </>
   );
 }

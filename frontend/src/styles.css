@@ -184,35 +184,6 @@ main {
 }
 
 /* ===== Filtros ===== */
-.bar {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-.bar button {
-  background: var(--card);
-  border: 1px solid var(--bd);
-  border-radius: 99px;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-.bar button:hover {
-  border-color: var(--brand);
-}
-.bar button.al {
-  border-color: var(--er);
-  color: var(--er);
-}
-.bar button.on {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
-  font-weight: 600;
-}
 .fil {
   display: flex;
   gap: 10px;
@@ -238,6 +209,31 @@ main {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.fil-estado {
+  white-space: nowrap;
+}
+.fil .fil-estado select {
+  min-width: 190px;
+}
+.fil .fil-estado select.al {
+  border-color: var(--er);
+  color: var(--er);
+}
+.fil-estado select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.aviso-cuenta {
+  color: var(--mut);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.aviso-cuenta.activa {
+  color: var(--er);
+}
+.aviso-cuenta strong {
+  font-variant-numeric: tabular-nums;
 }
 .cnt {
   color: var(--mut);
@@ -888,6 +884,16 @@ tbody tr.sin-copia {
 .mail-estado-error {
   color: var(--er);
 }
+.sync-estado {
+  margin: -4px 0 12px;
+  color: var(--brand-t);
+  font-size: 12px;
+}
+.sync-cambios {
+  margin: 8px 0 12px;
+  color: var(--mut);
+  font-size: 12px;
+}
 .mapeo-lista {
   display: grid;
   gap: 10px;
@@ -1451,14 +1457,6 @@ header {
 .directorio-panel,
 .cli {
   box-shadow: none;
-}
-.bar button {
-  border-radius: 7px;
-}
-.bar button.on {
-  background: var(--brand-s);
-  border-color: var(--bd);
-  color: var(--tx);
 }
 .wrap > table:not(.sin-copia-table) {
   min-width: 1120px;
