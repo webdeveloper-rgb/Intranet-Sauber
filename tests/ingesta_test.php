@@ -19,6 +19,9 @@ $same(
 $same('servidor', ingesta_clasificar_nombre('ACME_SRV-SQL01')['tipo'], 'servidor SRV');
 $same('servidor', ingesta_clasificar_nombre('ACME_SERVIDOR')['tipo'], 'servidor español');
 $same('EuroAgro', ingesta_clasificar_nombre('ACME_EuroAgro_v2')['programa'], 'nombre de programa');
+$same('usuario', ingesta_clasificar_nombre('DESKTOP-AI8MRE3')['tipo'], 'equipo Windows sin prefijo de cliente');
+$same('usuario', ingesta_clasificar_nombre('LAPTOP-LUCIA')['tipo'], 'portátil Windows sin prefijo de cliente');
+$same('servidor', ingesta_clasificar_nombre('ESXI-HOST01')['tipo'], 'host VMware sin prefijo de cliente');
 $same(null, ingesta_clasificar_nombre('copia nocturna 2026-04-15')['tipo'], 'nombre irreconocible');
 
 $acronis = ingesta_parsear_asunto('Notificación de Acronis True Image de ACME_PC-WS01');

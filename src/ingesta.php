@@ -45,6 +45,12 @@ function ingesta_clasificar_nombre(?string $nombre): array
                 $canon = $p;
         return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'programa', 'programa' => $canon];
     }
+    if (preg_match('/^(?:PC|DESKTOP|LAPTOP|WIN)[-_ ][A-Z0-9][A-Z0-9._-]*$/iu', $n)) {
+        return ['empresa' => null, 'tipo' => 'usuario', 'programa' => null];
+    }
+    if (preg_match('/^(?:SRV|SERVER|SERVIDOR|ESX|ESXI|VM)[-_ ][A-Z0-9][A-Z0-9._-]*$/iu', $n)) {
+        return ['empresa' => null, 'tipo' => 'servidor', 'programa' => null];
+    }
     return $r;
 }
 
