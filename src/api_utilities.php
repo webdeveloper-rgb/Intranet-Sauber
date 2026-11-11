@@ -37,7 +37,7 @@ function api_sync_cfg(): array
         'tabla_clientes' => 'Cliente',
         'tabla_cliservicios' => 'Cliservicios',
         'tabla_usuarios' => 'Usuario',
-        'usuarios_permitidos' => ['Maximiliano', 'Miguel', 'Alberto'],
+        'usuarios_permitidos' => ['dni' => [], 'correo_nombre' => []],
         'servicio_requerido' => 'VBA3KT7GN7',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
@@ -95,17 +95,24 @@ function api_sync_token(array $c): string
 }
 
 /** Descarga todas las filas de una tabla, página a página. */
-function api_sync_todo(array $c, string $token, string $tabla): array
+function api_sync_todo(array $c, string $token, string $tabla, ?string $where = null): array
 {
     $base = rtrim((string) $c['base_url'], '/') . '/db/data/' . rawurlencode((string) $c['org']) . '/'
         . rawurlencode((string) $c['proyecto']) . '/' . rawurlencode($tabla);
-    $lim = max(1, min(1000, (int) $c['page_size']));
+    $lim = $where !== null
+        ? min(5, max(1, (int) $c['page_size']))
+        : max(1, min(1000, (int) $c['page_size']));
     $filas = [];
     $offset = 0;
     for ($i = 0; $i < 2000; $i++) { // tope de seguridad
         [$st, $j] = api_sync_http(
             'GET',
-            $base . '?limit=' . $lim . '&offset=' . $offset,
+            $base . '?' . http_build_query(
+                array_filter(['limit' => $lim, 'offset' => $offset, 'where' => $where], static fn($v) => $v !== null),
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            ),
             ['xc-auth: ' . $token, 'Accept: application/json'],
             null,
             (int) $c['timeout']
@@ -135,6 +142,9 @@ function api_sync_todo(array $c, string $token, string $tabla): array
                 $filas[] = $r;
             }
         }
+        if ($where !== null) {
+            break;
+        }
         $n = count($lista);
         $ultima = $j['pageInfo']['isLastPage'] ?? ($n < $lim);
         if ($ultima || $n === 0) {
@@ -150,48 +160,95 @@ function api_autenticar_usuario(string $identificador, string $password): ?array
 {
     $c = api_sync_cfg();
     $serviceToken = api_sync_token($c);
-    $allowedUsers = api_sync_todo($c, $serviceToken, (string)$c['tabla_usuarios']);
-    $normalizeDni = static fn($value) => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper(trim((string)$value), 'UTF-8'));
-    $normalize = static fn($value) => mb_strtolower(trim((string)$value), 'UTF-8');
+    $normalizeDni = static fn($value) => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper(trim((string) $value), 'UTF-8'));
+    $normalize = static fn($value) => mb_strtolower(trim((string) $value), 'UTF-8');
     $esCorreo = strpos($identificador, '@') !== false;
     $identificadorBuscado = $esCorreo ? $normalize($identificador) : $normalizeDni($identificador);
-    $permitidos = (array)$c['usuarios_permitidos'];
-    $dnisPermitidos = array_map($normalizeDni, (array)($permitidos['dni'] ?? []));
-    $nombresConCorreo = array_map($normalize, (array)($permitidos['correo_nombre'] ?? []));
+    $permitidos = (array) $c['usuarios_permitidos'];
+    $dnisPermitidos = array_map($normalizeDni, (array) ($permitidos['dni'] ?? []));
+    $nombresConCorreo = array_map($normalize, (array) ($permitidos['correo_nombre'] ?? []));
 
-    foreach ($allowedUsers as $row) {
-        // En la respuesta real de Usuario, el DNI puede venir en Cif o User.
-        $dniApi = api_sync_primero($row, ['DNI', 'NIF', 'Cif', 'Documento', 'NumeroDocumento', 'Identificacion', 'User'], 30);
-        $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
-        $primerNombre = $normalize((string)(preg_split('/\\s+/u', trim($nombre))[0] ?? ''));
-        $emailApi = api_sync_primero($row, ['Email', 'Correo', 'Mail', 'EMail'], 150);
-
-        if ($esCorreo) {
-            $nombreCorreo = $emailApi !== null ? $normalize((string)(strstr($emailApi, '@', true) ?: '')) : '';
-            if ($emailApi === null || $normalize($emailApi) !== $identificadorBuscado
-                || (!in_array($primerNombre, $nombresConCorreo, true) && !in_array($nombreCorreo, $nombresConCorreo, true))) continue;
-        } else {
-            if ($dniApi === null || $normalizeDni($dniApi) !== $identificadorBuscado || !in_array($identificadorBuscado, $dnisPermitidos, true)) continue;
-        }
-
-        foreach ($row as $field => $value) {
-            $field = mb_strtolower((string)$field, 'UTF-8');
-            if (in_array($field, ['baja', 'deleted', 'eliminado'], true)) {
-                if ($value === true || $value === 1 || (is_string($value) && in_array($normalize($value), ['1', 'true', 'si', 'sí'], true))) return null;
+    $campos = $esCorreo
+        ? ['Email', 'Correo', 'Mail', 'EMail']
+        : ['DNI', 'NIF', 'Cif', 'Documento', 'NumeroDocumento', 'Identificacion', 'User'];
+    foreach ($campos as $campo) {
+        $valorFiltro = str_replace(['\\', ',', '(', ')'], ['\\\\', '\\,', '\\(', '\\)'], $identificador);
+        try {
+            $allowedUsers = api_sync_todo(
+                $c,
+                $serviceToken,
+                (string) $c['tabla_usuarios'],
+                '(' . $campo . ',eq,' . $valorFiltro . ')'
+            );
+        } catch (ApiError $e) {
+            if (str_contains($e->getMessage(), '(HTTP 400)')) {
                 continue;
             }
-            if (!in_array($field, ['activo', 'active', 'enabled', 'habilitado', 'estado'], true)) continue;
-            if ($value === false || $value === 0 || (is_string($value) && in_array($normalize($value), ['0', 'false', 'no', 'inactivo', 'desactivado', 'baja'], true))) return null;
+            throw $e;
         }
-
-        $hash = api_sync_campo($row, 'Securepassword', 255);
-        if ($hash === null || !preg_match('/^\\$2[aby]\\$\\d{2}\\$/', $hash)) {
-            throw new ApiError('El campo Securepassword no contiene un hash bcrypt compatible.');
+        if (!$allowedUsers) {
+            continue;
         }
-        if (!password_verify($password, $hash)) return null;
+        foreach ($allowedUsers as $row) {
+            $dniApi = api_sync_primero($row, ['DNI', 'NIF', 'Cif', 'Documento', 'NumeroDocumento', 'Identificacion', 'User'], 30);
+            $nombre = api_sync_primero($row, ['NombreCompleto', 'Nombre Completo', 'Nombre', 'Nombres', 'DisplayName'], 100) ?? '';
+            $primerNombre = $normalize((string) (preg_split('/\\s+/u', trim($nombre))[0] ?? ''));
+            $emailApi = api_sync_primero($row, ['Email', 'Correo', 'Mail', 'EMail'], 150);
 
-        $usuarioLocal = $esCorreo ? ($emailApi ?? $identificador) : $dniApi;
-        return ['usuario' => $usuarioLocal, 'nombre' => $nombre !== '' ? $nombre : $usuarioLocal];
+            if ($esCorreo) {
+                $nombreCorreo = $emailApi !== null ? $normalize((string) (strstr($emailApi, '@', true) ?: '')) : '';
+                if (
+                    $emailApi === null
+                    || $normalize($emailApi) !== $identificadorBuscado
+                    || (!in_array($primerNombre, $nombresConCorreo, true) && !in_array($nombreCorreo, $nombresConCorreo, true))
+                ) {
+                    continue;
+                }
+            } elseif (
+                $dniApi === null
+                || $normalizeDni($dniApi) !== $identificadorBuscado
+                || !in_array($identificadorBuscado, $dnisPermitidos, true)
+            ) {
+                continue;
+            }
+
+            foreach ($row as $field => $value) {
+                $field = mb_strtolower((string) $field, 'UTF-8');
+                if (in_array($field, ['baja', 'deleted', 'eliminado'], true)) {
+                    if ($value === true || $value === 1 || (is_string($value) && in_array($normalize($value), ['1', 'true', 'si', 'sí'], true))) {
+                        continue 2;
+                    }
+                    continue;
+                }
+                if (!in_array($field, ['activo', 'active', 'enabled', 'habilitado', 'estado'], true)) {
+                    continue;
+                }
+                if ($value === false || $value === 0 || (is_string($value) && in_array($normalize($value), ['0', 'false', 'no', 'inactivo', 'desactivado', 'baja'], true))) {
+                    continue 2;
+                }
+            }
+
+            $hash = api_sync_campo($row, 'Securepassword', 255);
+            if ($hash === null || !preg_match('/^\\$2[aby]\\$\\d{2}\\$/', $hash)) {
+                throw new ApiError('El campo Securepassword no contiene un hash bcrypt compatible.');
+            }
+            if (!password_verify($password, $hash)) {
+                continue;
+            }
+
+            $apiUserId = api_sync_primero($row, ['Id', 'id', 'UserId', 'IdUsuario', 'uid'], 100);
+            $identidadEstable = $apiUserId ?? $dniApi ?? $emailApi;
+            if ($identidadEstable === null) {
+                throw new ApiError('El usuario de la API no tiene un identificador estable.');
+            }
+            $usuarioLocal = 'api_' . substr(hash('sha256', $identidadEstable), 0, 40);
+            return [
+                'usuario' => $usuarioLocal,
+                'api_user_id' => $identidadEstable,
+                'aliases' => array_values(array_unique(array_filter([$dniApi, $emailApi]))),
+                'nombre' => $nombre !== '' ? $nombre : $usuarioLocal,
+            ];
+        }
     }
     return null;
 }
@@ -294,6 +351,10 @@ function api_sync_clientes_con_servicio(array $clientes, array $cliservicios, st
 
 function asegurar_tablas_sync(PDO $pdo): void
 {
+    if (!defined('SCHEMA_MIGRATING')) {
+        schema_exigir_migraciones($pdo);
+        return;
+    }
     static $hecho = false;
     if ($hecho) {
         return;
@@ -314,7 +375,7 @@ function asegurar_tablas_sync(PDO $pdo): void
 
 /**
  * Sincroniza clientes. Devuelve un resumen o lanza ApiError.
- * $origen: 'cli' (tarea programada), 'web' (botón) o 'auto' (automática al usar el panel).
+ * $origen: 'cli' (tarea programada) o 'web' (acción administrativa).
  * Con $cadaMinutos no sincroniza si ya hubo un intento hace menos de ese tiempo y devuelve null.
  */
 function api_sync(string $origen, ?int $cadaMinutos = null): ?array
@@ -342,6 +403,9 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $clientes = api_sync_todo($c, $token, (string) $c['tabla_clientes']);
         $cliservicios = api_sync_todo($c, $token, (string) $c['tabla_cliservicios']);
         $clientesConServicio = api_sync_clientes_con_servicio($clientes, $cliservicios, (string)$c['servicio_requerido']);
+        if (!$clientes || !$cliservicios || !$clientesConServicio) {
+            throw new ApiError('La API no devolvió clientes con el servicio requerido. No se modificó el catálogo local.');
+        }
 
         $ahora = date('Y-m-d H:i:s');
         $json = fn(array $r) => json_encode($r, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -350,13 +414,13 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         if (function_exists('asegurar_tablas_equipos')) asegurar_tablas_equipos($pdo);
 
         $pdo->beginTransaction();
+        $clientesActivos = (int) $pdo->query('SELECT COUNT(*) FROM clientes WHERE activo=1')->fetchColumn();
 
         $st = $pdo->prepare(
             'INSERT INTO clientes (clave, codigo, nombre, cif, email, telefono, localidad, provincia, datos, activo, visto)
              VALUES (?,?,?,?,?,?,?,?,?,1,?)
-             ON DUPLICATE KEY UPDATE codigo=VALUES(codigo), nombre=VALUES(nombre), cif=VALUES(cif), email=VALUES(email),
-                telefono=VALUES(telefono), localidad=VALUES(localidad), provincia=VALUES(provincia), datos=VALUES(datos),
-                activo=1, visto=VALUES(visto)'
+             ON DUPLICATE KEY UPDATE codigo=?, nombre=?, cif=?, email=?, telefono=?, localidad=?, provincia=?, datos=?,
+                activo=1, visto=?'
         );
         $pdo->exec('UPDATE clientes SET activo = 0');
         $nCli = 0;
@@ -368,7 +432,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 continue;
             }
             if (!isset($clientesConServicio[$clave])) continue;
-            $st->execute([
+            $values = [
                 $clave,
                 $codigo,
                 api_sync_primero($r, ['Nombre', 'RazonSocial', 'Razon_Social']) ?? '',
@@ -379,14 +443,18 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 api_sync_primero($r, ['Provincia'], 100),
                 $json($r),
                 $ahora,
-            ]);
+            ];
+            $st->execute(array_merge($values, array_slice($values, 1)));
             $nCli++;
         }
 
-        // El catálogo arranca limpio: equipos pierden la asignación a clientes excluidos,
-        // pero el historial de copias/notas se conserva con su texto original.
-        $pdo->exec('UPDATE equipos e INNER JOIN clientes c ON c.id=e.cliente_id SET e.cliente_id=NULL WHERE c.activo=0');
-        $pdo->exec('DELETE FROM clientes WHERE activo=0');
+        if ($nCli === 0) {
+            throw new ApiError('La sincronización no encontró ningún cliente válido con el servicio requerido. No se modificó el catálogo local.');
+        }
+        $maxCaida = max(0, min(100, (int) ($c['sync_max_caida_pct'] ?? 30)));
+        if ($clientesActivos > 0 && $nCli < (int) ceil($clientesActivos * (100 - $maxCaida) / 100)) {
+            throw new ApiError("La sincronización devolvería una caída superior al {$maxCaida}% de clientes ({$clientesActivos} actuales, {$nCli} recibidos). No se modificó el catálogo local.");
+        }
 
         $pdo->commit();
 
@@ -417,22 +485,6 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
     }
 }
 
-function api_sync_auto(): void
-{
-    if (!api_sync_configurado()) {
-        return;
-    }
-    $min = (int) (api_sync_conf()['sync_minutos'] ?? 15);
-    if ($min <= 0) {
-        return;
-    }
-    try {
-        api_sync('auto', $min);
-    } catch (Throwable $e) {
-        error_log('[copias] sincronización automática: ' . $e->getMessage());
-    }
-}
-
 /** Catálogo guardado de clientes. */
 function api_sync_catalogo(): array
 {
@@ -454,21 +506,11 @@ function api_sync_catalogo(): array
         'clientes' => $out,
         'ultima' => $ult,
         'configurado' => api_sync_configurado(),
-        'auto_minutos' => api_sync_configurado() ? (int) (api_sync_conf()['sync_minutos'] ?? 15) : 0,
     ];
 }
 
-/** Como api_sync_catalogo(), pero si nunca se ha sincronizado lo hace ahora (primera vez). */
+/** Compatibilidad con la antigua llamada inicial; no inicia una sincronización desde la web. */
 function api_sync_catalogo_inicial(): array
 {
-    $cat = api_sync_catalogo();
-    if (!$cat['clientes'] && !$cat['ultima'] && $cat['configurado']) {
-        try {
-            api_sync('auto');
-        } catch (Throwable $e) {
-            error_log('[copias] primera sincronización: ' . $e->getMessage());
-        }
-        $cat = api_sync_catalogo();
-    }
-    return $cat;
+    return api_sync_catalogo();
 }

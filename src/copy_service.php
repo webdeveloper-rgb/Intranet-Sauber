@@ -12,6 +12,7 @@ function copia_fila(array $row): array
 
 const SQL_COPIA = "SELECT id, DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha, cliente, equipo, estado, desc_error,
     codigo, software, destino, tamano, duracion, tipo, programa, intentos, revisado, revisado_por,
+    DATE_FORMAT(fecha,'%Y-%m-%d %H:%i:%s') AS cursor_fecha,
     DATE_FORMAT(revisado_fecha,'%Y-%m-%d %H:%i') AS revisado_fecha, revision_desc, seg,
     DATE_FORMAT(recordar,'%Y-%m-%d') AS recordar FROM copias";
 
@@ -79,4 +80,27 @@ function copias_sin_recibir(PDO $pdo): array
             )
         ORDER BY e.nombre,e.id";
     return $pdo->query($sql)->fetchAll();
+}
+
+function copias_sin_recibir_cache(PDO $pdo): array
+{
+    $key = hash('sha256', 'copias_sin_recibir:v1');
+    $st = $pdo->prepare('SELECT payload FROM panel_cache WHERE cache_key=? AND expires_at>NOW()');
+    $st->execute([$key]);
+    $payload = $st->fetchColumn();
+    if (is_string($payload)) {
+        $cached = json_decode($payload, true);
+        if (is_array($cached)) {
+            return $cached;
+        }
+    }
+
+    $rows = copias_sin_recibir($pdo);
+    $payload = json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($payload === false) {
+        throw new RuntimeException('No se pudo serializar la caché de equipos sin copia.');
+    }
+    $st = $pdo->prepare('REPLACE INTO panel_cache (cache_key,payload,expires_at) VALUES (?,?,DATE_ADD(NOW(), INTERVAL 60 SECOND))');
+    $st->execute([$key, $payload]);
+    return $rows;
 }

@@ -26,8 +26,11 @@ return [
             'correo_nombre' => ['Alberto'],
         ],
         'servicio_requerido' => 'VBA3KT7GN7',
-        'sync_minutos' => 15,
+        'sync_max_caida_pct' => 30,
     ],
+
+    // DNI o correo de las personas administradoras; usa los mismos datos autorizados en api_sync.
+    'admins' => ['DNI_MAXIMILIANO'],
 
     // Zona horaria
     'timezone' => 'Europe/Madrid',
@@ -50,4 +53,13 @@ return [
 
     // Mostrar errores técnicos en pantalla (false en producción)
     'debug' => false,
+
+    // Horas sin recepción de n8n antes de alertar en el panel.
+    'ingest_alert_hours' => 24,
+
+    // Retención de logs y staging ya importado; nunca elimina copias finales ni staging pendiente.
+    'maintenance_retention_days' => 365,
+
+    // Actívalo solo si el proxy inverso está configurado y controlado por ti.
+    'trust_proxy_https' => false,
 ];

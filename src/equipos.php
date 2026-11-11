@@ -6,6 +6,10 @@ require_once __DIR__ . '/ingesta.php';
 
 function asegurar_tablas_equipos(PDO $pdo): void
 {
+    if (!defined('SCHEMA_MIGRATING')) {
+        schema_exigir_migraciones($pdo);
+        return;
+    }
     static $hecho = false;
     if ($hecho)
         return;
@@ -80,12 +84,30 @@ function equipos_listado(): array
         $row['vigilar'] = (int) $row['vigilar'];
     }
     unset($row);
-    $mailRun = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,nuevos,ignorados,mensaje,origen
-        FROM correo_sync_log ORDER BY id DESC LIMIT 1")->fetch() ?: null;
+    $mailRun = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,nuevos,ignorados,mensaje,origen,
+        TIMESTAMPDIFF(MINUTE,inicio,NOW()) AS minutos_desde
+        FROM correo_sync_log WHERE origen='n8n' ORDER BY id DESC LIMIT 1")->fetch() ?: null;
+    $horasAlerta = max(1, (int) cfg('ingest_alert_hours', 24));
     if ($mailRun) {
         $mailRun['ok'] = $mailRun['ok'] !== null ? (int) $mailRun['ok'] : null;
         $mailRun['nuevos'] = (int) $mailRun['nuevos'];
         $mailRun['ignorados'] = (int) $mailRun['ignorados'];
+        $mailRun['alerta'] = (int) $mailRun['minutos_desde'] >= $horasAlerta * 60;
+        $mailRun['horas_desde'] = (int) floor((int) $mailRun['minutos_desde'] / 60);
+        $mailRun['umbral_horas'] = $horasAlerta;
+        unset($mailRun['minutos_desde']);
+    } else {
+        $mailRun = [
+            'fecha' => null,
+            'ok' => null,
+            'nuevos' => 0,
+            'ignorados' => 0,
+            'mensaje' => null,
+            'origen' => null,
+            'alerta' => true,
+            'horas_desde' => null,
+            'umbral_horas' => $horasAlerta,
+        ];
     }
     return ['equipos' => $rows, 'correo' => $mailRun];
 }
@@ -105,6 +127,14 @@ function equipos_asignar_cliente(int $equipoId, int $clienteId): int
         if (!$st->fetchColumn())
             throw new ApiError('Cliente no válido');
         $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([$clienteId, $equipoId]);
+        $st = $pdo->prepare('SELECT nombre,tipo,programa FROM equipos WHERE id=?');
+        $st->execute([$equipoId]);
+        $equipo = $st->fetch();
+        $st = $pdo->prepare('SELECT nombre FROM clientes WHERE id=?');
+        $st->execute([$clienteId]);
+        $cliente = (string) $st->fetchColumn();
+        $pdo->prepare('UPDATE copias SET cliente=?,equipo=?,tipo=?,programa=? WHERE equipo_id=?')
+            ->execute([$cliente, $equipo['nombre'], $equipo['tipo'], $equipo['programa'], $equipoId]);
         $imported = correo_importar_equipo($equipoId, $clienteId, $pdo);
         $pdo->commit();
         return $imported;
@@ -189,10 +219,9 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
 
     $pending = $pdo->prepare('SELECT * FROM correo_copias WHERE equipo_id=? AND importada=0 ORDER BY fecha,id');
     $pending->execute([$equipoId]);
-    $insert = $pdo->prepare('INSERT IGNORE INTO copias (fecha,cliente,equipo,equipo_id,estado,desc_error,codigo,software,destino,tamano,duracion,huella,tipo,programa)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    $insert = $pdo->prepare('INSERT INTO copias (fecha,cliente,equipo,equipo_id,estado,desc_error,codigo,software,destino,tamano,duracion,huella,tipo,programa)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
     $mark = $pdo->prepare('UPDATE correo_copias SET importada=1 WHERE id=?');
-    $pdo->prepare('UPDATE copias SET cliente=?,equipo=?,tipo=?,programa=? WHERE equipo_id=?')->execute([$customer, $equipment, $eqRow['tipo'], $eqRow['programa'], $equipoId]);
     $count = 0;
     foreach ($pending as $copy) {
         $insert->execute([
@@ -211,6 +240,9 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
             $eqRow['tipo'],
             $eqRow['programa']
         ]);
+        if ($pdo->query('SHOW WARNINGS')->fetchColumn()) {
+            throw new RuntimeException('La copia contiene datos que la base de datos no pudo guardar completos.');
+        }
         $mark->execute([$copy['id']]);
         $count += $insert->rowCount();
     }

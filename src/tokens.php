@@ -10,6 +10,10 @@ declare(strict_types=1);
 
 function tokens_asegurar_tabla(PDO $pdo): void
 {
+    if (!defined('SCHEMA_MIGRATING')) {
+        schema_exigir_migraciones($pdo);
+        return;
+    }
     static $hecho = false;
     if ($hecho) return;
     $pdo->exec("CREATE TABLE IF NOT EXISTS api_tokens (

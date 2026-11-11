@@ -64,19 +64,18 @@ try {
 
     // Detecta copias nuevas y cambios en las alertas de equipos sin copia.
     if ($action === 'novedades') {
-        $r = db()->query('SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
+        $r = db()->query('SELECT COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
         if (empty($_SESSION['mig_tipos']) || empty($_SESSION['mig_dias_copia'])) {
             asegurar_tablas_equipos(db());
             $_SESSION['mig_tipos'] = 1;
             $_SESSION['mig_dias_copia'] = 1;
         }
-        $sinCopia = copias_sin_recibir(db());
+        $sinCopia = copias_sin_recibir_cache(db());
         $ausentes = array_map(
             static fn($c) => [$c['id'], $c['cliente'], $c['equipo'], $c['fecha_esperada'], $c['fecha'], $c['ultima_copia']],
             $sinCopia
         );
         out([
-            'n' => (int) $r['n'],
             'm' => (int) $r['m'],
             'ausentes' => hash('sha256', json_encode($ausentes, JSON_UNESCAPED_UNICODE)),
         ]);
@@ -88,9 +87,17 @@ try {
             $_SESSION['mig_tipos'] = 1;
             $_SESSION['mig_dias_copia'] = 1;
         }
-        $rows = db()->query(SQL_COPIA . " ORDER BY fecha DESC, id DESC LIMIT 3000")->fetchAll();
+        $rows = db()->query(SQL_COPIA . " WHERE fecha >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+            ORDER BY cursor_fecha DESC, id DESC LIMIT 3001")->fetchAll();
+        $hasMore = count($rows) > 3000;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+        if (!$hasMore) {
+            $hasMore = (bool) db()->query('SELECT 1 FROM copias WHERE fecha < DATE_SUB(NOW(), INTERVAL 60 DAY) LIMIT 1')->fetchColumn();
+        }
         $rows = array_map('copia_fila', $rows);
-        $rows = array_merge(copias_sin_recibir(db()), $rows);
+        $rows = array_merge(copias_sin_recibir_cache(db()), $rows);
         $notas = copia_notas_de(array_column(
             array_filter($rows, static fn($row) => ($row['codigo'] ?? null) !== 'SIN_COPIA'),
             'id'
@@ -99,7 +106,11 @@ try {
             $r['notas'] = $notas[$r['id']] ?? [];
         unset($r);
 
-        $body = json_encode(['copias' => $rows, 'usuario' => $user['usuario']], JSON_UNESCAPED_UNICODE);
+        $body = json_encode([
+            'copias' => $rows,
+            'usuario' => $user['usuario'],
+            'hay_mas_historial' => $hasMore,
+        ], JSON_UNESCAPED_UNICODE);
         http_response_code(200);
         header('Content-Length: ' . strlen($body));
         header('Connection: close');
@@ -113,7 +124,6 @@ try {
                 @ob_end_flush();
             flush();
         }
-        api_sync_auto();
         exit;
     }
 
@@ -144,7 +154,7 @@ try {
     }
 
     if ($action === 'catalogo') {
-        out(api_sync_catalogo_inicial());
+        out(api_sync_catalogo());
     }
 
     if ($action === 'equipos') {
@@ -158,6 +168,42 @@ try {
         fail('Método no permitido', 405);
     if (!csrf_ok($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null))
         fail('Token de seguridad no válido, recarga la página', 403);
+
+    if ($action === 'history') {
+        $cursorFecha = $input['cursor_fecha'] ?? null;
+        $cursorId = filter_var($input['cursor_id'] ?? null, FILTER_VALIDATE_INT);
+        $cursorFechaValida = is_string($cursorFecha)
+            ? DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $cursorFecha)
+            : false;
+        if ($cursorFecha === null) {
+            $where = 'fecha < DATE_SUB(NOW(), INTERVAL 60 DAY)';
+            $params = [];
+        } elseif (
+            !$cursorFechaValida
+            || $cursorFechaValida->format('Y-m-d H:i:s') !== $cursorFecha
+            || $cursorId === false
+            || $cursorId < 1
+        ) {
+            fail('Cursor de historial no válido');
+        } else {
+            $where = '(fecha < ? OR (fecha = ? AND id < ?))';
+            $params = [$cursorFecha, $cursorFecha, $cursorId];
+        }
+        $st = db()->prepare(SQL_COPIA . " WHERE $where ORDER BY cursor_fecha DESC,id DESC LIMIT 501");
+        $st->execute($params);
+        $rows = $st->fetchAll();
+        $hasMore = count($rows) > 500;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+        $rows = array_map('copia_fila', $rows);
+        $notas = copia_notas_de(array_column($rows, 'id'));
+        foreach ($rows as &$row) {
+            $row['notas'] = $notas[$row['id']] ?? [];
+        }
+        unset($row);
+        out(['copias' => $rows, 'hay_mas_historial' => $hasMore]);
+    }
 
     if ($action === 'sync') {
         exigir_admin($user);
@@ -199,6 +245,7 @@ try {
     }
 
     if ($action === 'equipo_asignar') {
+        exigir_admin($user);
         try {
             $importadas = equipos_asignar_cliente((int) ($input['id'] ?? 0), (int) ($input['cliente_id'] ?? 0));
             out(['ok' => true, 'copias_importadas' => $importadas]);
@@ -208,6 +255,7 @@ try {
     }
 
     if ($action === 'equipo_vigilar') {
+        exigir_admin($user);
         try {
             equipos_vigilar((int) ($input['id'] ?? 0), !empty($input['vigilar']));
             out(['ok' => true]);
@@ -217,6 +265,7 @@ try {
     }
 
     if ($action === 'equipo_horario') {
+        exigir_admin($user);
         try {
             equipos_guardar_dias_copia((int) ($input['id'] ?? 0), $input['dias_copia'] ?? null);
             out(['ok' => true]);
@@ -226,6 +275,7 @@ try {
     }
 
     if ($action === 'equipo_desasignar') {
+        exigir_admin($user);
         try {
             $actualizadas = equipos_desasignar_cliente((int) ($input['id'] ?? 0));
             out(['ok' => true, 'copias_desasignadas' => $actualizadas]);
@@ -236,41 +286,6 @@ try {
 
     if (in_array($action, ['mi_password', 'usuario_crear'], true))
         fail('Las credenciales se gestionan en la API; los usuarios autorizados se aprovisionan al iniciar sesión.');
-
-    if ($action === 'mi_password') {
-        $st = db()->prepare('SELECT password_hash FROM usuarios WHERE id = ?');
-        $st->execute([$user['id']]);
-        $h = (string) $st->fetchColumn();
-        if (!password_verify((string) ($input['actual'] ?? ''), $h))
-            fail('La contraseña actual no es correcta');
-        $nueva = (string) ($input['nueva'] ?? '');
-        if (mb_strlen($nueva) < MIN_PASSWORD)
-            fail('La nueva contraseña debe tener al menos ' . MIN_PASSWORD . ' caracteres');
-        db()->prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?')
-            ->execute([password_hash($nueva, PASSWORD_DEFAULT), $user['id']]);
-        out(['ok' => true]);
-    }
-
-    if ($action === 'usuario_crear') {
-        exigir_admin($user);
-        $login = txt($input['usuario'] ?? '', 50);
-        $nombre = txt($input['nombre'] ?? '', 100);
-        $pass = (string) ($input['password'] ?? '');
-        $rol = ($input['rol'] ?? 'usuario') === 'admin' ? 'admin' : 'usuario';
-        if (!preg_match('/^[A-Za-z0-9._-]{3,50}$/', $login))
-            fail('Usuario: 3-50 caracteres (letras, números, . _ -)');
-        if (mb_strlen($pass) < MIN_PASSWORD)
-            fail('La contraseña debe tener al menos ' . MIN_PASSWORD . ' caracteres');
-        try {
-            db()->prepare('INSERT INTO usuarios (usuario, nombre, rol, password_hash) VALUES (?,?,?,?)')
-                ->execute([$login, $nombre !== '' ? $nombre : $login, $rol, password_hash($pass, PASSWORD_DEFAULT)]);
-        } catch (PDOException $ex) {
-            if ($ex->getCode() === '23000')
-                fail('Ese nombre de usuario ya existe');
-            throw $ex;
-        }
-        out(['ok' => true], 201);
-    }
 
     if ($action === 'usuario_editar') {
         exigir_admin($user);
@@ -314,6 +329,8 @@ try {
         out(['ok' => true]);
     }
 
+    if (!in_array($action, ['revisar', 'reabrir', 'seguimiento', 'nota'], true))
+        fail('Acción desconocida', 404);
     $c = copia_obtener((int) ($input['id'] ?? 0));
     if (!$c)
         fail('Copia no encontrada', 404);
@@ -328,8 +345,10 @@ try {
             $d = txt($input['desc'] ?? '', 2000);
             if (palabras($d) < MIN_PALABRAS)
                 fail('La descripción debe tener al menos ' . MIN_PALABRAS . ' palabras');
-            db()->prepare("UPDATE copias SET revisado=1, revisado_por=?, revisado_fecha=NOW(), revision_desc=?, seg='vigilancia', recordar=NULL WHERE id=?")
-                ->execute([$user['usuario'], $d, $id]);
+            $update = db()->prepare("UPDATE copias SET revisado=1, revisado_por=?, revisado_fecha=NOW(), revision_desc=?, seg='vigilancia', recordar=NULL WHERE id=? AND estado='ERROR' AND revisado=0");
+            $update->execute([$user['usuario'], $d, $id]);
+            if ($update->rowCount() !== 1)
+                fail('La copia ya fue revisada por otro usuario. Actualiza la lista.', 409);
             break;
 
         case 'reabrir':

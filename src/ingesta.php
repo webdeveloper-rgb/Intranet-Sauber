@@ -48,6 +48,14 @@ function ingesta_clasificar_nombre(?string $nombre): array
     return $r;
 }
 
+function ingesta_nombre_equipo_reconocible(string $nombre): bool
+{
+    if (ingesta_clasificar_nombre($nombre)['tipo'] !== null) {
+        return true;
+    }
+    return preg_match('/(?:^|[\s_-])(?:PC|DESKTOP|LAPTOP|WIN|SRV|SERVER|SERVIDOR|ESX|ESXI|VM)[\s_-]*[A-Z0-9][A-Z0-9._-]*$/iu', trim($nombre)) === 1;
+}
+
 function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = ''): ?string
 {
     if ($v === null || $v === '') {
@@ -76,20 +84,24 @@ function ingesta_parsear_asunto(string $asunto): array
     if (preg_match('/Notificaci[oó]n de Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
         $origen = trim($m[1]);
         $r['software'] = 'Acronis';
-        $r['nombre'] = $origen;
-        if (($emp = ingesta_clasificar_nombre($origen)['empresa']) !== null) {
-            $r['sugerido'] = $emp;
-        } elseif (preg_match('/^(.+?)\s+-\s+\S/u', $origen, $c)) {
-            // "HORNO JOAQUIN - PC JOAQUIN": lo anterior al primer " - " es el cliente probable
-            $r['sugerido'] = trim($c[1]);
-        } elseif (preg_match('/^(.*?)[_\s-]*((?:DESKTOP|LAPTOP|PC|WIN)-[A-Z0-9]+)$/iu', $origen, $d)) {
-            $prefijo = trim(str_replace('_', ' ', $d[1]));
-            $r['sugerido'] = $prefijo !== '' ? $prefijo : null;
+        if (ingesta_nombre_equipo_reconocible($origen)) {
+            $r['nombre'] = $origen;
+            if (($emp = ingesta_clasificar_nombre($origen)['empresa']) !== null) {
+                $r['sugerido'] = $emp;
+            } elseif (preg_match('/^(.+?)\s+-\s+\S/u', $origen, $c)) {
+                $r['sugerido'] = trim($c[1]);
+            } elseif (preg_match('/^(.*?)[_\s-]*((?:DESKTOP|LAPTOP|PC|WIN)-[A-Z0-9]+)$/iu', $origen, $d)) {
+                $prefijo = trim(str_replace('_', ' ', $d[1]));
+                $r['sugerido'] = $prefijo !== '' ? $prefijo : null;
+            }
         }
     } elseif (preg_match('/^(Copia de seguridad .+?) - (.+) - Iperius Backup$/iu', $asunto, $m)) {
         $r['software'] = 'Iperius';
-        $r['nombre'] = trim($m[2]);
-        $r['sugerido'] = ingesta_clasificar_nombre($r['nombre'])['empresa'];
+        $nombre = trim($m[2]);
+        if (ingesta_nombre_equipo_reconocible($nombre)) {
+            $r['nombre'] = $nombre;
+            $r['sugerido'] = ingesta_clasificar_nombre($r['nombre'])['empresa'];
+        }
     } elseif (preg_match('/VMware|vSphere|ESXi/i', $asunto)) {
         $r['software'] = 'VMware';
     }
@@ -105,9 +117,9 @@ function ingesta_adaptar($it)
     if (!is_array($it) || isset($it['estado']))
         return $it;
 
-    $res = strtoupper(trim((string) ($it['resultado'] ?? '')));
-    $asunto = trim((string) preg_replace('/\s+/u', ' ', (string) ($it['asunto'] ?? '')));
-    $cliente = trim((string) ($it['cliente'] ?? ''));
+    $res = strtoupper(ingesta_texto($it['resultado'] ?? null, 50) ?? '');
+    $asunto = trim((string) preg_replace('/\s+/u', ' ', ingesta_texto($it['asunto'] ?? null, 500) ?? ''));
+    $cliente = ingesta_texto($it['cliente'] ?? null, 200) ?? '';
     if (strcasecmp($cliente, 'SIN_CLIENTE') === 0)
         $cliente = '';
 
@@ -121,18 +133,21 @@ function ingesta_adaptar($it)
     // Software: primero el asunto (fiable), luego lo que diga la IA.
     $software = $p['software'];
     if ($software === null) {
+        $softwareInformado = ingesta_texto($it['software'] ?? null, 40) ?? '';
         foreach (INGESTA_SOFTWARE as $sw) {
-            if (strcasecmp((string) ($it['software'] ?? ''), $sw) === 0)
+            if (strcasecmp($softwareInformado, $sw) === 0)
                 $software = $sw;
         }
     }
     $software = $software ?? 'Otro';
 
-    // Nombre del equipo: el del asunto; si no se reconoce, el que diga la IA, luego el cliente, luego el asunto.
-    $equipo = trim((string) ($it['equipo'] ?? ''));
-    $nombre = $p['nombre'] ?? ($equipo !== '' ? $equipo : ($cliente !== '' ? $cliente : $asunto));
+    // El cliente y el asunto no son identificadores estables de equipo.
+    $equipo = ingesta_texto($it['equipo'] ?? null, 200) ?? '';
+    $nombre = $p['nombre'] ?? ($equipo !== '' ? $equipo : null);
+    if ($nombre === null || trim($nombre) === '')
+        throw new InvalidArgumentException('No se pudo identificar el equipo; indica el nombre del equipo en el aviso.');
 
-    $motivo = trim((string) ($it['motivo'] ?? ''));
+    $motivo = ingesta_texto($it['motivo'] ?? null, 500) ?? '';
     $desc = $estado === 'ERROR' ? $etiqueta . ': ' . ($motivo !== '' ? $motivo : $asunto) : null;
 
     return [
@@ -159,20 +174,22 @@ function ingesta_normalizar($it): array
     $mid = ingesta_texto($it['message_id'] ?? null, 500, true, 'message_id');
 
     $software = null;
+    $softwareInformado = ingesta_texto($it['software'] ?? null, 40) ?? '';
     foreach (INGESTA_SOFTWARE as $s) {
-        if (strcasecmp((string) ($it['software'] ?? ''), $s) === 0)
+        if (strcasecmp($softwareInformado, $s) === 0)
             $software = $s;
     }
     if ($software === null)
         throw new InvalidArgumentException("'software' debe ser: " . implode(', ', INGESTA_SOFTWARE));
 
-    $estado = strtoupper((string) ($it['estado'] ?? ''));
+    $estado = strtoupper(ingesta_texto($it['estado'] ?? null, 20) ?? '');
     if (!in_array($estado, ['OK', 'ERROR'], true))
         throw new InvalidArgumentException("'estado' debe ser OK o ERROR");
 
     $nombre = ingesta_texto($it['nombre'] ?? null, 200, true, 'nombre');
 
-    $ts = strtotime((string) ($it['fecha'] ?? ''));
+    $fecha = ingesta_texto($it['fecha'] ?? null, 80) ?? '';
+    $ts = strtotime($fecha);
     if ($ts === false)
         throw new InvalidArgumentException("'fecha' no válida (usa ISO 8601, p. ej. 2026-11-09T03:15:00+01:00)");
     if ($ts > time() + 86400)
@@ -195,10 +212,10 @@ function ingesta_normalizar($it): array
         'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200) ?? $cl['empresa'],
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
-        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 2000) : null,
-        'codigo' => ingesta_texto($it['codigo'] ?? null, 50),
-        'destino' => ingesta_texto($it['destino'] ?? null, 500),
-        'tamano' => ingesta_texto($it['tamano'] ?? null, 50),
+        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
+        'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
+        'destino' => ingesta_texto($it['destino'] ?? null, 120),
+        'tamano' => ingesta_texto($it['tamano'] ?? null, 40),
         'duracion' => $duracion,
     ];
 }
@@ -209,28 +226,28 @@ function ingesta_guardar(PDO $pdo, array $d): array
     $pdo->beginTransaction();
     try {
         $pdo->prepare('INSERT INTO equipos (nombre,software,origen,sugerido,tipo,programa) VALUES (?,?,?,?,?,?)
-            ON DUPLICATE KEY UPDATE origen=VALUES(origen), sugerido=COALESCE(VALUES(sugerido),sugerido),
-                tipo=COALESCE(VALUES(tipo),tipo), programa=COALESCE(VALUES(programa),programa)')
-            ->execute([$d['nombre'], $d['software'], $d['origen'], $d['sugerido'], $d['tipo'], $d['programa']]);
+            ON DUPLICATE KEY UPDATE origen=?, sugerido=COALESCE(?,sugerido),
+                tipo=COALESCE(?,tipo), programa=COALESCE(?,programa)')
+            ->execute([
+                $d['nombre'],
+                $d['software'],
+                $d['origen'],
+                $d['sugerido'],
+                $d['tipo'],
+                $d['programa'],
+                $d['origen'],
+                $d['sugerido'],
+                $d['tipo'],
+                $d['programa'],
+            ]);
         $st = $pdo->prepare('SELECT id, cliente_id FROM equipos WHERE software=? AND nombre=?');
         $st->execute([$d['software'], $d['nombre']]);
         $eq = $st->fetch();
 
-        // Si el equipo aún no tiene cliente y el nombre sugerido (el de las llaves del asunto) coincide
-        // con UN solo cliente activo, se asigna solo. Si no coincide, queda "Sin asignar" con la sugerencia.
-        if ($eq['cliente_id'] === null && $d['sugerido'] !== null) {
-            $q = $pdo->prepare('SELECT id FROM clientes WHERE activo=1 AND LOWER(nombre)=LOWER(?)');
-            $q->execute([$d['sugerido']]);
-            $ids = $q->fetchAll(PDO::FETCH_COLUMN);
-            if (count($ids) === 1) {
-                $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([(int) $ids[0], $eq['id']]);
-                $eq['cliente_id'] = (int) $ids[0];
-            }
-        }
-
-        $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
+        $ins = $pdo->prepare('INSERT INTO correo_copias
             (message_key,equipo_id,fecha,estado,desc_error,codigo,software,destino,tamano,duracion)
-            VALUES (?,?,?,?,?,?,?,?,?,?)');
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE id=id');
         $ins->execute([
             $d['message_key'],
             $eq['id'],

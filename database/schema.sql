@@ -4,13 +4,15 @@
 CREATE TABLE IF NOT EXISTS usuarios (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   usuario VARCHAR(50) NOT NULL,
+  api_user_id VARCHAR(100) NULL,
   nombre VARCHAR(100) NOT NULL DEFAULT '',
   rol ENUM('admin','usuario') NOT NULL DEFAULT 'usuario',
   activo TINYINT(1) NOT NULL DEFAULT 1,
   password_hash VARCHAR(255) NOT NULL,
   creado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_usuario (usuario)
+  UNIQUE KEY uq_usuario (usuario),
+  UNIQUE KEY uq_usuarios_api_user_id (api_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS copias (

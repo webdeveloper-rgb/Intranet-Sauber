@@ -10,44 +10,137 @@ if (usuario_actual()) {
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $bloqueo = $_SESSION['bloqueo'] ?? 0;
+    $identificador = is_string($_POST['usuario'] ?? null) ? trim($_POST['usuario']) : '';
+    $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    $rateKeys = [
+        rate_limit_bucket('login-ip', $ip),
+        rate_limit_bucket('login-user', mb_strtolower($identificador, 'UTF-8')),
+    ];
     if (!csrf_ok($_POST['csrf'] ?? null)) {
         $error = 'Sesión caducada, inténtalo de nuevo.';
-    } elseif ($bloqueo > time()) {
+    } elseif (rate_limit_blocked($rateKeys[0]) || rate_limit_blocked($rateKeys[1])) {
         $error = 'Demasiados intentos. Espera un minuto.';
+    } elseif ($identificador === '' || strlen($identificador) > 150 || $password === '') {
+        foreach ($rateKeys as $key) {
+            rate_limit_failure($key, 5, 60);
+        }
+        $error = 'Usuario o contraseña incorrectos.';
     } else {
         try {
-            $identificador = trim((string) ($_POST['usuario'] ?? ''));
-            $identidad = api_autenticar_usuario($identificador, (string) ($_POST['password'] ?? ''));
+            $identidad = api_autenticar_usuario($identificador, $password);
             if ($identidad) {
-                $hashLocal = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
-                $st = db()->prepare("INSERT INTO usuarios (usuario,nombre,rol,activo,password_hash) VALUES (?,?, 'usuario',1,?)
-                    ON DUPLICATE KEY UPDATE nombre=VALUES(nombre)");
-                $st->execute([$identidad['usuario'], $identidad['nombre'], $hashLocal]);
-                // Administradores fijos (config.php → 'admins'); ya no se gestionan desde el panel.
-                $admins = array_map(static fn($v) => mb_strtoupper(trim((string) $v)), (array) cfg('admins', []));
-                if (in_array(mb_strtoupper((string) $identidad['usuario']), $admins, true)) {
-                    db()->prepare("UPDATE usuarios SET rol='admin' WHERE usuario=?")->execute([$identidad['usuario']]);
+                $pdo = db();
+                $apiUserId = (string) $identidad['api_user_id'];
+                $aliases = array_values(array_unique(array_filter(
+                    array_map('strval', (array) ($identidad['aliases'] ?? [])),
+                    static fn($alias) => $alias !== '' && mb_strlen($alias, 'UTF-8') <= 50
+                )));
+                $where = ['api_user_id=?'];
+                $params = [$apiUserId];
+                if ($aliases) {
+                    $where[] = 'usuario IN (' . implode(',', array_fill(0, count($aliases), '?')) . ')';
+                    array_push($params, ...$aliases);
                 }
-                $st = db()->prepare('SELECT id, usuario, nombre, rol, activo FROM usuarios WHERE usuario = ?');
-                $st->execute([$identidad['usuario']]);
-                $u = $st->fetch();
+                $pdo->beginTransaction();
+                try {
+                    $st = $pdo->prepare('SELECT id,usuario,nombre,rol,activo,api_user_id FROM usuarios WHERE '
+                        . implode(' OR ', $where) . ' FOR UPDATE');
+                    $st->execute($params);
+                    $users = $st->fetchAll();
+                    foreach ($users as $existing) {
+                        if ($existing['api_user_id'] !== null && !hash_equals((string) $existing['api_user_id'], $apiUserId)) {
+                            throw new RuntimeException('El identificador de acceso coincide con otra cuenta local.');
+                        }
+                    }
+
+                    $u = null;
+                    foreach ($users as $existing) {
+                        if ($existing['api_user_id'] !== null && hash_equals((string) $existing['api_user_id'], $apiUserId)) {
+                            $u = $existing;
+                            break;
+                        }
+                    }
+                    $u ??= $users[0] ?? null;
+                    if ($u) {
+                        $otherNames = [];
+                        $isAdmin = $u['rol'] === 'admin';
+                        $isActive = (int) $u['activo'] === 1;
+                        $adminIds = array_map(
+                            static fn($v) => mb_strtolower(trim((string) $v), 'UTF-8'),
+                            (array) cfg('admins', [])
+                        );
+                        foreach ($aliases as $alias) {
+                            $isAdmin = $isAdmin || in_array(mb_strtolower($alias, 'UTF-8'), $adminIds, true);
+                        }
+                        foreach ($users as $existing) {
+                            if ((int) $existing['id'] === (int) $u['id']) {
+                                continue;
+                            }
+                            $otherNames[] = $existing['usuario'];
+                            $isAdmin = $isAdmin || $existing['rol'] === 'admin';
+                            $isActive = $isActive && (int) $existing['activo'] === 1;
+                        }
+                        foreach (['copias.revisado_por', 'notas.usuario', 'api_tokens.creado_por'] as $reference) {
+                            [$table, $column] = explode('.', $reference, 2);
+                            if ($otherNames) {
+                                $st = $pdo->prepare("UPDATE `$table` SET `$column`=? WHERE `$column` IN ("
+                                    . implode(',', array_fill(0, count($otherNames), '?')) . ')');
+                                $st->execute(array_merge([$u['usuario']], $otherNames));
+                            }
+                        }
+                        if ($otherNames) {
+                            $st = $pdo->prepare('DELETE FROM usuarios WHERE id IN ('
+                                . implode(',', array_fill(0, count($users) - 1, '?')) . ')');
+                            $st->execute(array_values(array_map(
+                                static fn($existing) => (int) $existing['id'],
+                                array_filter($users, static fn($existing) => (int) $existing['id'] !== (int) $u['id'])
+                            )));
+                        }
+                        $role = $isAdmin ? 'admin' : 'usuario';
+                        $active = $isActive ? 1 : 0;
+                        $st = $pdo->prepare('UPDATE usuarios SET api_user_id=?,nombre=?,rol=?,activo=? WHERE id=?');
+                        $st->execute([$apiUserId, $identidad['nombre'], $role, $active, $u['id']]);
+                        $username = $u['usuario'];
+                    } else {
+                        $username = $aliases[0] ?? (string) $identidad['usuario'];
+                        $admins = array_map(
+                            static fn($v) => mb_strtolower(trim((string) $v), 'UTF-8'),
+                            (array) cfg('admins', [])
+                        );
+                        $isAdmin = in_array(mb_strtolower($username, 'UTF-8'), $admins, true);
+                        foreach ($aliases as $alias) {
+                            $isAdmin = $isAdmin || in_array(mb_strtolower($alias, 'UTF-8'), $admins, true);
+                        }
+                        $role = $isAdmin ? 'admin' : 'usuario';
+                        $hashLocal = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
+                        $st = $pdo->prepare('INSERT INTO usuarios (usuario,api_user_id,nombre,rol,activo,password_hash)
+                            VALUES (?,?,?,?,1,?)');
+                        $st->execute([$username, $apiUserId, $identidad['nombre'], $role, $hashLocal]);
+                    }
+                    $st = $pdo->prepare('SELECT id,usuario,nombre,rol,activo FROM usuarios WHERE usuario=?');
+                    $st->execute([$username]);
+                    $u = $st->fetch();
+                    $pdo->commit();
+                } catch (Throwable $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    throw $e;
+                }
             } else {
                 $u = null;
             }
             if ($u && (int) $u['activo'] === 1) {
                 session_regenerate_id(true);
                 $_SESSION['user'] = ['id' => (int) $u['id'], 'usuario' => $u['usuario'], 'nombre' => $u['nombre'], 'rol' => $u['rol']];
-                unset($_SESSION['intentos'], $_SESSION['bloqueo']);
+                rate_limit_clear($rateKeys);
                 header('Location: index.php');
                 exit;
             }
-            $_SESSION['intentos'] = ($_SESSION['intentos'] ?? 0) + 1;
-            if ($_SESSION['intentos'] >= 5) {
-                $_SESSION['bloqueo'] = time() + 60;
-                $_SESSION['intentos'] = 0;
+            foreach ($rateKeys as $key) {
+                rate_limit_failure($key, 5, 60);
             }
-            sleep(1);
             $error = 'Usuario o contraseña incorrectos.';
         } catch (ApiError $ex) {
             error_log('[copias] autenticación de usuario API: ' . $ex->getMessage());

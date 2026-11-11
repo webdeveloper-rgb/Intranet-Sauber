@@ -10,7 +10,7 @@ try {
 } catch (Throwable $ex) {
     error_log('[copias] ' . $ex->getMessage());
     $err = cfg('debug') ? $ex->getMessage() : 'No se pudo leer el catálogo de clientes.';
-    $cat = ['clientes' => [], 'ultima' => null, 'configurado' => false, 'auto_minutos' => 0];
+    $cat = ['clientes' => [], 'ultima' => null, 'configurado' => false];
 }
 $esAdmin = ($user['rol'] ?? '') === 'admin';
 ?><!DOCTYPE html>

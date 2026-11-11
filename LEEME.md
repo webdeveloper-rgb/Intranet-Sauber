@@ -7,8 +7,9 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 ```
 index.php, login.php, logout.php   Panel y acceso
 api.php                            API interna (copias, revisión, notas, usuarios)
-install.php                        Instalador (se usa UNA vez y se borra)
 sync.php                           Sincroniza clientes (solo desde la tarea programada)
+migrate.php                        Aplica migraciones (solo desde CLI)
+purge.php                          Purga logs y staging antiguo (solo desde CLI)
 build/                             Panel compilado (app.js, app.css). SE GUARDA EN GIT
 assets/                            logo.png y login.css
 config/config.example.php          Plantilla de configuración (va en Git)
@@ -28,10 +29,12 @@ frontend/                          Código fuente de React (se despliega, pero .
 ## Primera instalación
 
 1. Crea una base de datos MySQL y su usuario en Plesk.
-2. Copia `config/config.example.php` como `config/config.php` y pon los datos de la BD.
-3. Abre `https://tu-dominio/install.php`, crea el administrador y **borra `install.php`**.
+2. Copia `config/config.example.php` como `config/config.php` y pon los datos de la BD/API.
+3. Importa `database/schema.sql` en la base de datos desde phpMyAdmin.
+4. Ejecuta `php migrate.php` desde la raíz del proyecto y con el mismo PHP/configuración que usa la web.
+5. Comprueba que puedes iniciar sesión con un usuario permitido de la API.
 
-Requisitos: PHP 8.0+ con PDO MySQL, MySQL 5.7+ / MariaDB 10.3+.
+Requisitos: PHP 8.0+ con PDO MySQL y mbstring, MySQL 5.7+ / MariaDB 10.3+.
 
 ## Actualizar sin copiar ficheros: Git + Plesk
 
@@ -89,11 +92,12 @@ frontend/src/
 ```
 
 ## Usuarios
-El acceso se valida con las credenciales personales en la API y su presencia en la tabla Usuarios. Solo se permiten Maximiliano, Miguel y Alberto. La primera vez que cada persona inicia sesión se crea su perfil local. Un administrador puede asignar roles o bloquear el perfil; las contraseñas se gestionan en la API.
+El acceso se valida con las credenciales personales en la API y los usuarios configurados en `api_sync.usuarios_permitidos`. La primera vez que alguien inicia sesión se crea un único perfil local ligado al ID de usuario de la API; iniciar con DNI o correo no crea cuentas separadas. Configura en `admins` el DNI o correo exacto de cada administrador. Los intentos fallidos se limitan persistentemente por IP y usuario. Las contraseñas se gestionan en la API.
 
 ## Cambios en la base de datos
 
-`database/schema.sql` solo lo usa el instalador. Si un día cambias las tablas, el servidor **no** las migra solo (salvo los usuarios): aplica el cambio en phpMyAdmin o añade una migración como la de `migrar_usuarios()` en `src/bootstrap.php`.
+Las peticiones web no alteran el esquema. Cada cambio de base de datos debe añadirse como una migración versionada en `migrate.php` y ejecutarse después del despliegue con `php migrate.php`. El comando es seguro al repetirse; la web muestra un error explícito si falta aplicarlo.
+Las pruebas puras de clasificación y asunto se ejecutan con `php tests/ingesta_test.php`.
 
 ## Clientes desde la API
 
@@ -116,25 +120,26 @@ Edita `config/config.php` (no está en Git, así que se cambia a mano en Plesk) 
         'correo_nombre' => ['Alberto'],
     ],
     'servicio_requerido' => 'VBA3KT7GN7',
+    'sync_max_caida_pct' => 30,
 ],
 ```
-La sincronización lee `Cliente` y `Cliservicios`, y solo mantiene clientes cuyas filas de `Cliservicios` incluyen el código `VBA3KT7GN7` en el campo de artículo/servicio. No consulta la tabla `Articulo`. En una sincronización correcta, elimina del catálogo local los clientes que no cumplen el filtro y desasigna sus equipos para que puedan mapearse de nuevo. Conserva las copias, notas e historial existentes. Si la API no permite reconocer las relaciones, registra un error y no cambia los datos locales.
+La sincronización lee `Cliente` y `Cliservicios`, y solo muestra clientes cuyas filas de `Cliservicios` incluyen el código `VBA3KT7GN7` en el campo de artículo/servicio. No consulta la tabla `Articulo`. Los clientes que dejan de cumplir el filtro se desactivan (no se borran) y se conservan las asignaciones de equipos. Una respuesta vacía, sin clientes elegibles o que implique una caída superior al 30 % aborta la sincronización. Si la API no permite reconocer las relaciones, registra un error y no cambia los datos locales.
 `config/config.example.php` trae la plantilla. El panel necesita la extensión **cURL** de PHP (suele venir activa; si no, en Plesk → Ajustes de PHP).
 
 ### 2. Es automático
-No hay que hacer nada más: cuando alguien usa el panel, el servidor comprueba cuándo fue la última sincronización y, si han pasado **15 minutos**, vuelve a sincronizar por su cuenta. Lo hace **después** de responder al navegador, así que nadie espera. Se cambia con `'sync_minutos'` en `config.php` (`0` la desactiva).
+La sincronización se ejecuta mediante la tarea CLI `sync.php`; no bloquea peticiones web ni se dispara al abrir el panel. Programa la tarea en Plesk según la frecuencia deseada.
 
 Si falla (contraseña rechazada, API caída...), no se cae nada: el error queda registrado y el administrador lo ve en **🏢 Clientes**. El botón **🔄 Sincronizar ahora** (solo administradores) sirve para forzarla o para la primera prueba; al acabar muestra **"Campos que devuelve la API"**, útil si algún dato no aparece.
 
 ### 3. Refuerzo opcional: tarea programada en Plesk
-La sincronización automática solo ocurre **mientras alguien tiene el panel abierto**. Si quieres que los datos estén al día aunque nadie entre (por ejemplo por la noche), añade además una tarea programada:
+Añade una tarea programada para sincronizar clientes y limpiar logs:
 *Sitios web y dominios → tu dominio → **Tareas programadas** → Añadir tarea*:
 - Tipo: **Ejecutar un script PHP** (o *Ejecutar un comando*).
 - Ruta del script: `httpdocs/sync.php`. Con *Ejecutar un comando*: `/opt/plesk/php/8.3/bin/php /var/www/vhosts/TU_DOMINIO/httpdocs/sync.php` (ajusta versión de PHP y ruta).
 - Frecuencia: la que prefieras, por ejemplo cada hora (`0 * * * *`).
 - Notificación: solo si hay errores.
 
-`sync.php` solo funciona por línea de comandos: desde el navegador devuelve 404 y el `.htaccess` además lo bloquea.
+`sync.php`, `migrate.php` y `purge.php` solo funcionan por línea de comandos. Ejecuta `php migrate.php` después de cada despliegue que incluya cambios de esquema. Programa también `purge.php` (por ejemplo, una vez al día) para eliminar logs y staging importado de más de `'maintenance_retention_days'` días; conserva las copias finales y los avisos pendientes de asignar.
 
 ### Cómo se guardan los datos
 - Cada registro se identifica por su `Clave` de la API: si ya existe se actualiza, si es nuevo se crea.
@@ -148,15 +153,17 @@ Configura en `config/config.php` la sección `correo_backup` con el servidor, pu
 
 El botón **Leer avisos** revisa el buzón en modo de solo lectura. Con `'dias' => 0` examina todos los mensajes disponibles; con un número positivo limita la búsqueda a los últimos días. Se procesan hasta `'max'` mensajes nuevos por ejecución; si el buzón tiene más, vuelve a pulsar el botón para continuar. La importación deduplica los mensajes y no cambia su estado de leído. Acronis e Iperius se reconocen por el asunto y cuerpo; VMware, vSphere o ESXi requieren que el asunto o informe indique equipo y resultado. Los correos no reconocidos se contabilizan.
 
-Cada aviso reconocido crea o reutiliza un equipo por nombre y programa. En **Clientes**, un técnico puede asignarlo a un cliente; una sugerencia detectada en el nombre de Acronis ayuda a encontrarlo. Desde la primera lectura, las copias aparecen en Monitoreo, primero con el cliente `Sin asignar`; al mapear el equipo, las copias existentes y futuras quedan vinculadas al cliente. La lectura automática se ejecuta cada cinco minutos cuando se usa el panel (`minutos` permite cambiarlo o desactivarlo). La tarea programada `sync.php` también lee el buzón.
+Cada aviso reconocido crea o reutiliza un equipo por nombre y programa. En **Clientes**, un técnico puede asignarlo a un cliente; las coincidencias textuales quedan como sugerencias y no asignan copias automáticamente. Las copias sin asignar esperan en staging y se importan al asignar el equipo. La tarea `sync.php` solo sincroniza clientes; el flujo de n8n debe llamar a `ingest.php` para registrar las copias.
 
-Las listas largas usan paginación: 20 filas por página para copias, equipos, usuarios, historial y notas; 15 para el directorio de clientes.
+Monitoreo carga inicialmente copias de los últimos 60 días y permite cargar 500 anteriores bajo demanda; la vista local pagina 20 filas. Equipos, usuarios, historial y notas también usan paginación de 20 filas; el directorio de clientes, 15.
 
 ## Seguridad incluida
 
-- Contraseñas con `password_hash`, sesión HttpOnly/SameSite, bloqueo tras 5 intentos fallidos.
+- Contraseñas verificadas contra la API, sesión HttpOnly/SameSite y límites persistentes de intentos por IP/usuario, no por cookie.
 - Consultas preparadas (PDO), salida escapada, token CSRF en acciones que modifican datos.
 - Reglas de negocio validadas también en el servidor.
 - Las credenciales de la API nunca salen del servidor; `sync.php` no es accesible desde la web.
-- `.htaccess` bloquea `config/`, `src/`, `database/`, `frontend/` y ficheros ocultos o de código fuente.
+- Cabeceras CSP, HSTS cuando se detecta HTTPS y cookie segura; si Plesk termina HTTPS en un proxy confiable, configura `'trust_proxy_https' => true`.
 - Los secretos (`config/config.php`) nunca van al repositorio.
+
+El panel alerta si n8n no registra recepciones dentro de `'ingest_alert_hours'` (24 horas por defecto). Los intentos fallidos de autenticación de ingesta se limitan por IP y los errores quedan en el log PHP del servidor.

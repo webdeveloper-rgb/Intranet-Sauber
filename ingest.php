@@ -23,6 +23,12 @@ try {
         respuesta(['error' => 'Método no permitido'], 405);
     }
 
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    $rateKey = rate_limit_bucket('ingest-ip', $ip);
+    if (rate_limit_blocked($rateKey)) {
+        respuesta(['error' => 'Demasiados intentos. Espera un minuto.'], 429);
+    }
+
     // Token fijo de config.php ('ingest_token', mínimo 32 caracteres); si no coincide, se prueba con los de tokens.php.
     $enviado = token_de_peticion();
     $fijo = (string) cfg('ingest_token', '');
@@ -30,10 +36,12 @@ try {
         ? ['nombre' => 'config']
         : token_validar($enviado);
     if (!$token) {
-        usleep(300000); // frena la fuerza bruta
+        rate_limit_failure($rateKey, 10, 60);
+        error_log('[copias] intento de ingesta con token no válido, IP ' . $ip);
         header('WWW-Authenticate: Bearer');
         respuesta(['error' => 'Token no válido'], 401);
     }
+    rate_limit_clear([$rateKey]);
 
     $raw = (string) file_get_contents('php://input', false, null, 0, 1048577);
     if (strlen($raw) > 1048576)
@@ -43,8 +51,9 @@ try {
         respuesta(['error' => 'JSON no válido'], 400);
 
     // Acepta un objeto, una lista, o {"copias":[...]}
+    $esLista = $data === [] || array_keys($data) === range(0, count($data) - 1);
     $items = isset($data['copias']) && is_array($data['copias']) ? $data['copias']
-        : (array_is_list($data) ? $data : [$data]);
+        : ($esLista ? $data : [$data]);
     if (!$items)
         respuesta(['error' => 'No hay copias que procesar'], 400);
     if (count($items) > INGESTA_MAX_ITEMS)
@@ -92,7 +101,7 @@ try {
         'duplicados' => $duplicados,
         'detalle' => $detalle,
         'errores' => $errores
-    ], $nuevos + $duplicados > 0 || !$errores ? 200 : 422);
+    ], $errores ? 422 : 200);
 } catch (Throwable $e) {
     error_log('[copias] ingest: ' . $e->getMessage());
     respuesta(['error' => cfg('debug') ? $e->getMessage() : 'Error interno del servidor'], 500);

@@ -260,8 +260,11 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
         Sincronizando clientes. Los equipos actuales permanecen visibles.
       </p>}
 
-      {ultimaLectura && <p className={`mail-estado${ultimaLectura.ok === 0 ? ' mail-estado-error' : ''}`}>
-        Última recepción de avisos: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : 'correcta'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos
+      {ultimaLectura && <p className={`mail-estado${ultimaLectura.alerta || ultimaLectura.ok === 0 ? ' mail-estado-error' : ''}`}>
+        {ultimaLectura.fecha
+          ? <>Última recepción de avisos: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : ultimaLectura.ok === 1 ? 'correcta' : 'sin datos'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos</>
+          : 'Todavía no se ha recibido ningún aviso de n8n.'}
+        {ultimaLectura.alerta && ` · Sin recepción durante ${ultimaLectura.horas_desde ?? 'un periodo desconocido'} h (umbral: ${ultimaLectura.umbral_horas} h)`}
         {ultimaLectura.mensaje ? ` · ${ultimaLectura.mensaje}` : ''}
       </p>}
       {u && <p className={`mail-estado${u.ok === 0 ? ' mail-estado-error' : ''}`}>
