@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import Tag from './Tag';
-import { ef, vencido, atrasado } from '../logic';
+import { ef, vencido, atrasado, etiquetaTipo } from '../logic';
 
 const Fila = memo(function Fila({ c, onOpen, r, h }) {
   const k = ef(c);
@@ -10,10 +10,12 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
       <td>{c.fecha}</td>
       <td>{c.cliente}</td>
       <td>{c.equipo}</td>
+      <td>{etiquetaTipo(c)}</td>
       <td className="estado-celda">
         <Tag c={c} />
         {notas > 0 && <span className="nb" title="Tiene notas de seguimiento">Notas: {notas}</span>}
         {vencido(c) && <span className="nb al" title="Recordatorio vencido">Recordatorio vencido</span>}
+        {c.codigo === 'SIN_COPIA' && <span className="nb al" title="No ha llegado ninguna copia de este equipo">Sin copia recibida</span>}
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
         {r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
@@ -30,7 +32,7 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo 
       <table>
         <thead>
           <tr>
-            <th>Fecha</th><th>Cliente</th><th>Equipo</th><th>Estado</th>
+            <th>Fecha</th><th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Estado</th>
             <th className="c-desc">Descripción error</th>
             <th className="c-fix">Descripción del arreglo</th>
             <th className="c-rev">Rev.</th>
@@ -41,7 +43,7 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo 
             <Fila key={c.id} c={c} onOpen={onOpen} r={rep[claveEquipo(c)] || 0} h={horas} />
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan="7" className="vacio">{cargando ? 'Cargando…' : 'Sin resultados'}</td></tr>
+            <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : 'Sin resultados'}</td></tr>
           )}
         </tbody>
       </table>

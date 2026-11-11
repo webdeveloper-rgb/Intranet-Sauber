@@ -4,6 +4,7 @@ import Revision from './Revision';
 import Seguimiento from './Seguimiento';
 import Notas from './Notas';
 import Historial from './Historial';
+import { etiquetaTipo } from '../logic';
 
 function Campo({ t, v }) {
   if (v == null || v === '') return null;
@@ -31,6 +32,7 @@ export default function Detalle({ c, onClose, acciones, hist, r, onOpen, modo = 
           <Campo t="Fecha" v={c.fecha} />
           <Campo t="Cliente" v={c.cliente} />
           <Campo t="Equipo" v={c.equipo} />
+          <Campo t="Tipo" v={c.tipo ? etiquetaTipo(c) : null} />
           <Campo t="Software" v={c.software} />
           <Campo t="Destino" v={c.destino} />
           <Campo t="Tamaño" v={c.tamano} />
