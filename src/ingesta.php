@@ -207,6 +207,9 @@ function ingesta_normalizar($it): array
 
     $cl = ingesta_clasificar_nombre($nombre);
     $tipo = $cl['tipo'] ?? ($software === 'VMware' ? 'servidor' : null);
+    $descError = $estado === 'ERROR'
+        ? (ingesta_texto($it['desc_error'] ?? null, 500) ?? '')
+        : '';
 
     return [
         'message_key' => sha1('n8n|' . strtolower($mid)),
@@ -218,7 +221,7 @@ function ingesta_normalizar($it): array
         'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200) ?? $cl['empresa'],
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
-        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
+        'desc_error' => $descError,
         'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
         'destino' => ingesta_texto($it['destino'] ?? null, 120),
         'tamano' => ingesta_texto($it['tamano'] ?? null, 40),
