@@ -261,8 +261,8 @@ function ingesta_guardar(PDO $pdo, array $d): array
             $d['duracion']
         ]);
         $nuevo = $ins->rowCount() > 0;
-        if ($nuevo) {
-            correo_importar_equipo((int) $eq['id'], $eq['cliente_id'] !== null ? (int) $eq['cliente_id'] : null, $pdo);
+        if ($nuevo && $eq['cliente_id'] !== null) {
+            correo_importar_equipo((int) $eq['id'], (int) $eq['cliente_id'], $pdo);
         }
         $clienteNombre = null;
         if ($eq['cliente_id'] !== null) {
