@@ -5,7 +5,7 @@ define('SIN_SESION', true);
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/equipos.php';
 require __DIR__ . '/src/tokens.php';
-require __DIR__ . '/src/ingesta.php';
+require_once __DIR__ . '/src/ingesta.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
