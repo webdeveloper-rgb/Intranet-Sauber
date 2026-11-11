@@ -104,5 +104,10 @@ try {
     ], $errores ? 422 : 200);
 } catch (Throwable $e) {
     error_log('[copias] ingest: ' . $e->getMessage());
+    if ($e instanceof PDOException || str_contains($e->getMessage(), 'migrate.php')) {
+        respuesta([
+            'error' => 'Base de datos no disponible o con migraciones pendientes. Ejecuta php migrate.php por CLI y comprueba la conexión de la base de datos.'
+        ], 503);
+    }
     respuesta(['error' => cfg('debug') ? $e->getMessage() : 'Error interno del servidor'], 500);
 }

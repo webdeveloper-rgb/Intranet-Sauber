@@ -17,15 +17,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         rate_limit_bucket('login-ip', $ip),
         rate_limit_bucket('login-user', mb_strtolower($identificador, 'UTF-8')),
     ];
-    if (!csrf_ok($_POST['csrf'] ?? null)) {
+    try {
+        $rateBlocked = rate_limit_blocked($rateKeys[0]) || rate_limit_blocked($rateKeys[1]);
+    } catch (Throwable $ex) {
+        error_log('[copias] no se pudo comprobar el límite de acceso: ' . $ex->getMessage());
+        http_response_code(503);
+        $error = 'El servicio de acceso no está disponible. Contacta con el administrador.';
+        $rateBlocked = true;
+    }
+    if ($rateBlocked && $error !== '') {
+        http_response_code(503);
+    } elseif (!csrf_ok($_POST['csrf'] ?? null)) {
         $error = 'Sesión caducada, inténtalo de nuevo.';
-    } elseif (rate_limit_blocked($rateKeys[0]) || rate_limit_blocked($rateKeys[1])) {
+    } elseif ($rateBlocked) {
         $error = 'Demasiados intentos. Espera un minuto.';
     } elseif ($identificador === '' || strlen($identificador) > 150 || $password === '') {
-        foreach ($rateKeys as $key) {
-            rate_limit_failure($key, 5, 60);
+        try {
+            foreach ($rateKeys as $key) {
+                rate_limit_failure($key, 5, 60);
+            }
+            $error = 'Usuario o contraseña incorrectos.';
+        } catch (Throwable $ex) {
+            error_log('[copias] no se pudo registrar el intento de acceso: ' . $ex->getMessage());
+            http_response_code(503);
+            $error = 'El servicio de acceso no está disponible. Contacta con el administrador.';
         }
-        $error = 'Usuario o contraseña incorrectos.';
     } else {
         try {
             $identidad = api_autenticar_usuario($identificador, $password);
