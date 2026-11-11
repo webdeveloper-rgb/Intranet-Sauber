@@ -1,13 +1,12 @@
 import { useState, useMemo, useEffect, useCallback, useReducer, useRef } from 'react';
 import { iniciarSesion, api } from './api';
 import { useCopias } from './hooks/useCopias';
-import { TEST, norm, contadores, repeticiones, claveEquipo } from './logic';
+import { TEST, norm, contadores, repeticiones, claveEquipo, coincideTipo } from './logic';
 import Header from './components/Header';
 import Kpis from './components/Kpis';
 import Filtros from './components/Filtros';
 import Tabla from './components/Tabla';
 import Detalle from './components/Detalle';
-import Usuarios from './components/Usuarios';
 import Clientes from './components/Clientes';
 import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
@@ -17,7 +16,7 @@ const filtrosIniciales = () => {
   const hoy = new Date();
   const ayer = new Date(hoy);
   ayer.setDate(hoy.getDate() - 1);
-  return { cli: '', desde: fechaLocal(ayer), hasta: fechaLocal(hoy), horas: 24 };
+  return { cli: '', tipo: '', desde: fechaLocal(ayer), hasta: fechaLocal(hoy), horas: 24 };
 };
 
 export default function App() {
@@ -27,8 +26,7 @@ export default function App() {
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
   const [sel, setSel] = useState(null);
   const [selDialogo, setSelDialogo] = useState(null);
-  const [verUsuarios, setVerUsuarios] = useState(false);
-  const [vista, setVista] = useState('copias'); // 'copias' | 'clientes'
+  const [vista, setVista] = useState('copias'); // 'copias' | 'clientes' | 'servidores'
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
 
   // Casi tiempo real: cada 15 s pregunta (consulta ligera) si hay copias nuevas y, solo entonces, recarga la lista.
@@ -56,10 +54,11 @@ export default function App() {
     return data.filter((c) =>
       TEST[filtro](c, f.horas, rep) &&
       (!q || norm(c.cliente).includes(q)) &&
+      coincideTipo(c, f.tipo) &&
       (!f.desde || c.fecha.slice(0, 10) >= f.desde) &&
       (!f.hasta || c.fecha.slice(0, 10) <= f.hasta));
   }, [data, filtro, f, rep]);
-  const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.desde}|${f.hasta}`);
+  const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.desde}|${f.hasta}`);
 
   const abrir = useCallback((id) => setSel(id), []);
   const cerrar = useCallback(() => setSel(null), []);
@@ -72,11 +71,10 @@ export default function App() {
 
   return (
     <>
-      <Header nombre={sesion ? sesion.nombre : ''} rol={sesion?.rol} vista={vista} onVista={setVista}
-        onUsuarios={() => setVerUsuarios(true)} />
+      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onVista={setVista} />
       <main>
-        {vista === 'clientes' && sesion ? (
-          <Clientes sesion={sesion} />
+        {(vista === 'clientes' || vista === 'servidores') && sesion ? (
+          <Clientes key={vista} sesion={sesion} modo={vista} />
         ) : (
           <>
             {copias.fallo && (
@@ -94,7 +92,6 @@ export default function App() {
           </>
         )}
       </main>
-      {verUsuarios && sesion && <Usuarios sesion={sesion} onClose={() => setVerUsuarios(false)} />}
       {cur && vista === 'copias' && (
         <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0}
           onOpen={(id) => setSelDialogo(id)} manejarEscape={!copiaDialogo} />

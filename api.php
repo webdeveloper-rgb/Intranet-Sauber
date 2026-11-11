@@ -58,13 +58,21 @@ try {
     $user['rol'] = $vivo['rol'];
     $user['nombre'] = $vivo['nombre'];
 
-    asegurar_tablas_equipos(db()); // migración de columnas (tipo) antes de cualquier consulta
-
     if ($action === 'sesion') {
         out(['usuario' => $user['usuario'], 'nombre' => $user['nombre'] ?: $user['usuario'], 'rol' => $user['rol'], 'csrf' => csrf_token()]);
     }
 
+    // Consulta ligera para saber si hay copias nuevas (la usa el aviso "Actualizar" de index.php).
+    if ($action === 'novedades') {
+        $r = db()->query('SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
+        out(['n' => (int) $r['n'], 'm' => (int) $r['m']]);
+    }
+
     if ($action === 'list') {
+        if (empty($_SESSION['mig_tipos'])) { // añade las columnas tipo/programa la primera vez
+            asegurar_tablas_equipos(db());
+            $_SESSION['mig_tipos'] = 1;
+        }
         $rows = db()->query(SQL_COPIA . " ORDER BY fecha DESC, id DESC LIMIT 3000")->fetchAll();
         $rows = array_map('copia_fila', $rows);
         $notas = copia_notas_de(array_column($rows, 'id'));
@@ -177,9 +185,9 @@ try {
         }
     }
 
-    if ($action === 'equipo_tipo') {
+    if ($action === 'equipo_vigilar') {
         try {
-            equipos_cambiar_tipo((int) ($input['id'] ?? 0), (string) ($input['tipo'] ?? ''));
+            equipos_vigilar((int) ($input['id'] ?? 0), !empty($input['vigilar']));
             out(['ok' => true]);
         } catch (ApiError $ex) {
             fail($ex->getMessage());

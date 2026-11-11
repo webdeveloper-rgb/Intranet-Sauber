@@ -1,14 +1,30 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
-import { norm } from '../logic';
+import { norm, TIPOS } from '../logic';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
 
-export default function Clientes({ sesion }) {
+// Cliente que mejor encaja con el texto sugerido por el aviso: coincidencia exacta (nombre, código o ambos)
+// o, si no, una coincidencia parcial que sea única.
+function sugerirCliente(clientes, sugerido) {
+  const s = norm(String(sugerido).trim());
+  if (!s) return undefined;
+  const exacto = clientes.find((c) => [c.nombre, c.codigo, unir(c.nombre, c.codigo)].some((v) => v && norm(String(v)) === s));
+  if (exacto) return exacto;
+  if (s.length < 4) return undefined;
+  const parciales = clientes.filter((c) => {
+    const n = norm(String(c.nombre || ''));
+    return n.length >= 4 && (n.includes(s) || s.includes(n));
+  });
+  return parciales.length === 1 ? parciales[0] : undefined;
+}
+
+export default function Clientes({ sesion, modo = 'clientes' }) {
   const admin = sesion?.rol === 'admin';
+  const servidores = modo === 'servidores'; // 'servidores' solo muestra servidores; 'clientes' muestra el resto de equipos
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
   const [asignaciones, setAsignaciones] = useState({});
@@ -16,7 +32,6 @@ export default function Clientes({ sesion }) {
   const [filtroEquipos, setFiltroEquipos] = useState('pendientes');
   const [cargando, setCargando] = useState(true);
   const [sync, setSync] = useState(false);
-  const [correoSync, setCorreoSync] = useState(false);
   const [ultimaLectura, setUltimaLectura] = useState(null);
   const [fallo, setFallo] = useState('');
   const [resumen, setResumen] = useState(null);
@@ -50,18 +65,6 @@ export default function Clientes({ sesion }) {
     try { setResumen(await api('sync', {})); await cargar(true); }
     catch (e) { setFallo(e.message); }
     finally { setSync(false); }
-  };
-
-  const leerCorreo = async () => {
-    setCorreoSync(true);
-    setFallo('');
-    setMensaje('');
-    try {
-      const r = await api('correo_sync', {});
-      setMensaje(`Leídos ${r.leidas} avisos nuevos${r.omitidas ? `; ${r.omitidas} no reconocidos` : ''}.`);
-      await cargar(true);
-    } catch (e) { setFallo(e.message); }
-    finally { setCorreoSync(false); }
   };
 
   const asignar = async (equipo) => {
@@ -98,16 +101,25 @@ export default function Clientes({ sesion }) {
     finally { setGuardando(null); }
   };
 
+  const propios = useMemo(() => equipos.filter((e) => (e.tipo === 'servidor') === servidores), [equipos, servidores]);
+  const vigilar = async (equipo, valor) => {
+    setGuardando(equipo.id);
+    setFallo('');
+    try { await api('equipo_vigilar', { id: equipo.id, vigilar: valor }); await cargar(true); }
+    catch (e) { setFallo(e.message); }
+    finally { setGuardando(null); }
+  };
+
   const equiposFiltrados = useMemo(() => {
     const f = norm(busquedaEquipo.trim());
-    return equipos
+    return propios
       .filter((equipo) => filtroEquipos === 'todos' || !equipo.cliente_id)
       .filter((equipo) => !f || norm(unir(equipo.nombre, equipo.software, equipo.cliente, equipo.sugerido, equipo.origen)).includes(f))
       .sort((a, b) => Number(!!a.cliente_id) - Number(!!b.cliente_id) || a.nombre.localeCompare(b.nombre, 'es'));
-  }, [equipos, filtroEquipos, busquedaEquipo]);
+  }, [propios, filtroEquipos, busquedaEquipo]);
   const paginaEquipos = usePagination(equiposFiltrados, 20, `${filtroEquipos}|${busquedaEquipo}`);
 
-  const pendientes = equipos.filter((equipo) => !equipo.cliente_id).length;
+  const pendientes = propios.filter((equipo) => !equipo.cliente_id).length;
   const u = cat?.ultima;
 
   return <div className="clientes-page">
@@ -115,10 +127,10 @@ export default function Clientes({ sesion }) {
       <div className="mapeo-heading">
         <div>
           <span className="eyebrow">Trabajo técnico</span>
-          <h2 id="titulo-mapeo">Asignar equipos a clientes</h2>
-          <p>Vincula cada equipo detectado con su cliente. Las copias recibidas quedan asociadas automáticamente.</p>
+          <h2 id="titulo-mapeo">{servidores ? 'Asignar servidores a clientes' : 'Asignar equipos a clientes'}</h2>
+          <p>{servidores ? 'Vincula cada servidor detectado con su cliente. Sus copias quedan asociadas automáticamente.' : 'Vincula cada equipo detectado con su cliente. Las copias recibidas quedan asociadas automáticamente.'}</p>
         </div>
-        <div className="mapeo-kpi" aria-label={`${pendientes} equipos pendientes`}>
+        <div className="mapeo-kpi" aria-label={`${pendientes} ${servidores ? 'servidores' : 'equipos'} pendientes`}>
           <strong>{pendientes}</strong>
           <span>por asignar</span>
         </div>
@@ -127,18 +139,17 @@ export default function Clientes({ sesion }) {
       <div className="mapeo-toolbar">
         <label className="mapeo-busqueda">
           <span className="sr-only">Buscar equipo o cliente</span>
-          <input type="search" placeholder="Buscar equipo, software o cliente…" value={busquedaEquipo} onChange={(e) => setBusquedaEquipo(e.target.value)} />
+          <input type="search" placeholder={servidores ? 'Buscar servidor, software o cliente…' : 'Buscar equipo, software o cliente…'} value={busquedaEquipo} onChange={(e) => setBusquedaEquipo(e.target.value)} />
         </label>
         <div className="mapeo-filtros" role="group" aria-label="Filtrar equipos">
           <button className={filtroEquipos === 'pendientes' ? 'activo' : ''} aria-pressed={filtroEquipos === 'pendientes'} onClick={() => setFiltroEquipos('pendientes')}>Pendientes <span>{pendientes}</span></button>
-          <button className={filtroEquipos === 'todos' ? 'activo' : ''} aria-pressed={filtroEquipos === 'todos'} onClick={() => setFiltroEquipos('todos')}>Todos <span>{equipos.length}</span></button>
+          <button className={filtroEquipos === 'todos' ? 'activo' : ''} aria-pressed={filtroEquipos === 'todos'} onClick={() => setFiltroEquipos('todos')}>Todos <span>{propios.length}</span></button>
         </div>
         {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Sincronizar clientes'}</button>}
-        {admin && <button className="btn" disabled={correoSync} onClick={leerCorreo}>{correoSync ? 'Leyendo buzón…' : 'Leer avisos'}</button>}
       </div>
 
       {ultimaLectura && <p className={`mail-estado${ultimaLectura.ok === 0 ? ' mail-estado-error' : ''}`}>
-        Última lectura: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : 'correcta'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos
+        Última recepción de avisos: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : 'correcta'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos
         {ultimaLectura.mensaje ? ` · ${ultimaLectura.mensaje}` : ''}
       </p>}
       {u && <p className={`mail-estado${u.ok === 0 ? ' mail-estado-error' : ''}`}>
@@ -160,8 +171,7 @@ export default function Clientes({ sesion }) {
         <div className="mapeo-lista">
           {paginaEquipos.items.map((equipo) => {
             const asignado = !!equipo.cliente_id;
-            const sugerencia = equipo.sugerido && cat?.clientes?.find((c) =>
-              norm(unir(c.nombre, c.codigo)) === norm(equipo.sugerido));
+            const sugerencia = equipo.sugerido ? sugerirCliente(cat?.clientes || [], equipo.sugerido) : undefined;
             const clienteSeleccionado = asignaciones[equipo.id] ?? equipo.cliente_id ?? sugerencia?.id ?? '';
             const clienteElegido = cat?.clientes?.find((c) => Number(c.id) === Number(clienteSeleccionado));
             const hayCambios = Number(clienteSeleccionado) > 0 && Number(clienteSeleccionado) !== Number(equipo.cliente_id || 0);
@@ -170,6 +180,7 @@ export default function Clientes({ sesion }) {
                 <div className="equipo-titulo">
                   <h3 title={equipo.nombre}>{equipo.nombre}</h3>
                   <span className="equipo-software">{equipo.software}</span>
+                  {equipo.tipo && <span className="equipo-software">{equipo.programa || TIPOS[equipo.tipo]}</span>}
                 </div>
                 <div className="equipo-detalles">
                   <span className={`equipo-badge${asignado ? ' asignado' : ''}`}>
@@ -193,6 +204,10 @@ export default function Clientes({ sesion }) {
                 {asignado && <button className="btn sec" disabled={guardando === equipo.id} onClick={() => desasignar(equipo)}>
                   {guardando === equipo.id ? 'Guardando…' : 'Desasignar equipo'}
                 </button>}
+                <label className="equipo-vigilar">
+                  <input type="checkbox" checked={equipo.vigilar !== 0} disabled={guardando === equipo.id}
+                    onChange={(e) => vigilar(equipo, e.target.checked)} /> Avisar si no llegan copias
+                </label>
                 <p className={`equipo-seleccion${hayCambios ? ' hay-cambios' : ''}`} aria-live="polite">
                   {hayCambios ? `Se asociará a ${clienteElegido?.nombre || 'el cliente seleccionado'}` : asignado ? 'Sin cambios pendientes' : 'Elige un cliente para continuar'}
                 </p>
@@ -201,7 +216,7 @@ export default function Clientes({ sesion }) {
           })}
         </div>
       ) : <div className="mapeo-vacio">
-        {busquedaEquipo ? 'No hay equipos que coincidan con la búsqueda.' : filtroEquipos === 'pendientes' ? 'No hay equipos pendientes. Los nuevos avisos aparecerán aquí.' : 'Todavía no se han detectado equipos en los correos.'}
+        {busquedaEquipo ? 'No hay equipos que coincidan con la búsqueda.' : filtroEquipos === 'pendientes' ? (servidores ? 'No hay servidores pendientes. Los nuevos avisos aparecerán aquí.' : 'No hay equipos pendientes. Los nuevos avisos aparecerán aquí.') : (servidores ? 'Todavía no se han detectado servidores en los avisos.' : 'Todavía no se han detectado equipos en los avisos.')}
       </div>}
       <Paginacion total={equiposFiltrados.length} pagina={paginaEquipos.page} paginas={paginaEquipos.pageCount}
         porPagina={paginaEquipos.pageSize} onCambiar={paginaEquipos.setPage} etiqueta="equipos" />

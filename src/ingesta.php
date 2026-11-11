@@ -8,24 +8,44 @@ declare(strict_types=1);
 
 const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'VMware', 'Otro'];
 const INGESTA_MAX_ITEMS = 100;
-const INGESTA_TIPOS = ['servidor', 'equipo'];
+// Programas (software de gestión del cliente) que se copian aparte de los equipos de usuario y los servidores.
+const INGESTA_PROGRAMAS = ['EuroAgro', 'EuroPos', 'EuroExtintor', 'EuroMetrics', 'DivaCon', 'DivaGes', 'BDP'];
+
+function ingesta_limpiar_empresa(string $e): ?string
+{
+    $e = trim(str_replace('_', ' ', $e));
+    return $e !== '' ? $e : null;
+}
 
 /**
- * Decide si un equipo es 'servidor' o 'equipo' (PC/portátil). Devuelve null si no hay datos para decidir
- * (en ese caso no se toca lo que ya hubiera guardado). Orden: nombre > software > pista de la IA.
- * Ajusta la expresión a las convenciones de nombres reales de vuestros clientes.
+ * Clasifica un nombre de copia con el formato EMPRESA_<algo>:
+ *   EMPRESA_PC-NOMBRE        → tipo 'usuario'
+ *   EMPRESA_SRV-... / _SERVIDOR / _SERVER → tipo 'servidor'
+ *   EMPRESA_EuroAgro...      → tipo 'programa' (EuroAgro, EuroPos, EuroExtintor, EuroMetrics, DivaCon, DivaGes, BDP)
+ * Devuelve ['empresa','tipo','programa']; todo null si el nombre no sigue ese formato.
  */
-function ingesta_detectar_tipo(?string $nombre, ?string $software, $pista = null): ?string
+function ingesta_clasificar_nombre(?string $nombre): array
 {
-    $n = (string) $nombre;
-    if (preg_match('/(^|[\s_-])(SRV|SERVER|SERVIDOR|DC|SQL|HV|ESXI?|NAS|TS|RDS|FS|BCK)\d*($|[\s_-])|^(SRV|SERVER|SERVIDOR|DC\d|ESX|NAS)/iu', $n))
-        return 'servidor';
-    if (preg_match('/^(DESKTOP|LAPTOP|PC|WIN)-/iu', $n))
-        return 'equipo';
-    if ($software === 'VMware')
-        return 'servidor';
-    $p = strtolower(trim((string) $pista));
-    return in_array($p, INGESTA_TIPOS, true) ? $p : null;
+    $r = ['empresa' => null, 'tipo' => null, 'programa' => null];
+    $n = trim((string) $nombre);
+    if ($n === '')
+        return $r;
+
+    if (preg_match('/^(.+?)_PC-.+$/iu', $n, $m)) {
+        return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'usuario', 'programa' => null];
+    }
+    if (preg_match('/^(.+?)_(?:SRV|SERVIDOR|SERVER)(?:[-_ ].*)?$/iu', $n, $m)) {
+        return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'servidor', 'programa' => null];
+    }
+    $progs = implode('|', array_map('preg_quote', INGESTA_PROGRAMAS));
+    if (preg_match('/^(.+?)_(' . $progs . ')(?:[-_ ].*)?$/iu', $n, $m)) {
+        $canon = null;
+        foreach (INGESTA_PROGRAMAS as $p)
+            if (strcasecmp($p, $m[2]) === 0)
+                $canon = $p;
+        return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'programa', 'programa' => $canon];
+    }
+    return $r;
 }
 
 function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = ''): ?string
@@ -53,12 +73,13 @@ function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = 
 function ingesta_parsear_asunto(string $asunto): array
 {
     $r = ['software' => null, 'nombre' => null, 'sugerido' => null];
-    // Cubre "Notificación de Acronis True Image de X" y "Copia de seguridad execution failed - Acronis True Image de X"
-    if (preg_match('/Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
+    if (preg_match('/Notificaci[oó]n de Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
         $origen = trim($m[1]);
         $r['software'] = 'Acronis';
         $r['nombre'] = $origen;
-        if (preg_match('/^(.+?)\s+-\s+\S/u', $origen, $c)) {
+        if (($emp = ingesta_clasificar_nombre($origen)['empresa']) !== null) {
+            $r['sugerido'] = $emp;
+        } elseif (preg_match('/^(.+?)\s+-\s+\S/u', $origen, $c)) {
             // "HORNO JOAQUIN - PC JOAQUIN": lo anterior al primer " - " es el cliente probable
             $r['sugerido'] = trim($c[1]);
         } elseif (preg_match('/^(.*?)[_\s-]*((?:DESKTOP|LAPTOP|PC|WIN)-[A-Z0-9]+)$/iu', $origen, $d)) {
@@ -68,6 +89,7 @@ function ingesta_parsear_asunto(string $asunto): array
     } elseif (preg_match('/^(Copia de seguridad .+?) - (.+) - Iperius Backup$/iu', $asunto, $m)) {
         $r['software'] = 'Iperius';
         $r['nombre'] = trim($m[2]);
+        $r['sugerido'] = ingesta_clasificar_nombre($r['nombre'])['empresa'];
     } elseif (preg_match('/VMware|vSphere|ESXi/i', $asunto)) {
         $r['software'] = 'VMware';
     }
@@ -119,8 +141,7 @@ function ingesta_adaptar($it)
         'software' => $software,
         'nombre' => $nombre,
         'origen' => $asunto !== '' ? $asunto : $nombre,
-        'sugerido' => $cliente !== '' ? $cliente : $p['sugerido'],
-        'tipo_hint' => $it['tipo_equipo'] ?? null,
+        'sugerido' => $cliente !== '' ? $cliente : (ingesta_clasificar_nombre($nombre)['empresa'] ?? $p['sugerido']),
         'estado' => $estado,
         'desc_error' => $desc,
         'codigo' => $it['codigo'] ?? null,
@@ -161,15 +182,17 @@ function ingesta_normalizar($it): array
     if ($duracion !== null && !preg_match('/^\d{1,3}:[0-5]\d:[0-5]\d$/', $duracion))
         throw new InvalidArgumentException("'duracion' debe tener formato HH:MM:SS");
 
+    $cl = ingesta_clasificar_nombre($nombre);
+    $tipo = $cl['tipo'] ?? ($software === 'VMware' ? 'servidor' : null);
+
     return [
         'message_key' => sha1('n8n|' . strtolower($mid)),
         'software' => $software,
         'nombre' => $nombre,
+        'tipo' => $tipo,
+        'programa' => $cl['programa'],
         'origen' => ingesta_texto($it['origen'] ?? null, 200) ?? $nombre,
-        'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200),
-        'tipo' => in_array($it['tipo'] ?? null, INGESTA_TIPOS, true)
-            ? $it['tipo']
-            : ingesta_detectar_tipo($nombre, $software, $it['tipo_hint'] ?? $it['tipo_equipo'] ?? null),
+        'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200) ?? $cl['empresa'],
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
         'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 2000) : null,
@@ -185,17 +208,13 @@ function ingesta_guardar(PDO $pdo, array $d): array
 {
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('INSERT INTO equipos (nombre,software,origen,sugerido) VALUES (?,?,?,?)
-            ON DUPLICATE KEY UPDATE origen=VALUES(origen), sugerido=COALESCE(VALUES(sugerido),sugerido)')
-            ->execute([$d['nombre'], $d['software'], $d['origen'], $d['sugerido']]);
+        $pdo->prepare('INSERT INTO equipos (nombre,software,origen,sugerido,tipo,programa) VALUES (?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE origen=VALUES(origen), sugerido=COALESCE(VALUES(sugerido),sugerido),
+                tipo=COALESCE(VALUES(tipo),tipo), programa=COALESCE(VALUES(programa),programa)')
+            ->execute([$d['nombre'], $d['software'], $d['origen'], $d['sugerido'], $d['tipo'], $d['programa']]);
         $st = $pdo->prepare('SELECT id, cliente_id FROM equipos WHERE software=? AND nombre=?');
         $st->execute([$d['software'], $d['nombre']]);
         $eq = $st->fetch();
-
-        // Tipo detectado: solo si hay dato y el equipo no ha sido corregido a mano desde el panel.
-        if (($d['tipo'] ?? null) !== null) {
-            $pdo->prepare('UPDATE equipos SET tipo=? WHERE id=? AND tipo_manual=0')->execute([$d['tipo'], $eq['id']]);
-        }
 
         // Si el equipo aún no tiene cliente y el nombre sugerido (el de las llaves del asunto) coincide
         // con UN solo cliente activo, se asigna solo. Si no coincide, queda "Sin asignar" con la sugerencia.
