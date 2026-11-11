@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 
-// Carga las copias, las refresca cada 15 segundos y expone las acciones del panel.
+// Carga las copias y expone las acciones del panel.
 export function useCopias() {
   const [data, setData] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -21,8 +21,6 @@ export function useCopias() {
 
   useEffect(() => {
     cargar();
-    const t = setInterval(cargar, 15000);
-    return () => clearInterval(t);
   }, [cargar]);
 
   // Cada acción llama a la API y sustituye la copia con lo que devuelve el servidor

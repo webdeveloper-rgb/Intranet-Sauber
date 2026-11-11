@@ -29,34 +29,59 @@ export default function App() {
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes' | 'servidores'
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
 
-  // Casi tiempo real: cada 15 s pregunta (consulta ligera) si hay copias nuevas y, solo entonces, recarga la lista.
+  // Consulta cambios solo mientras se muestra Copias; la lista se actualiza sin recargar la página.
   const cargarRef = useRef(copias.cargar);
   cargarRef.current = copias.cargar;
+  const falloRef = useRef(copias.fallo);
+  falloRef.current = copias.fallo;
+  const vistaAnterior = useRef(vista);
   useEffect(() => {
+    if (vista !== 'copias') {
+      vistaAnterior.current = vista;
+      return;
+    }
+    if (vistaAnterior.current !== 'copias') cargarRef.current();
+    vistaAnterior.current = 'copias';
+
     let ultima = null;
-    const t = setInterval(async () => {
-      if (document.hidden) return;
+    let comprobando = false;
+    const comprobar = async () => {
+      if (document.hidden || comprobando) return;
+      comprobando = true;
       try {
         const d = await api('novedades');
-        const clave = d.n + ':' + d.m;
-        if (ultima === null) { ultima = clave; return; }
-        if (clave !== ultima) { ultima = clave; cargarRef.current(); }
+        const clave = d.n + ':' + d.m + ':' + d.ausentes;
+        if (ultima === null) {
+          ultima = clave;
+          cargarRef.current();
+          return;
+        }
+        if (clave !== ultima || falloRef.current) {
+          ultima = clave;
+          cargarRef.current();
+        }
       } catch { /* se reintenta en el siguiente ciclo */ }
-    }, 15000);
+      finally { comprobando = false; }
+    };
+    const t = setInterval(comprobar, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [vista]);
 
   const { data } = copias;
   const n = useMemo(() => contadores(data, f.horas), [data, f.horas]);
   const rep = useMemo(() => repeticiones(data), [data]);
   const rows = useMemo(() => {
     const q = norm(f.cli.trim());
-    return data.filter((c) =>
-      TEST[filtro](c, f.horas, rep) &&
-      (!q || norm(c.cliente).includes(q)) &&
-      coincideTipo(c, f.tipo) &&
-      (!f.desde || c.fecha.slice(0, 10) >= f.desde) &&
-      (!f.hasta || c.fecha.slice(0, 10) <= f.hasta));
+    return data.filter((c) => {
+      const sinCopia = c.codigo === 'SIN_COPIA';
+      return (
+        TEST[filtro](c, f.horas, rep) &&
+        (!q || norm(c.cliente).includes(q)) &&
+        coincideTipo(c, f.tipo) &&
+        (sinCopia || !f.desde || c.fecha.slice(0, 10) >= f.desde) &&
+        (sinCopia || !f.hasta || c.fecha.slice(0, 10) <= f.hasta)
+      );
+    });
   }, [data, filtro, f, rep]);
   const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.desde}|${f.hasta}`);
 
@@ -88,7 +113,7 @@ export default function App() {
             <Tabla rows={paginaCopias.items} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
             <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
               porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />
-            <p className="note">Pulsa una fila para ver el detalle. Los datos se actualizan solos en cuanto llegan copias nuevas.</p>
+            <p className="note">Pulsa una fila para ver el detalle. La tabla comprueba cambios cada 5 segundos sin recargar la página.</p>
           </>
         )}
       </main>

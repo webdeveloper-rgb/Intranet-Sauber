@@ -561,6 +561,9 @@ dd {
   text-align: left;
   cursor: pointer;
 }
+tbody tr.sin-copia {
+  cursor: default;
+}
 .hrow-button:hover,
 .hrow-button:focus-visible {
   background: var(--brand-s);

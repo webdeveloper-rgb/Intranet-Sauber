@@ -5,8 +5,10 @@ import { ef, vencido, atrasado, etiquetaTipo } from '../logic';
 const Fila = memo(function Fila({ c, onOpen, r, h }) {
   const k = ef(c);
   const notas = (c.notas || []).length;
+  const sinCopia = c.codigo === 'SIN_COPIA';
   return (
-    <tr className={k === 'ERR' ? 'err' : k === 'REV' ? 'pen' : ''} onClick={() => onOpen(c.id)}>
+    <tr className={`${k === 'ERR' ? 'err' : k === 'REV' ? 'pen' : ''}${sinCopia ? ' sin-copia' : ''}`}
+      onClick={sinCopia ? undefined : () => onOpen(c.id)}>
       <td>{c.fecha}</td>
       <td>{c.cliente}</td>
       <td>{c.equipo}</td>
@@ -17,7 +19,7 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
         {vencido(c) && <span className="nb al" title="Recordatorio vencido">Recordatorio vencido</span>}
         {c.codigo === 'SIN_COPIA' && <span className="nb al" title="No ha llegado ninguna copia de este equipo">Sin copia recibida</span>}
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
-        {r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
+        {!sinCopia && r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
       <td className="c-desc">{c.desc_error || '—'}</td>
       <td className="c-fix">{c.revisado ? c.revision_desc : '—'}</td>

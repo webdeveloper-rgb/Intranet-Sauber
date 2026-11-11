@@ -66,7 +66,7 @@ export const FILTROS = [
 export const TEST = {
     todos: () => true,
     pend: (c) => ef(c) === "ERR",
-    rep: (c, h, rep) => c.estado === "ERROR" && (rep?.[claveEquipo(c)] || 0) > 1,
+    rep: (c, h, rep) => c.estado === "ERROR" && c.codigo !== "SIN_COPIA" && (rep?.[claveEquipo(c)] || 0) > 1,
     rev: (c) => ef(c) === "REV",
     ok: (c) => ef(c) === "OK",
     notas: (c) => (c.notas || []).length > 0,
@@ -97,7 +97,7 @@ export function contadores(data, horas) {
 export function repeticiones(data) {
     const m = {};
     data.forEach((c) => {
-        if (c.estado === "ERROR") {
+        if (c.estado === "ERROR" && c.codigo !== "SIN_COPIA") {
             const k = c.cliente + "|" + c.equipo;
             m[k] = (m[k] || 0) + 1;
         }

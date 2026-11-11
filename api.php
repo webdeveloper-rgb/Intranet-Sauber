@@ -62,10 +62,20 @@ try {
         out(['usuario' => $user['usuario'], 'nombre' => $user['nombre'] ?: $user['usuario'], 'rol' => $user['rol'], 'csrf' => csrf_token()]);
     }
 
-    // Consulta ligera para saber si hay copias nuevas (la usa el aviso "Actualizar" de index.php).
+    // Detecta copias nuevas y cambios en las alertas de equipos sin copia.
     if ($action === 'novedades') {
         $r = db()->query('SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
-        out(['n' => (int) $r['n'], 'm' => (int) $r['m']]);
+        if (empty($_SESSION['mig_tipos'])) {
+            asegurar_tablas_equipos(db());
+            $_SESSION['mig_tipos'] = 1;
+        }
+        $sinCopia = copias_sin_recibir(db());
+        $ausentes = array_map(static fn($c) => [$c['id'], $c['cliente'], $c['equipo']], $sinCopia);
+        out([
+            'n' => (int) $r['n'],
+            'm' => (int) $r['m'],
+            'ausentes' => hash('sha256', json_encode($ausentes, JSON_UNESCAPED_UNICODE)),
+        ]);
     }
 
     if ($action === 'list') {
@@ -75,7 +85,11 @@ try {
         }
         $rows = db()->query(SQL_COPIA . " ORDER BY fecha DESC, id DESC LIMIT 3000")->fetchAll();
         $rows = array_map('copia_fila', $rows);
-        $notas = copia_notas_de(array_column($rows, 'id'));
+        $rows = array_merge(copias_sin_recibir(db()), $rows);
+        $notas = copia_notas_de(array_column(
+            array_filter($rows, static fn($row) => ($row['codigo'] ?? null) !== 'SIN_COPIA'),
+            'id'
+        ));
         foreach ($rows as &$r)
             $r['notas'] = $notas[$r['id']] ?? [];
         unset($r);
