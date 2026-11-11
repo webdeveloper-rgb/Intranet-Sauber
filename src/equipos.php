@@ -28,6 +28,10 @@ function asegurar_tablas_equipos(PDO $pdo): void
     $vigNuevo = !in_array('vigilar', $columns, true);
     if ($vigNuevo)
         $pdo->exec('ALTER TABLE equipos ADD COLUMN vigilar TINYINT(1) NOT NULL DEFAULT 1');
+    if (!in_array('dias_copia', $columns, true))
+        $pdo->exec("ALTER TABLE equipos ADD COLUMN dias_copia CHAR(7) NOT NULL DEFAULT '1111111'");
+    $pdo->exec("UPDATE equipos SET dias_copia='1111111'
+        WHERE dias_copia IS NULL OR dias_copia NOT REGEXP '^[01]{7}$' OR dias_copia NOT LIKE '%1%'");
     $pdo->exec('CREATE TABLE IF NOT EXISTS tareas_estado (nombre VARCHAR(50) NOT NULL PRIMARY KEY, ultima DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
     $copyColumns = $pdo->query("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='copias'")->fetchAll(PDO::FETCH_COLUMN);
@@ -66,7 +70,7 @@ function equipos_listado(): array
 {
     $pdo = db();
     asegurar_tablas_equipos($pdo);
-    $rows = $pdo->query("SELECT e.id,e.nombre,e.software,e.origen,e.sugerido,e.tipo,e.programa,e.vigilar,e.cliente_id,c.nombre AS cliente,
+    $rows = $pdo->query("SELECT e.id,e.nombre,e.software,e.origen,e.sugerido,e.tipo,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
         (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND (cc.importada=0 OR e.cliente_id IS NULL)) AS pendientes
         FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software")->fetchAll();
     foreach ($rows as &$row) {
@@ -120,6 +124,25 @@ function equipos_vigilar(int $equipoId, bool $vigilar): void
     if (!$st->fetchColumn())
         throw new ApiError('Equipo no encontrado');
     $pdo->prepare('UPDATE equipos SET vigilar=? WHERE id=?')->execute([$vigilar ? 1 : 0, $equipoId]);
+}
+
+function equipos_guardar_dias_copia(int $equipoId, $dias): void
+{
+    if (!is_string($dias) || preg_match('/\A[01]{7}\z/', $dias) !== 1)
+        throw new ApiError('El horario debe contener exactamente siete caracteres binarios.');
+    if (strpos($dias, '1') === false)
+        throw new ApiError('Selecciona al menos un día de la semana.');
+
+    $pdo = db();
+    asegurar_tablas_equipos($pdo);
+    $st = $pdo->prepare('UPDATE equipos SET dias_copia=? WHERE id=?');
+    $st->execute([$dias, $equipoId]);
+    if (!$st->rowCount()) {
+        $st = $pdo->prepare('SELECT id FROM equipos WHERE id=?');
+        $st->execute([$equipoId]);
+        if (!$st->fetchColumn())
+            throw new ApiError('Equipo no encontrado');
+    }
 }
 
 function equipos_desasignar_cliente(int $equipoId): int

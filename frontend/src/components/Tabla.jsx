@@ -35,7 +35,7 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo,
         <table className="sin-copia-table">
           <thead>
             <tr>
-              <th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Última copia</th><th>Aviso desde</th><th>Estado</th>
+              <th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Última copia</th><th>Día omitido</th><th>Aviso desde</th><th>Detalle</th><th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -45,12 +45,14 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo,
                 <td>{c.equipo}</td>
                 <td>{etiquetaTipo(c)}</td>
                 <td>{c.ultima_copia || 'Nunca'}</td>
+                <td>{c.fecha_esperada || '—'}</td>
                 <td>{c.fecha}</td>
+                <td>{c.desc_error || 'No llegó una copia en el último día programado.'}</td>
                 <td><Tag c={c} /></td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan="6" className="vacio">{cargando ? 'Cargando…' : 'No hay equipos sin copia recibida.'}</td></tr>
+              <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : 'No hay equipos sin copia recibida.'}</td></tr>
             )}
           </tbody>
         </table>

@@ -65,12 +65,16 @@ try {
     // Detecta copias nuevas y cambios en las alertas de equipos sin copia.
     if ($action === 'novedades') {
         $r = db()->query('SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
-        if (empty($_SESSION['mig_tipos'])) {
+        if (empty($_SESSION['mig_tipos']) || empty($_SESSION['mig_dias_copia'])) {
             asegurar_tablas_equipos(db());
             $_SESSION['mig_tipos'] = 1;
+            $_SESSION['mig_dias_copia'] = 1;
         }
         $sinCopia = copias_sin_recibir(db());
-        $ausentes = array_map(static fn($c) => [$c['id'], $c['cliente'], $c['equipo']], $sinCopia);
+        $ausentes = array_map(
+            static fn($c) => [$c['id'], $c['cliente'], $c['equipo'], $c['fecha_esperada'], $c['fecha'], $c['ultima_copia']],
+            $sinCopia
+        );
         out([
             'n' => (int) $r['n'],
             'm' => (int) $r['m'],
@@ -79,9 +83,10 @@ try {
     }
 
     if ($action === 'list') {
-        if (empty($_SESSION['mig_tipos'])) { // añade las columnas tipo/programa la primera vez
+        if (empty($_SESSION['mig_tipos']) || empty($_SESSION['mig_dias_copia'])) { // migraciones de equipos
             asegurar_tablas_equipos(db());
             $_SESSION['mig_tipos'] = 1;
+            $_SESSION['mig_dias_copia'] = 1;
         }
         $rows = db()->query(SQL_COPIA . " ORDER BY fecha DESC, id DESC LIMIT 3000")->fetchAll();
         $rows = array_map('copia_fila', $rows);
@@ -143,7 +148,10 @@ try {
     }
 
     if ($action === 'equipos') {
-        out(equipos_listado());
+        $listado = equipos_listado();
+        $_SESSION['mig_tipos'] = 1;
+        $_SESSION['mig_dias_copia'] = 1;
+        out($listado);
     }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST')
@@ -202,6 +210,15 @@ try {
     if ($action === 'equipo_vigilar') {
         try {
             equipos_vigilar((int) ($input['id'] ?? 0), !empty($input['vigilar']));
+            out(['ok' => true]);
+        } catch (ApiError $ex) {
+            fail($ex->getMessage());
+        }
+    }
+
+    if ($action === 'equipo_horario') {
+        try {
+            equipos_guardar_dias_copia((int) ($input['id'] ?? 0), $input['dias_copia'] ?? null);
             out(['ok' => true]);
         } catch (ApiError $ex) {
             fail($ex->getMessage());

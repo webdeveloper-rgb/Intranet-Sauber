@@ -286,26 +286,42 @@ table {
   table-layout: fixed;
 }
 .sin-copia-table {
-  min-width: 760px;
+  min-width: 1200px;
   table-layout: auto;
 }
 .sin-copia-table th:nth-child(1),
 .sin-copia-table td:nth-child(1),
 .sin-copia-table th:nth-child(2),
 .sin-copia-table td:nth-child(2) {
-  width: 23%;
+  width: 14%;
   overflow-wrap: anywhere;
 }
 .sin-copia-table th:nth-child(3),
 .sin-copia-table td:nth-child(3) {
-  width: 16%;
+  width: 9%;
 }
 .sin-copia-table th:nth-child(4),
-.sin-copia-table td:nth-child(4),
+.sin-copia-table td:nth-child(4) {
+  width: 13%;
+  white-space: nowrap;
+}
 .sin-copia-table th:nth-child(5),
 .sin-copia-table td:nth-child(5) {
-  width: 17%;
+  width: 10%;
   white-space: nowrap;
+}
+.sin-copia-table th:nth-child(6),
+.sin-copia-table td:nth-child(6) {
+  width: 13%;
+  white-space: nowrap;
+}
+.sin-copia-table th:nth-child(7),
+.sin-copia-table td:nth-child(7) {
+  width: 20%;
+}
+.sin-copia-table th:nth-child(8),
+.sin-copia-table td:nth-child(8) {
+  width: 7%;
 }
 th,
 td {
@@ -1032,6 +1048,79 @@ tbody tr.sin-copia {
   font-size: 12px;
   font-weight: 650;
 }
+.equipo-accion label.equipo-vigilar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.equipo-horario {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+.equipo-horario fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.equipo-horario legend {
+  margin-bottom: 5px;
+  color: var(--mut);
+  font-size: 11px;
+  font-weight: 650;
+}
+.equipo-dias {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.equipo-dias label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  margin: 0;
+  border: 1px solid var(--bd);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--mut);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+.equipo-dias label.seleccionado {
+  border-color: var(--brand-t);
+  background: var(--brand-s);
+  color: var(--tx);
+}
+.equipo-dias input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.equipo-dias label:focus-within {
+  outline: 2px solid var(--brand-t);
+  outline-offset: 2px;
+}
+.equipo-horario-guardar {
+  min-height: 32px;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+.equipo-horario-estado {
+  min-width: 0;
+  color: var(--ok);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.equipo-horario-estado.error {
+  color: var(--er);
+}
 .equipo-accion select {
   width: 100%;
   min-width: 0;
@@ -1611,6 +1700,19 @@ dd,
   }
   .estado-celda {
     min-width: 112px;
+  }
+  .equipo-horario {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .equipo-horario-estado {
+    grid-column: 1 / -1;
+  }
+  .equipo-dias {
+    gap: 3px;
+  }
+  .equipo-dias label {
+    width: 25px;
+    height: 25px;
   }
 }
 @media (max-width: 860px) {

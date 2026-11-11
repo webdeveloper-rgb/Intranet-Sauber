@@ -115,7 +115,7 @@ export default function App() {
               <section className="sin-copia-resumen">
                 <div>
                   <h2>Equipos sin copia recibida</h2>
-                  <p>Se muestran equipos asignados y vigilados que llevan más de 24 horas sin enviar una copia.</p>
+                  <p>Se muestran equipos asignados y vigilados que no enviaron una copia en su último día programado.</p>
                 </div>
                 <strong>{rows.length}<span> equipo{rows.length === 1 ? '' : 's'}</span></strong>
               </section>

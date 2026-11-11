@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS equipos (
   software VARCHAR(80) NOT NULL DEFAULT '',
   origen VARCHAR(200) NULL,
   sugerido VARCHAR(200) NULL,
+  dias_copia CHAR(7) NOT NULL DEFAULT '1111111',
   cliente_id INT UNSIGNED NULL,
   creado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_equipos_origen_nombre (software, nombre),

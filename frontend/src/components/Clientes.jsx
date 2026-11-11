@@ -6,6 +6,72 @@ import SelectorCliente from './SelectorCliente';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
+const DIAS_SEMANA = [
+  ['L', 'Lunes'], ['M', 'Martes'], ['X', 'Miércoles'], ['J', 'Jueves'],
+  ['V', 'Viernes'], ['S', 'Sábado'], ['D', 'Domingo'],
+];
+
+function HorarioSemana({ equipo, onSaved }) {
+  const horarioActual = /^[01]{7}$/.test(equipo.dias_copia || '') && equipo.dias_copia.includes('1')
+    ? equipo.dias_copia : '1111111';
+  const [dias, setDias] = useState(horarioActual);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const [guardado, setGuardado] = useState(false);
+
+  useEffect(() => {
+    setDias(horarioActual);
+    setError('');
+  }, [equipo.id, horarioActual]);
+
+  const cambiar = (indice, marcado) => {
+    const seleccion = dias.split('');
+    if (!marcado && seleccion.filter((dia) => dia === '1').length === 1) {
+      setError('Selecciona al menos un día.');
+      setGuardado(false);
+      return;
+    }
+    seleccion[indice] = marcado ? '1' : '0';
+    setDias(seleccion.join(''));
+    setError('');
+    setGuardado(false);
+  };
+
+  const guardar = async () => {
+    setGuardando(true);
+    setError('');
+    setGuardado(false);
+    try {
+      await api('equipo_horario', { id: equipo.id, dias_copia: dias });
+      onSaved(equipo.id, dias);
+      setGuardado(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return <div className="equipo-horario">
+    <fieldset disabled={guardando}>
+      <legend>Días esperados para las copias</legend>
+      <div className="equipo-dias">
+        {DIAS_SEMANA.map(([abreviatura, nombre], indice) => (
+          <label className={dias[indice] === '1' ? 'seleccionado' : ''} key={nombre} title={nombre}>
+            <input type="checkbox" aria-label={nombre} checked={dias[indice] === '1'}
+              onChange={(e) => cambiar(indice, e.target.checked)} />
+            <span aria-hidden="true">{abreviatura}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+    <button className="btn sec equipo-horario-guardar" disabled={guardando || dias === horarioActual}
+      onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar días'}</button>
+    <span className={`equipo-horario-estado${error ? ' error' : ''}`} role={error ? 'alert' : 'status'} aria-live="polite">
+      {error || (guardando ? 'Guardando horario…' : guardado ? 'Horario guardado.' : '')}
+    </span>
+  </div>;
+}
 
 // Cliente que mejor encaja con el texto sugerido por el aviso: coincidencia exacta (nombre, código o ambos)
 // o, si no, una coincidencia parcial que sea única.
@@ -226,6 +292,12 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
             const clienteSeleccionado = asignaciones[equipo.id] ?? equipo.cliente_id ?? sugerencia?.id ?? '';
             const clienteElegido = cat?.clientes?.find((c) => Number(c.id) === Number(clienteSeleccionado));
             const hayCambios = Number(clienteSeleccionado) > 0 && Number(clienteSeleccionado) !== Number(equipo.cliente_id || 0);
+            const actualizarHorario = (id, dias) => {
+              const actualizar = (lista) => lista.map((item) => item.id === id ? { ...item, dias_copia: dias } : item);
+              cargaActual.current += 1;
+              equiposActuales.current = actualizar(equiposActuales.current);
+              setEquipos(actualizar);
+            };
             return <article className={`equipo-card${asignado ? ' equipo-card-asignado' : ' equipo-card-pendiente'}`} key={equipo.id}>
               <div className="equipo-info">
                 <div className="equipo-titulo">
@@ -259,6 +331,7 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
                   <input type="checkbox" checked={equipo.vigilar !== 0} disabled={guardando === equipo.id}
                     onChange={(e) => vigilar(equipo, e.target.checked)} /> Avisar si no llegan copias
                 </label>
+                {equipo.vigilar !== 0 && <HorarioSemana equipo={equipo} onSaved={actualizarHorario} />}
                 <p className={`equipo-seleccion${hayCambios ? ' hay-cambios' : ''}`} aria-live="polite">
                   {hayCambios ? `Se asociará a ${clienteElegido?.nombre || 'el cliente seleccionado'}` : asignado ? 'Sin cambios pendientes' : 'Elige un cliente para continuar'}
                 </p>
