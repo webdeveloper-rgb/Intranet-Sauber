@@ -54,6 +54,7 @@ export const vencido = (c) =>
 export const FILTROS = [
     ["todos", "Todos"],
     ["pend", "Errores"],
+    ["sin", "Sin copia recibida"],
     ["rep", "Errores repetidos"],
     ["rev", "En revisión"],
     ["ok", "OK"],
@@ -66,6 +67,7 @@ export const FILTROS = [
 export const TEST = {
     todos: () => true,
     pend: (c) => ef(c) === "ERR",
+    sin: (c) => c.codigo === "SIN_COPIA",
     rep: (c, h, rep) => c.estado === "ERROR" && c.codigo !== "SIN_COPIA" && (rep?.[claveEquipo(c)] || 0) > 1,
     rev: (c) => ef(c) === "REV",
     ok: (c) => ef(c) === "OK",
@@ -76,20 +78,22 @@ export const TEST = {
 };
 
 // Filtros que muestran contador (clave del contador) y los que avisan en rojo
-export const EXTRA = { rep: "rr", notas: "c", tras: "r", venc: "v", atr: "a" };
-export const ALERTA = { venc: 1, atr: 1 };
+export const EXTRA = { sin: "sc", rep: "rr", notas: "c", tras: "r", venc: "v", atr: "a" };
+export const ALERTA = { sin: 1, venc: 1, atr: 1 };
 
 export function contadores(data, horas) {
-    const rep = repeticiones(data);
+    const copias = data.filter((c) => c.codigo !== "SIN_COPIA");
+    const rep = repeticiones(copias);
     return {
-        p: data.filter(TEST.pend).length,
-        rr: data.filter((c) => TEST.rep(c, horas, rep)).length,
-        w: data.filter(TEST.rev).length,
-        r: data.filter(TEST.tras).length,
-        o: data.filter(TEST.ok).length,
-        c: data.filter(TEST.notas).length,
-        v: data.filter(vencido).length,
-        a: data.filter((c) => atrasado(c, horas)).length,
+        p: copias.filter(TEST.pend).length,
+        sc: data.filter(TEST.sin).length,
+        rr: copias.filter((c) => TEST.rep(c, horas, rep)).length,
+        w: copias.filter(TEST.rev).length,
+        r: copias.filter(TEST.tras).length,
+        o: copias.filter(TEST.ok).length,
+        c: copias.filter(TEST.notas).length,
+        v: copias.filter(vencido).length,
+        a: copias.filter((c) => atrasado(c, horas)).length,
     };
 }
 

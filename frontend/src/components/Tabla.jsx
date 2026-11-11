@@ -28,9 +28,33 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
   );
 });
 
-export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo }) {
+export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo, sinCopia = false }) {
   return (
     <div className="wrap">
+      {sinCopia ? (
+        <table className="sin-copia-table">
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Última copia</th><th>Aviso desde</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => (
+              <tr className="err" key={c.id}>
+                <td>{c.cliente}</td>
+                <td>{c.equipo}</td>
+                <td>{etiquetaTipo(c)}</td>
+                <td>{c.ultima_copia || 'Nunca'}</td>
+                <td>{c.fecha}</td>
+                <td><Tag c={c} /></td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr><td colSpan="6" className="vacio">{cargando ? 'Cargando…' : 'No hay equipos sin copia recibida.'}</td></tr>
+            )}
+          </tbody>
+        </table>
+      ) : (
       <table>
         <thead>
           <tr>
@@ -49,6 +73,7 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo 
           )}
         </tbody>
       </table>
+      )}
     </div>
   );
 }

@@ -253,11 +253,63 @@ main {
   border-radius: var(--r);
   box-shadow: var(--sh);
 }
+.sin-copia-resumen {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 12px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--bd);
+  border-left: 4px solid var(--er);
+  border-radius: var(--r);
+}
+.sin-copia-resumen h2 {
+  margin: 0 0 5px;
+  font-size: 16px;
+}
+.sin-copia-resumen p {
+  margin: 0;
+  color: var(--mut);
+  font-size: 13px;
+}
+.sin-copia-resumen strong {
+  color: var(--er);
+  font-size: 24px;
+  white-space: nowrap;
+}
+.sin-copia-resumen strong span {
+  font-size: 13px;
+  font-weight: 500;
+}
 table {
   border-collapse: collapse;
   width: 100%;
   min-width: 1200px;
   table-layout: fixed;
+}
+.sin-copia-table {
+  min-width: 760px;
+  table-layout: auto;
+}
+.sin-copia-table th:nth-child(1),
+.sin-copia-table td:nth-child(1),
+.sin-copia-table th:nth-child(2),
+.sin-copia-table td:nth-child(2) {
+  width: 23%;
+  overflow-wrap: anywhere;
+}
+.sin-copia-table th:nth-child(3),
+.sin-copia-table td:nth-child(3) {
+  width: 16%;
+}
+.sin-copia-table th:nth-child(4),
+.sin-copia-table td:nth-child(4),
+.sin-copia-table th:nth-child(5),
+.sin-copia-table td:nth-child(5) {
+  width: 17%;
+  white-space: nowrap;
 }
 th,
 td {

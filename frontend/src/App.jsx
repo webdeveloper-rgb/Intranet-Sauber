@@ -74,6 +74,7 @@ export default function App() {
     const q = norm(f.cli.trim());
     return data.filter((c) => {
       const sinCopia = c.codigo === 'SIN_COPIA';
+      if (sinCopia !== (filtro === 'sin')) return false;
       return (
         TEST[filtro](c, f.horas, rep) &&
         (!q || norm(c.cliente).includes(q)) &&
@@ -108,9 +109,19 @@ export default function App() {
                 <button className="btn sec" onClick={copias.cargar}>Reintentar</button>
               </div>
             )}
-            <Kpis n={n} total={data.length} />
+            <Kpis n={n} total={data.length - n.sc} />
             <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} />
-            <Tabla rows={paginaCopias.items} cargando={copias.cargando} onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
+            {filtro === 'sin' && (
+              <section className="sin-copia-resumen">
+                <div>
+                  <h2>Equipos sin copia recibida</h2>
+                  <p>Se muestran equipos asignados y vigilados que llevan más de 24 horas sin enviar una copia.</p>
+                </div>
+                <strong>{rows.length}<span> equipo{rows.length === 1 ? '' : 's'}</span></strong>
+              </section>
+            )}
+            <Tabla sinCopia={filtro === 'sin'} rows={paginaCopias.items} cargando={copias.cargando}
+              onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
             <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
               porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />
             <p className="note">Pulsa una fila para ver el detalle. La tabla comprueba cambios cada 5 segundos sin recargar la página.</p>

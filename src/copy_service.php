@@ -50,6 +50,10 @@ function copias_sin_recibir(PDO $pdo): array
             e.creado
         ), INTERVAL 24 HOUR),'%Y-%m-%d %H:%i') AS fecha,
             c.nombre AS cliente, e.nombre AS equipo, e.tipo, e.programa, e.software,
+            DATE_FORMAT(
+                (SELECT MAX(cp.fecha) FROM copias cp WHERE cp.equipo_id=e.id),
+                '%Y-%m-%d %H:%i'
+            ) AS ultima_copia,
             'ERROR' AS estado,
             CONCAT('Sin copia recibida en las últimas 24 horas. Última copia: ',
                 COALESCE(DATE_FORMAT(
