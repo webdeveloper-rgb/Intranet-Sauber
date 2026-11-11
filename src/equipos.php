@@ -23,6 +23,8 @@ function asegurar_tablas_equipos(PDO $pdo): void
     $tipoNuevo = !in_array('tipo', $columns, true);
     if ($tipoNuevo)
         $pdo->exec('ALTER TABLE equipos ADD COLUMN tipo VARCHAR(20) NULL AFTER sugerido, ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
+    elseif (!in_array('programa', $columns, true))
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
     $vigNuevo = !in_array('vigilar', $columns, true);
     if ($vigNuevo)
         $pdo->exec('ALTER TABLE equipos ADD COLUMN vigilar TINYINT(1) NOT NULL DEFAULT 1');
@@ -34,6 +36,8 @@ function asegurar_tablas_equipos(PDO $pdo): void
     }
     if ($copyColumns && !in_array('tipo', $copyColumns, true)) {
         $pdo->exec('ALTER TABLE copias ADD COLUMN tipo VARCHAR(20) NULL, ADD COLUMN programa VARCHAR(50) NULL');
+    } elseif ($copyColumns && !in_array('programa', $copyColumns, true)) {
+        $pdo->exec('ALTER TABLE copias ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
     }
     if ($tipoNuevo)
         equipos_rellenar_tipos($pdo); // equipos que ya existían: se clasifican por su nombre
