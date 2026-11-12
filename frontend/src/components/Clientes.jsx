@@ -234,14 +234,16 @@ export default function Clientes({ sesion, modo = 'clientes', refreshSignal = 0 
 
   const pendientes = propios.filter((equipo) => !equipo.cliente_id).length;
   const u = cat?.ultima;
+  const hayProblemasEstado = Boolean(
+    (ultimaLectura && (ultimaLectura.alerta || ultimaLectura.ok === 0)) || u?.ok === 0
+  );
+  const ultimaActividad = [ultimaLectura?.fecha, u?.fecha].filter(Boolean).sort().slice(-1)[0];
 
   return <div className="clientes-page">
     <section className="mapeo-panel" aria-labelledby="titulo-mapeo">
       <div className="mapeo-heading">
         <div>
-          <span className="eyebrow">Trabajo técnico</span>
           <h2 id="titulo-mapeo">{servidores ? 'Asignar servidores a clientes' : 'Asignar equipos a clientes'}</h2>
-          <p>{servidores ? 'Vincula cada servidor detectado con su cliente. Sus copias quedan asociadas automáticamente.' : 'Vincula cada equipo detectado con su cliente. Las copias recibidas quedan asociadas automáticamente.'}</p>
         </div>
         <div className="mapeo-kpi" aria-label={`${pendientes} ${servidores ? 'servidores' : 'equipos'} pendientes`}>
           <strong>{pendientes}</strong>
@@ -264,22 +266,24 @@ export default function Clientes({ sesion, modo = 'clientes', refreshSignal = 0 
         Sincronizando clientes. Los equipos actuales permanecen visibles.
       </p>}
 
-      {ultimaLectura && <p className={`mail-estado${ultimaLectura.alerta || ultimaLectura.ok === 0 ? ' mail-estado-error' : ''}`}>
-        {ultimaLectura.fecha
-          ? <>Última recepción de avisos: {ultimaLectura.fecha} · {ultimaLectura.ok === 0 ? 'con errores' : ultimaLectura.ok === 1 ? 'correcta' : 'sin datos'} · {ultimaLectura.nuevos} nuevos · {ultimaLectura.ignorados} no reconocidos</>
-          : 'Todavía no se ha recibido ningún aviso de n8n.'}
-        {ultimaLectura.alerta && ` · Sin recepción durante ${ultimaLectura.horas_desde ?? 'un periodo desconocido'} h (umbral: ${ultimaLectura.umbral_horas} h)`}
-        {ultimaLectura.mensaje ? ` · ${ultimaLectura.mensaje}` : ''}
-      </p>}
-      {u && <p className={`mail-estado${u.ok === 0 ? ' mail-estado-error' : ''}`}>
-        Última sincronización de clientes: {u.fecha} · {u.ok === 1 ? 'correcta' : u.ok === 0 ? 'con errores' : 'sin sincronizar'}
-        {u.mensaje ? ` · ${u.mensaje}` : ''}
-      </p>}
+      {(ultimaLectura || u) && <details className={`estado-sistema${hayProblemasEstado ? ' con-problemas' : ''}`}>
+        <summary>
+          <strong>{hayProblemasEstado ? 'Revisar conexiones' : 'Conexiones al día'}</strong>
+          {ultimaActividad && <span>Última actividad: {ultimaActividad}</span>}
+        </summary>
+        <div className="estado-sistema-detalle">
+          <p><b>Recepción de copias:</b> {!ultimaLectura?.fecha ? 'sin avisos recibidos' : ultimaLectura.ok === 0 ? 'última recepción con errores' : 'operativa'}
+            {ultimaLectura?.fecha && ` · ${ultimaLectura.fecha} · ${ultimaLectura.nuevos} aviso${ultimaLectura.nuevos === 1 ? '' : 's'} nuevo${ultimaLectura.nuevos === 1 ? '' : 's'}`}</p>
+          {ultimaLectura?.alerta && <p className="estado-sistema-error">No se reciben avisos desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
+          <p><b>Sincronización de clientes:</b> {!u?.fecha ? 'sin sincronizaciones' : u.ok === 0 ? 'última sincronización con errores' : 'operativa'}
+            {u?.fecha && ` · ${u.fecha}`}</p>
+          {u?.ok === 0 && u.mensaje && <p className="estado-sistema-error">{u.mensaje}</p>}
+        </div>
+      </details>}
 
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
       {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
-      {u && u.ok === 0 && <div className="errbox">Falló la última sincronización de clientes: {u.mensaje}</div>}
       {resumen && <div className="okmsg">
         Sincronizados {resumen.clientes} clientes{resumen.omitidos ? ` (${resumen.omitidos} sin identificador, omitidos)` : ''}.
         {resumen.total_api_clientes != null && ` En la API: ${resumen.total_api_clientes} clientes y ${resumen.filas_con_servicio} filas con el servicio ${resumen.servicio}.`}

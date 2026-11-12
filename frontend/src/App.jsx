@@ -141,10 +141,8 @@ export default function App() {
                 }}>
                   {copias.cargandoHistorial ? 'Cargando historial…' : 'Cargar 500 copias anteriores'}
                 </button>
-                <span className="note">El historial anterior se carga solo cuando lo solicitas.</span>
               </div>
             )}
-            <p className="note">Pulsa una fila para ver el detalle. La tabla comprueba cambios cada 5 segundos sin recargar la página.</p>
           </>
         )}
       </main>

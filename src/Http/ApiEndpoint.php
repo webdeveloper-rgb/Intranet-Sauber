@@ -18,7 +18,6 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 const MIN_PALABRAS = 15;
-const MIN_PASSWORD = 10;
 
 function out($data, int $status = 200): void
 {

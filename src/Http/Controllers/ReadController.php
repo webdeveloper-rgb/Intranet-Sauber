@@ -85,15 +85,7 @@ final class ReadController
         }
 
         if ($action === 'usuarios') {
-            exigir_admin($user);
-            $rows = db()->query("SELECT id, usuario, nombre, rol, activo, DATE_FORMAT(creado,'%Y-%m-%d %H:%i') AS creado
-                                 FROM usuarios ORDER BY usuario")->fetchAll();
-            foreach ($rows as &$r) {
-                $r['id'] = (int) $r['id'];
-                $r['activo'] = (int) $r['activo'];
-            }
-            unset($r);
-            out(['usuarios' => $rows]);
+            fail('La gestión de accesos se realiza en la API de usuarios autorizados.', 403);
         }
 
         if ($action === 'tokens') {
