@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api';
 
 // Carga las copias y expone las acciones del panel.
@@ -9,18 +9,21 @@ export function useCopias() {
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState('');
+  const cargaActual = useRef(0);
   const data = useMemo(() => [...recientes, ...historial], [recientes, historial]);
 
   const cargar = useCallback(async () => {
+    const carga = ++cargaActual.current;
     try {
       const j = await api('list');
+      if (carga !== cargaActual.current) return;
       setRecientes(j.copias);
       setHayMasHistorial(Boolean(j.hay_mas_historial));
       setFallo('');
     } catch (e) {
-      setFallo(e.message);
+      if (carga === cargaActual.current) setFallo(e.message);
     } finally {
-      setCargando(false);
+      if (carga === cargaActual.current) setCargando(false);
     }
   }, []);
 

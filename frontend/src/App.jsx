@@ -52,6 +52,10 @@ export default function App() {
         const clave = JSON.stringify([d.m, d.staging, d.ingesta, d.ausentes]);
         if (ultima === null) {
           ultima = clave;
+          // Asegura que la lista queda sincronizada con el marcador inicial,
+          // aunque entrara una copia mientras terminaba la carga de sesión.
+          if (vistaActual.current === 'copias') cargarRef.current();
+          else setActualizacionEquipos((actual) => actual + 1);
           return;
         }
         const cambio = clave !== ultima;
