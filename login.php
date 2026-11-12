@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/src/bootstrap.php';
-require __DIR__ . '/src/api_utilities.php';
+require __DIR__ . '/src/Integration/ClientApi.php';
 
 if (usuario_actual()) {
     header('Location: index.php');

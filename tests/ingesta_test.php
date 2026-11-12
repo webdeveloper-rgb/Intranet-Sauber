@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../src/ingesta.php';
+require __DIR__ . '/../src/Backup/IngestionService.php';
 
 $checks = 0;
 $same = static function ($expected, $actual, string $case) use (&$checks): void {

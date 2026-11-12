@@ -4,27 +4,24 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 
 ## Estructura
 
+Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL del panel, n8n ni las tareas de Plesk. Su implementación está agrupada por responsabilidad dentro de `src/`:
+
 ```
-index.php, login.php, logout.php   Panel y acceso
-api.php                            API interna (copias, revisión, notas, usuarios)
-sync.php                           Sincroniza clientes (solo desde la tarea programada)
-migrate.php                        Aplica migraciones (solo desde CLI)
-purge.php                          Purga logs y staging antiguo (solo desde CLI)
-build/                             Panel compilado (app.js, app.css). SE GUARDA EN GIT
-assets/                            logo.png y login.css
-config/config.example.php          Plantilla de configuración (va en Git)
-config/config.php                  TUS datos de BD. NO va en Git (.gitignore). Se crea a mano en el servidor
-database/schema.sql                Tablas
-src/bootstrap.php                  Sesión, BD, seguridad
-src/api_utilities.php              Sincronización de clientes con la API
-src/copy_service.php               Consultas de copias y notas
-src/equipos.php                    Catálogo, asignación e importación de equipos
-src/mail_parser.php                Análisis MIME y extracción de resultados
-src/mail_import.php                Lectura IMAP y deduplicación de avisos
-database/sync.sql                  Tablas de clientes y registro de sincronización (se crean solas)
-database/equipos.sql               Equipos detectados, avisos y registro de importaciones
-frontend/                          Código fuente de React (se despliega, pero .htaccess lo bloquea)
+api.php, ingest.php, buzon.php     Entradas HTTP compatibles con el panel y n8n
+sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
+index.php, login.php, clientes.php Páginas del panel
+src/Http/                          Implementaciones de endpoints y respuesta JSON común
+src/Console/                       Comandos de sincronización, migración y limpieza
+src/Backup/                        Ingesta, equipos, copias, correo y parser MIME
+src/Integration/ClientApi.php      Sincronización e inicio de sesión con la API de clientes
+src/Security/ApiTokens.php          Creación y validación de tokens de n8n
+src/bootstrap.php                  Configuración, sesión, PDO y seguridad común
+database/                           Esquema y SQL de las tablas
+frontend/                           Código fuente React
+build/                              Panel compilado que se despliega
 ```
+
+Las rutas y comandos anteriores siguen funcionando. Para añadir lógica nueva, coloca el código en el módulo de su área y deja las entradas de la raíz como delegadores pequeños.
 
 ## Primera instalación
 

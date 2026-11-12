@@ -9,7 +9,7 @@ declare(strict_types=1);
  *     'asunto' => '/regex/i'   // opcional: qué asuntos se consideran de copias
  * ]
  */
-require_once __DIR__ . '/mail_parser.php';
+require_once __DIR__ . '/MailParser.php';
 
 final class BuzonError extends RuntimeException
 {

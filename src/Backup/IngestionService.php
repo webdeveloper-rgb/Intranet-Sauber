@@ -31,6 +31,15 @@ function ingesta_clasificar_nombre(?string $nombre): array
     if ($n === '')
         return $r;
 
+    // Hostnames Windows comunes sin prefijo de cliente (p. ej. DESKTOP-ABC123).
+    if (preg_match('/^(?:DESKTOP|LAPTOP|PC|WIN)-[A-Z0-9][A-Z0-9-]*$/iu', $n)) {
+        return ['empresa' => null, 'tipo' => 'usuario', 'programa' => null];
+    }
+    // Hosts ESXi que no siguen el formato EMPRESA_SRV-... .
+    if (preg_match('/^ESX(?:I)?[-_][A-Z0-9][A-Z0-9._-]*$/iu', $n)) {
+        return ['empresa' => null, 'tipo' => 'servidor', 'programa' => null];
+    }
+
     if (preg_match('/^(.+?)_PC-.+$/iu', $n, $m)) {
         return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'usuario', 'programa' => null];
     }

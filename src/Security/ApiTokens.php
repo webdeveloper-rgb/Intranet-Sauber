@@ -52,6 +52,17 @@ function token_de_peticion(): ?string
     return $k !== '' ? $k : null;
 }
 
+/** Autentica con el token heredado de configuración o con un token revocable del panel. */
+function token_autenticar(): ?array
+{
+    $enviado = token_de_peticion();
+    $fijo = (string) cfg('ingest_token', '');
+    if (strlen($fijo) >= 32 && is_string($enviado) && hash_equals($fijo, $enviado)) {
+        return ['nombre' => 'config'];
+    }
+    return token_validar($enviado);
+}
+
 function token_validar(?string $token): ?array
 {
     if ($token === null || !preg_match('/^sbr_[0-9a-f]{64}$/', $token)) return null;

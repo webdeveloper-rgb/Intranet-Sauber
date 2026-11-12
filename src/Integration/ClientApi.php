@@ -359,7 +359,7 @@ function asegurar_tablas_sync(PDO $pdo): void
     if ($hecho) {
         return;
     }
-    $sql = (string) file_get_contents(__DIR__ . '/../database/sync.sql');
+    $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/sync.sql');
     $sql = preg_replace('/^--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $s) {
         $pdo->exec($s);

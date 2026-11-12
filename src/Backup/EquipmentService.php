@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/api_utilities.php';
-require_once __DIR__ . '/ingesta.php';
+require_once __DIR__ . '/../Integration/ClientApi.php';
+require_once __DIR__ . '/IngestionService.php';
 
 function asegurar_tablas_equipos(PDO $pdo): void
 {
@@ -14,7 +14,7 @@ function asegurar_tablas_equipos(PDO $pdo): void
     if ($hecho)
         return;
     asegurar_tablas_sync($pdo);
-    $sql = (string) file_get_contents(__DIR__ . '/../database/equipos.sql');
+    $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/equipos.sql');
     $sql = (string) preg_replace('/^--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement)
         $pdo->exec($statement);
