@@ -5,7 +5,7 @@ const TEXTOS = {
 };
 const NAV = [['copias', 'Copias'], ['clientes', 'Asignar equipos'], ['servidores', 'Servidores']];
 
-export default function Header({ nombre, vista, onVista }) {
+export default function Header({ nombre, vista, onVista, esAdmin, onCuenta }) {
   const [titulo, subtitulo] = TEXTOS[vista] || TEXTOS.copias;
   return (
     <header>
@@ -19,6 +19,7 @@ export default function Header({ nombre, vista, onVista }) {
         {nombre && NAV.filter(([k]) => k !== vista).map(([k, t]) => (
           <button className="linkbtn" key={k} onClick={() => onVista(k)}>{t}</button>
         ))}
+        {nombre && <button className="linkbtn" onClick={onCuenta}>{esAdmin ? 'Administración' : 'Mi cuenta'}</button>}
         <a href="logout.php">Salir</a>
       </div>
     </header>

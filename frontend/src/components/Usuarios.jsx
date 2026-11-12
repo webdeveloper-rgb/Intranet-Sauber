@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import Paginacion from './Paginacion';
 import { usePagination } from '../hooks/usePagination';
+import Tokens from './Tokens';
 
 function FilaUsuario({ u, yo, onCambio }) {
   const propio = u.usuario === yo;
@@ -77,6 +78,7 @@ export default function Usuarios({ sesion, onClose }) {
               porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="usuarios" />
           </section>
         )}
+        {admin && <Tokens />}
       </aside>
     </>
   );

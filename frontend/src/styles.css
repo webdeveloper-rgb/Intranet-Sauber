@@ -724,6 +724,54 @@ tbody tr.sin-copia {
   border-radius: 8px;
   padding: 8px 10px;
 }
+.token-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  align-items: end;
+  gap: 10px;
+}
+.token-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--mut);
+  font-size: 13px;
+}
+.token-form input,
+.token-form select,
+.token-copy-row input {
+  width: 100%;
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.token-form button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.token-created {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  background: var(--brand-s);
+}
+.token-created p {
+  margin: 5px 0 10px;
+  font-size: 13px;
+}
+.token-copy-row {
+  display: flex;
+  gap: 8px;
+}
+.token-copy-row input {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+.token-list {
+  margin-top: 8px;
+}
 .okmsg {
   background: var(--okb);
   color: var(--ok);

@@ -8,6 +8,7 @@ import Filtros from './components/Filtros';
 import Tabla from './components/Tabla';
 import Detalle from './components/Detalle';
 import Clientes from './components/Clientes';
+import Usuarios from './components/Usuarios';
 import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
 
@@ -26,6 +27,7 @@ export default function App() {
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
   const [sel, setSel] = useState(null);
   const [selDialogo, setSelDialogo] = useState(null);
+  const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes' | 'servidores'
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
 
@@ -97,7 +99,8 @@ export default function App() {
 
   return (
     <>
-      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onVista={setVista} />
+      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onVista={setVista}
+        esAdmin={sesion?.rol === 'admin'} onCuenta={() => setCuentaAbierta(true)} />
       <main>
         {(vista === 'clientes' || vista === 'servidores') && sesion ? (
           <Clientes key={vista} sesion={sesion} modo={vista} />
@@ -149,6 +152,7 @@ export default function App() {
             .sort((a, b) => b.fecha.localeCompare(a.fecha))}
           r={rep[claveEquipo(copiaDialogo)] || 0} onOpen={(id) => setSelDialogo(id)} />
       )}
+      {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
     </>
   );
 }
