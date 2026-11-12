@@ -353,7 +353,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                   onClick={() => { onNavigate(`/clientes/${cliente.id}`); setBusqueda(''); }}>
                   <span className="cliente-tarjeta-flecha">›</span>
                   <strong>{cliente.nombre}</strong>
-                  {cliente.codigo && <span className="cliente-codigo">{cliente.codigo}</span>}
                   <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>
                 </button>;
               })}

@@ -27,6 +27,7 @@ export default function App() {
   const copias = useCopias();
   const [filtro, setFiltro] = useState('todos');
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
+  const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [actualizacionEquipos, setActualizacionEquipos] = useState(0);
   const vista = ruta.vista;
@@ -36,12 +37,14 @@ export default function App() {
     const href = rutaHref(path);
     if (window.location.pathname !== href) window.history.pushState({}, '', href);
     setRuta(leerRuta());
+    if (!/^\/copias\/\d+$/.test(path)) setCopiaSeleccionada(null);
     window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
     const sincronizarRuta = () => {
       setRuta(leerRuta());
+      if (!leerRuta().copiaId) setCopiaSeleccionada(null);
     };
     window.addEventListener('popstate', sincronizarRuta);
     const canonica = rutaHref(ruta.path);
@@ -111,9 +114,16 @@ export default function App() {
   }, [data, filtro, f, rep]);
   const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.desde}|${f.hasta}`);
 
-  const abrir = useCallback((id) => navegar(`/copias/${id}`), [navegar]);
-  const cerrar = useCallback(() => navegar('/copias'), [navegar]);
-  const cur = data.find((c) => Number(c.id) === Number(ruta.copiaId));
+  const abrir = useCallback((id) => {
+    setCopiaSeleccionada(Number(id));
+    navegar(`/copias/${id}`);
+  }, [navegar]);
+  const cerrar = useCallback(() => {
+    setCopiaSeleccionada(null);
+    navegar('/copias');
+  }, [navegar]);
+  const idCopiaAbierta = ruta.copiaId ?? copiaSeleccionada;
+  const cur = data.find((c) => Number(c.id) === Number(idCopiaAbierta));
   return (
     <>
       <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}

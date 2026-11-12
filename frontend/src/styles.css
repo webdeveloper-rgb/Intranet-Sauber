@@ -363,6 +363,19 @@ tbody tr {
 tbody tr:hover td {
   background: var(--brand-s);
 }
+tbody tr:focus-visible td {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.copia-fila-enlace {
+  color: inherit;
+  text-decoration: none;
+}
+.copia-fila-enlace:hover,
+.copia-fila-enlace:focus-visible {
+  color: var(--brand-t);
+  text-decoration: underline;
+}
 tr.err td:first-child {
   box-shadow: inset 4px 0 0 var(--er);
 }
@@ -1663,7 +1676,6 @@ header {
   font-size: 16px;
   overflow-wrap: anywhere;
 }
-.cliente-codigo,
 .cliente-conteo {
   color: var(--mut);
   font-size: 13px;

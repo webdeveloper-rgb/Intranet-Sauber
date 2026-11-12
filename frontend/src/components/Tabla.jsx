@@ -1,15 +1,26 @@
 import { memo } from 'react';
 import Tag from './Tag';
 import { ef, vencido, atrasado, etiquetaTipo } from '../logic';
+import { rutaHref } from '../routes';
 
 const Fila = memo(function Fila({ c, onOpen, r, h }) {
   const k = ef(c);
   const notas = (c.notas || []).length;
   const sinCopia = c.codigo === 'SIN_COPIA';
+  const abrir = () => !sinCopia && onOpen(c.id);
   return (
     <tr className={`${k === 'ERR' ? 'err' : k === 'REV' ? 'pen' : ''}${sinCopia ? ' sin-copia' : ''}`}
-      onClick={sinCopia ? undefined : () => onOpen(c.id)}>
-      <td>{c.fecha}</td>
+      tabIndex={sinCopia ? undefined : 0}
+      aria-label={sinCopia ? undefined : `Abrir detalle de la copia de ${c.equipo}, ${c.fecha}`}
+      onClick={abrir}
+      onKeyDown={(e) => {
+        if (!sinCopia && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          abrir();
+        }
+      }}>
+      <td>{sinCopia ? c.fecha : <a className="copia-fila-enlace" href={rutaHref(`/copias/${c.id}`)}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); abrir(); }}>{c.fecha}</a>}</td>
       <td>{c.cliente}</td>
       <td>{c.equipo}</td>
       <td>{etiquetaTipo(c)}</td>
