@@ -1,123 +1,73 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/src/bootstrap.php';
-$user = exigir_login();
-if (($user['rol'] ?? '') !== 'admin') {
-    header('Location: index.php');
-    exit;
+
+/**
+ * Tokens de API para sistemas externos (n8n).
+ * - El token en claro se muestra UNA sola vez al crearlo.
+ * - En la base de datos solo se guarda su hash SHA-256 (si se filtra la BD, los tokens no sirven).
+ * - Se pueden revocar y caducar de forma individual.
+ */
+
+function tokens_asegurar_tabla(PDO $pdo): void
+{
+    static $hecho = false;
+    if ($hecho) return;
+    $pdo->exec("CREATE TABLE IF NOT EXISTS api_tokens (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(100) NOT NULL,
+        prefijo CHAR(12) NOT NULL,
+        token_hash CHAR(64) NOT NULL,
+        creado_por VARCHAR(50) NOT NULL,
+        creado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        ultimo_uso DATETIME NULL,
+        ultima_ip VARCHAR(45) NULL,
+        caduca DATETIME NULL,
+        activo TINYINT(1) NOT NULL DEFAULT 1,
+        UNIQUE KEY uq_api_tokens_hash (token_hash)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $hecho = true;
 }
-?><!DOCTYPE html>
-<html lang="es">
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex,nofollow">
-    <title>Tokens de API · <?= e(cfg('titulo')) ?></title>
-    <style>
-        :root { color-scheme: light dark; --b: #8884; --mut: #888; }
-        body { font: 15px system-ui, sans-serif; margin: 0 auto; padding: 16px; max-width: 1000px; }
-        header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-        header h1 { font-size: 20px; margin: 0; flex: 1; }
-        a { color: inherit; }
-        input, button { padding: 8px 10px; border: 1px solid var(--b); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-        button { cursor: pointer; }
-        form { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
-        table { border-collapse: collapse; width: 100%; font-size: 14px; }
-        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--b); }
-        .mut { color: var(--mut); }
-        .err { border: 1px solid #c33; color: #c33; padding: 8px 12px; border-radius: 6px; margin: 8px 0; }
-        .nuevo { border: 1px solid #2a8; padding: 10px 12px; border-radius: 6px; margin: 8px 0; }
-        .nuevo code { display: block; word-break: break-all; margin: 8px 0; user-select: all; }
-    </style>
-</head>
+function token_crear(string $nombre, string $creadoPor, ?int $caducaDias = null): array
+{
+    $pdo = db();
+    tokens_asegurar_tabla($pdo);
+    $token = 'sbr_' . bin2hex(random_bytes(32)); // 256 bits de entropía
+    $pdo->prepare('INSERT INTO api_tokens (nombre, prefijo, token_hash, creado_por, caduca)
+        VALUES (?, ?, ?, ?, ' . ($caducaDias ? 'DATE_ADD(NOW(), INTERVAL ' . (int) $caducaDias . ' DAY)' : 'NULL') . ')')
+        ->execute([$nombre, substr($token, 0, 12), hash('sha256', $token), $creadoPor]);
+    return ['id' => (int) $pdo->lastInsertId(), 'token' => $token, 'prefijo' => substr($token, 0, 12)];
+}
 
-<body>
-    <header>
-        <h1>🔑 Tokens de API</h1>
-        <a href="index.php">← Volver al panel</a>
-    </header>
-    <p class="mut">Un token por sistema (por ejemplo, n8n). Se muestra una sola vez al crearlo; aquí solo se guarda su huella.
-        Si se filtra, revócalo y crea otro.</p>
+/** Token de la petición: Authorization: Bearer ... (o X-Api-Key). Nunca por URL: acabaría en los logs. */
+function token_de_peticion(): ?string
+{
+    $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (stripos($h, 'Bearer ') === 0) return trim(substr($h, 7));
+    $k = trim((string) ($_SERVER['HTTP_X_API_KEY'] ?? ''));
+    return $k !== '' ? $k : null;
+}
 
-    <div id="aviso"></div>
-    <form id="f">
-        <input id="nombre" placeholder="Nombre (p. ej. n8n producción)" maxlength="100" required>
-        <input id="dias" type="number" min="1" max="3650" placeholder="Caduca en (días, opcional)">
-        <button type="submit">Crear token</button>
-    </form>
+/** Autentica la petición: token fijo de config.php ('ingest_token', mín. 32 caracteres) o token de tokens.php. */
+function token_autenticar(): ?array
+{
+    $enviado = token_de_peticion();
+    $fijo = (string) cfg('ingest_token', '');
+    if (strlen($fijo) >= 32 && is_string($enviado) && hash_equals($fijo, $enviado)) return ['nombre' => 'config'];
+    return token_validar($enviado);
+}
 
-    <table>
-        <thead><tr><th>Nombre</th><th>Prefijo</th><th>Creado</th><th>Último uso</th><th>Caduca</th><th>Estado</th><th></th></tr></thead>
-        <tbody id="lista"></tbody>
-    </table>
-
-    <script>
-        const CSRF = <?= json_encode(csrf_token()) ?>;
-        const $ = id => document.getElementById(id);
-        const el = (t, txt, cls) => { const n = document.createElement(t); if (txt !== undefined) n.textContent = txt; if (cls) n.className = cls; return n; };
-
-        async function api(action, body) {
-            const opts = body === undefined ? {} : {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
-                body: JSON.stringify(body)
-            };
-            const r = await fetch('api.php?action=' + action, opts);
-            const j = await r.json();
-            if (!r.ok) throw new Error(j.error || 'Error');
-            return j;
-        }
-
-        async function cargar() {
-            const L = $('lista');
-            try {
-                const { tokens } = await api('tokens');
-                L.replaceChildren();
-                if (!tokens.length) {
-                    const tr = el('tr'); const td = el('td', 'Todavía no hay tokens.', 'mut'); td.colSpan = 7; tr.append(td); L.append(tr);
-                }
-                tokens.forEach(t => {
-                    const tr = el('tr');
-                    const caducado = t.caduca && t.caduca < new Date().toISOString().slice(0, 10);
-                    const estado = t.activo !== 1 ? 'Revocado' : caducado ? 'Caducado' : 'Activo';
-                    tr.append(el('td', t.nombre), el('td', t.prefijo + '…', 'mut'), el('td', t.creado),
-                        el('td', t.ultimo_uso ? t.ultimo_uso + (t.ultima_ip ? ' (' + t.ultima_ip + ')' : '') : 'Nunca', 'mut'),
-                        el('td', t.caduca || '—', 'mut'), el('td', estado));
-                    const td = el('td');
-                    if (t.activo === 1) {
-                        const b = el('button', 'Revocar');
-                        b.onclick = async () => {
-                            if (!confirm('¿Revocar «' + t.nombre + '»? n8n dejará de poder enviar datos con él.')) return;
-                            try { await api('token_revocar', { id: t.id }); cargar(); } catch (e) { alert(e.message); }
-                        };
-                        td.append(b);
-                    }
-                    tr.append(td); L.append(tr);
-                });
-            } catch (e) {
-                $('aviso').replaceChildren(el('div', e.message, 'err'));
-            }
-        }
-
-        $('f').addEventListener('submit', async ev => {
-            ev.preventDefault();
-            try {
-                const j = await api('token_crear', { nombre: $('nombre').value, dias: parseInt($('dias').value || '0', 10) });
-                const box = el('div', undefined, 'nuevo');
-                const code = el('code', j.token);
-                const cp = el('button', 'Copiar');
-                cp.onclick = () => navigator.clipboard.writeText(j.token).then(() => cp.textContent = 'Copiado ✓');
-                box.append(el('strong', 'Copia el token ahora: no se volverá a mostrar.'), code, cp);
-                $('aviso').replaceChildren(box);
-                $('f').reset();
-                cargar();
-            } catch (e) {
-                $('aviso').replaceChildren(el('div', e.message, 'err'));
-            }
-        });
-        cargar();
-    </script>
-</body>
-
-</html>
+function token_validar(?string $token): ?array
+{
+    if ($token === null || !preg_match('/^sbr_[0-9a-f]{64}$/', $token)) return null;
+    $pdo = db();
+    tokens_asegurar_tabla($pdo);
+    $st = $pdo->prepare('SELECT id, nombre FROM api_tokens
+        WHERE token_hash = ? AND activo = 1 AND (caduca IS NULL OR caduca > NOW())');
+    $st->execute([hash('sha256', $token)]);
+    $t = $st->fetch();
+    if (!$t) return null;
+    $pdo->prepare('UPDATE api_tokens SET ultimo_uso = NOW(), ultima_ip = ? WHERE id = ?')
+        ->execute([substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45), $t['id']]);
+    return $t;
+}
