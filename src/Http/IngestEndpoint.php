@@ -73,8 +73,20 @@ try {
         } catch (InvalidArgumentException $e) {
             $errores[] = ['indice' => $i, 'error' => $e->getMessage()];
         } catch (Throwable $e) {
-            error_log('[copias] ingesta: ' . $e->getMessage());
-            $errores[] = ['indice' => $i, 'error' => 'Error interno al guardar'];
+            $referencia = bin2hex(random_bytes(6));
+            error_log(sprintf(
+                '[copias] ingesta ref=%s indice=%d tipo=%s codigo=%s mensaje=%s',
+                $referencia,
+                (int) $i,
+                get_class($e),
+                (string) $e->getCode(),
+                $e->getMessage()
+            ));
+            $errores[] = [
+                'indice' => $i,
+                'error' => 'Error interno al guardar',
+                'referencia' => $referencia,
+            ];
         }
     }
 

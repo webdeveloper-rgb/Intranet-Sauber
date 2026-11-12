@@ -208,10 +208,11 @@ function ingesta_normalizar($it): array
         'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200) ?? $cl['empresa'],
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
-        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 2000) : null,
-        'codigo' => ingesta_texto($it['codigo'] ?? null, 50),
-        'destino' => ingesta_texto($it['destino'] ?? null, 500),
-        'tamano' => ingesta_texto($it['tamano'] ?? null, 50),
+        // Mantener estos límites alineados con correo_copias y copias en database/.
+        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
+        'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
+        'destino' => ingesta_texto($it['destino'] ?? null, 120),
+        'tamano' => ingesta_texto($it['tamano'] ?? null, 40),
         'duracion' => $duracion,
     ];
 }
@@ -228,6 +229,9 @@ function ingesta_guardar(PDO $pdo, array $d): array
         $st = $pdo->prepare('SELECT id, cliente_id FROM equipos WHERE software=? AND nombre=?');
         $st->execute([$d['software'], $d['nombre']]);
         $eq = $st->fetch();
+        if (!$eq) {
+            throw new RuntimeException('No se pudo recuperar el equipo después de insertarlo.');
+        }
 
         // Si el equipo aún no tiene cliente y el nombre sugerido (el de las llaves del asunto) coincide
         // con UN solo cliente activo, se asigna solo. Si no coincide, queda "Sin asignar" con la sugerencia.
