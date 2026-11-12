@@ -15,7 +15,6 @@ try {
     $deleted = [];
     foreach ([
         'correo_sync_log' => ['inicio < DATE_SUB(NOW(), INTERVAL ? DAY)', [$days]],
-        'correo_ignorados' => ['fecha < DATE_SUB(NOW(), INTERVAL ? DAY)', [$days]],
         'correo_copias' => ['importada=1 AND fecha < DATE_SUB(NOW(), INTERVAL ? DAY)', [$days]],
         'sync_log' => ['inicio < DATE_SUB(NOW(), INTERVAL ? DAY)', [$days]],
         'rate_limits' => ['updated_at < DATE_SUB(NOW(), INTERVAL 30 DAY)', []],

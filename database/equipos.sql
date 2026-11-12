@@ -1,4 +1,4 @@
--- Equipos detectados en los avisos y copias importadas desde el buzón.
+-- Equipos detectados en los avisos recibidos por n8n y copias en staging.
 
 CREATE TABLE IF NOT EXISTS equipos (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -30,20 +30,6 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   UNIQUE KEY uq_correo_key (message_key),
   KEY idx_correo_equipo_importada (equipo_id, importada),
   KEY idx_correo_fecha (fecha)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS correo_sync_estado (
-  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
-  revisado DATETIME NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS correo_ignorados (
-  message_key CHAR(40) NOT NULL PRIMARY KEY,
-  fecha DATETIME NOT NULL,
-  asunto VARCHAR(500) NOT NULL DEFAULT '',
-  parser_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,
-  actualizado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_correo_ignorados_fecha (fecha)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS correo_sync_log (

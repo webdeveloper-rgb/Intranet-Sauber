@@ -216,24 +216,6 @@ function ingesta_normalizar($it): array
     ];
 }
 
-/**
- * Un aviso rechazado por datos inválidos se anota para que buzon.php no lo vuelva a ofrecer a la IA en cada ejecución.
- * (Para reintentarlo: DELETE FROM correo_ignorados WHERE message_key = ...)
- */
-function ingesta_marcar_ignorado(PDO $pdo, $it): void
-{
-    try {
-        $mid = is_array($it) && is_scalar($it['message_id'] ?? null) ? trim((string) $it['message_id']) : '';
-        if ($mid === '')
-            return;
-        $pdo->prepare('INSERT INTO correo_ignorados (message_key,fecha,asunto,parser_version) VALUES (?,?,?,?)
-            ON DUPLICATE KEY UPDATE fecha=VALUES(fecha), asunto=VALUES(asunto)')
-            ->execute([sha1('n8n|' . strtolower($mid)), date('Y-m-d H:i:s'), mb_substr((string) ($it['asunto'] ?? ''), 0, 500), 1]);
-    } catch (Throwable $e) {
-        error_log('[copias] marcar ignorado: ' . $e->getMessage());
-    }
-}
-
 /** Guarda un aviso. Devuelve ['nuevo','equipo','software','asignado','cliente']. */
 function ingesta_guardar(PDO $pdo, array $d): array
 {

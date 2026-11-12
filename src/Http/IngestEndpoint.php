@@ -72,7 +72,6 @@ try {
             ];
         } catch (InvalidArgumentException $e) {
             $errores[] = ['indice' => $i, 'error' => $e->getMessage()];
-            ingesta_marcar_ignorado($pdo, $item);
         } catch (Throwable $e) {
             error_log('[copias] ingesta: ' . $e->getMessage());
             $errores[] = ['indice' => $i, 'error' => 'Error interno al guardar'];

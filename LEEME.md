@@ -7,12 +7,13 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL del panel, n8n ni las tareas de Plesk. Su implementación está agrupada por responsabilidad dentro de `src/`:
 
 ```
-api.php, ingest.php, buzon.php     Entradas HTTP compatibles con el panel y n8n
+api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
 sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
 index.php, login.php, clientes.php Páginas del panel
 src/Http/                          Implementaciones de endpoints y respuesta JSON común
+src/Http/Controllers/              Acciones de lectura, historial, clientes, usuarios, equipos y revisión
 src/Console/                       Comandos de sincronización, migración y limpieza
-src/Backup/                        Ingesta, equipos, copias, correo y parser MIME
+src/Backup/                        Ingesta de avisos, equipos y copias
 src/Integration/ClientApi.php      Sincronización e inicio de sesión con la API de clientes
 src/Security/ApiTokens.php          Creación y validación de tokens de n8n
 src/bootstrap.php                  Configuración, sesión, PDO y seguridad común
@@ -21,7 +22,7 @@ frontend/                           Código fuente React
 build/                              Panel compilado que se despliega
 ```
 
-Las rutas y comandos anteriores siguen funcionando. Para añadir lógica nueva, coloca el código en el módulo de su área y deja las entradas de la raíz como delegadores pequeños.
+Las rutas activas del panel y n8n, y los comandos de Plesk, se conservan. Para añadir lógica nueva, coloca el código en el módulo de su área y deja las entradas de la raíz como delegadores pequeños.
 
 ## Primera instalación
 
@@ -144,15 +145,11 @@ Añade una tarea programada para sincronizar clientes y limpiar logs:
 - Se guarda además el registro completo en bruto (columna `datos`), por si necesitas campos que hoy no se muestran.
 - Es una copia de **solo lectura**: el panel nunca escribe en tu API.
 
-## Copias recibidas por correo (IMAP)
+## Recepción de copias desde n8n
 
-Configura en `config/config.php` la sección `correo_backup` con el servidor, puerto, usuario y contraseña del buzón que ya recibe los avisos. La plantilla está en `config/config.example.php`. La conexión se realiza en el servidor y necesita la extensión IMAP de PHP.
+El workflow de n8n lee el buzón IMAP, clasifica cada aviso y envía el resultado a ingest.php con un token Bearer. El panel no se conecta al buzón ni procesa correos por su cuenta.
 
-El botón **Leer avisos** revisa el buzón en modo de solo lectura. Con `'dias' => 0` examina todos los mensajes disponibles; con un número positivo limita la búsqueda a los últimos días. Se procesan hasta `'max'` mensajes nuevos por ejecución; si el buzón tiene más, vuelve a pulsar el botón para continuar. La importación deduplica los mensajes y no cambia su estado de leído. Acronis e Iperius se reconocen por el asunto y cuerpo; VMware, vSphere o ESXi requieren que el asunto o informe indique equipo y resultado. Los correos no reconocidos se contabilizan.
-
-Cada aviso reconocido crea o reutiliza un equipo por nombre y programa. En **Clientes**, un técnico puede asignarlo a un cliente; las coincidencias textuales quedan como sugerencias y no asignan copias automáticamente. Las copias sin asignar esperan en staging y se importan al asignar el equipo. La tarea `sync.php` solo sincroniza clientes; el flujo de n8n debe llamar a `ingest.php` para registrar las copias.
-
-Monitoreo carga inicialmente copias de los últimos 60 días y permite cargar 500 anteriores bajo demanda; la vista local pagina 20 filas. Equipos, usuarios, historial y notas también usan paginación de 20 filas; el directorio de clientes, 15.
+Cada aviso debe incluir un identificador estable (message_id) para que la ingesta pueda reconocer reintentos y evitar duplicados. Los avisos aceptados crean o reutilizan un equipo; los que aún no tienen cliente quedan en staging hasta que se asignen desde **Clientes**.
 
 ## Seguridad incluida
 
