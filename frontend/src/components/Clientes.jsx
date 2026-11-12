@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api';
 import { norm, TIPOS } from '../logic';
 import Tag from './Tag';
+import Detalle from './Detalle';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
 import { usePagination } from '../hooks/usePagination';
@@ -87,7 +88,7 @@ function sugerirCliente(clientes, sugerido) {
   return parciales.length === 1 ? parciales[0] : undefined;
 }
 
-export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, onNavigate }) {
+export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteId = null, equipoId = null, onNavigate }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
@@ -103,6 +104,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const [guardando, setGuardando] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [historialFallo, setHistorialFallo] = useState('');
+  const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [cargandoMas, setCargandoMas] = useState(false);
   const [hayMasHistorial, setHayMasHistorial] = useState(false);
@@ -423,11 +425,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
               </div>
               {cargandoHistorial && !historial.length ? <div className="mapeo-vacio">Cargando historial…</div>
                 : historial.length ? <div className="historial-equipo-lista">
-                  {historial.map((copia) => <article className="historial-equipo-fila" key={copia.id}>
+                  {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
+                    onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
                     <time>{copia.fecha}</time>
                     <Tag c={copia} />
-                    {copia.desc_error && <p>{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</p>}
-                  </article>)}
+                    {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
+                  </button>)}
                 </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
               {historialFallo && <div className="errbox" role="alert">{historialFallo}
                 <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
@@ -441,5 +444,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         </>
       )}
     </section>
+    {copiaSeleccionada && <Detalle modo="dialog" c={copiaSeleccionada}
+      onClose={() => setCopiaSeleccionada(null)} acciones={acciones} />}
   </div>;
 }

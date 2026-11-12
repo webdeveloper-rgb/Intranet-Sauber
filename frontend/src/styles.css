@@ -1791,18 +1791,32 @@ header {
   grid-template-columns: minmax(145px, 190px) auto 1fr;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-width: 0;
   padding: 11px 4px;
+  border: 0;
   border-bottom: 1px solid var(--bd);
+  background: transparent;
+  color: var(--tx);
+  text-align: left;
+  font: inherit;
+}
+.historial-equipo-boton {
+  cursor: pointer;
+}
+.historial-equipo-boton:hover,
+.historial-equipo-boton:focus-visible {
+  background: var(--brand-s);
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
 }
 .historial-equipo-fila time {
   color: var(--mut);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
-.historial-equipo-fila p {
+.historial-equipo-error {
   grid-column: 1 / -1;
-  margin: 0;
   color: var(--mut);
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -1818,7 +1832,7 @@ header {
   .historial-equipo-fila {
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .historial-equipo-fila p {
+  .historial-equipo-error {
     grid-column: 1 / -1;
   }
 }

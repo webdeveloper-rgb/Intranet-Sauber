@@ -131,7 +131,7 @@ export default function App() {
       <main>
         {vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
-            clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} />
+            clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} acciones={copias} />
         ) : (
           <>
             {copias.fallo && (
