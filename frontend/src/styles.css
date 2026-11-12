@@ -865,64 +865,27 @@ tbody tr.sin-copia {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-.estado-sistema {
-  margin: 10px 0 16px;
-  border: 1px solid var(--bd);
-  border-radius: 8px;
-  background: var(--bg);
-}
-.estado-sistema summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  min-height: 38px;
-  padding: 7px 11px;
-  color: var(--tx);
-  cursor: pointer;
-  list-style: none;
-}
-.estado-sistema summary::-webkit-details-marker {
-  display: none;
-}
-.estado-sistema summary::after {
-  content: '';
-  width: 7px;
-  height: 7px;
-  margin-left: auto;
-  border-right: 2px solid var(--mut);
-  border-bottom: 2px solid var(--mut);
-  transform: rotate(45deg) translateY(-2px);
-  transition: transform 0.15s;
-}
-.estado-sistema[open] summary::after {
-  transform: rotate(225deg) translate(-2px, -1px);
-}
-.estado-sistema summary strong {
-  font-size: 13px;
-}
-.estado-sistema summary span {
-  color: var(--mut);
-  font-size: 13px;
-}
-.estado-sistema.con-problemas summary strong,
-.estado-sistema-error {
-  color: var(--er);
-}
-.estado-sistema-detalle {
+.estado-alertas {
   display: grid;
-  gap: 5px;
-  padding: 4px 11px 10px;
-  border-top: 1px solid var(--bd);
-}
-.estado-sistema-detalle p {
-  margin: 3px 0 0;
-  color: var(--mut);
+  gap: 6px;
+  margin: 10px 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--wa);
+  border-radius: 8px;
+  background: var(--wab);
+  color: var(--wa);
   font-size: 13px;
+}
+.estado-alertas p {
+  margin: 0;
   overflow-wrap: anywhere;
 }
-.estado-sistema-detalle b {
-  color: var(--tx);
+.estado-alertas summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.estado-alertas details p {
+  margin-top: 6px;
 }
 .mapeo-kpi {
   flex: 0 0 auto;

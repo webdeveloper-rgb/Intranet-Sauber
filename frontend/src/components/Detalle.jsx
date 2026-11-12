@@ -41,8 +41,8 @@ export default function Detalle({ c, onClose, acciones, modo = 'drawer', manejar
           <Campo t="Fecha revisión" v={c.revisado ? c.revisado_fecha : null} />
         </dl>
         {esError && <Revision c={c} onRevisar={acciones.revisar} onReabrir={acciones.reabrir} />}
-        {esError && c.revisado && <Seguimiento c={c} onSeg={acciones.seguimiento} />}
-        {esError && c.revisado && <Notas c={c} onNote={acciones.nota} />}
+        {esError && c.revisado === 1 && <Seguimiento c={c} onSeg={acciones.seguimiento} />}
+        {esError && c.revisado === 1 && <Notas c={c} onNote={acciones.nota} />}
       </aside>
     </>
   );

@@ -217,10 +217,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const clienteElegido = asignaciones[equipoActual?.id] ?? equipoActual?.cliente_id ?? equipoSugerencia?.id ?? '';
   const hayCambioAsignacion = Number(clienteElegido) > 0 && Number(clienteElegido) !== Number(equipoActual?.cliente_id || 0);
   const u = cat?.ultima;
-  const hayProblemasEstado = Boolean(
-    (ultimaLectura && (ultimaLectura.alerta || ultimaLectura.ok === 0)) || u?.ok === 0
-  );
-  const ultimaActividad = [ultimaLectura?.fecha, u?.fecha].filter(Boolean).sort().slice(-1)[0];
 
   const sincronizar = async () => {
     if (sincronizando.current) return;
@@ -332,20 +328,14 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
       </div>
 
-      {(ultimaLectura || u) && <details className={`estado-sistema${hayProblemasEstado ? ' con-problemas' : ''}`}>
-        <summary>
-          <strong>{hayProblemasEstado ? 'Revisar conexiones' : 'Conexiones al día'}</strong>
-          {ultimaActividad && <span>Última actividad: {ultimaActividad}</span>}
-        </summary>
-        <div className="estado-sistema-detalle">
-          <p><b>Recepción de copias:</b> {!ultimaLectura?.fecha ? 'sin avisos recibidos' : ultimaLectura.ok === 0 ? 'última recepción con errores' : 'operativa'}
-            {ultimaLectura?.fecha && ` · ${ultimaLectura.fecha}`}</p>
-          {ultimaLectura?.alerta && <p className="estado-sistema-error">No se reciben avisos desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
-          <p><b>Sincronización de clientes:</b> {!u?.fecha ? 'sin sincronizaciones' : u.ok === 0 ? 'última sincronización con errores' : 'operativa'}
-            {u?.fecha && ` · ${u.fecha}`}</p>
-          {u?.ok === 0 && u.mensaje && <p className="estado-sistema-error">{u.mensaje}</p>}
-        </div>
-      </details>}
+      {(ultimaLectura?.alerta || ultimaLectura?.ok === 0 || u?.ok === 0) && <div className="estado-alertas" role="status">
+        {ultimaLectura?.alerta && <p>No se reciben avisos de copias desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
+        {!ultimaLectura?.alerta && ultimaLectura?.ok === 0 && <p>La última recepción de copias terminó con errores.</p>}
+        {u?.ok === 0 && <details>
+          <summary>Falló la sincronización de clientes</summary>
+          {u.mensaje && <p>{u.mensaje}</p>}
+        </details>}
+      </div>}
 
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
