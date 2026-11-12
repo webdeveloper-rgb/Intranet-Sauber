@@ -1,3 +1,6 @@
+/**
+ * Dialogo informativo sobre administracion de usuarios autorizados en la API externa.
+ */
 import { useEffect } from 'react';
 import Tokens from './Tokens';
 

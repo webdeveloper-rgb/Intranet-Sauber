@@ -1,3 +1,6 @@
+/**
+ * Configuracion de compilacion y proxy de desarrollo Vite hacia el backend PHP.
+ */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

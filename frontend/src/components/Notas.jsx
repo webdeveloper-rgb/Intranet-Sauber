@@ -1,3 +1,6 @@
+/**
+ * Formulario y listado de notas de seguimiento de una copia revisada.
+ */
 import { useState } from 'react';
 import Paginacion from './Paginacion';
 import { usePagination } from '../hooks/usePagination';

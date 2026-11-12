@@ -1,3 +1,6 @@
+/**
+ * Interfaz administrativa para emitir, listar y revocar tokens n8n.
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 

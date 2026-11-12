@@ -1,6 +1,7 @@
 -- Tablas de la sincronización con la API (se crean solas si no existen)
 CREATE TABLE
     IF NOT EXISTS clientes (
+        -- Replica local del catalogo remoto; clave conserva el identificador estable de la API.
         id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         clave VARCHAR(64) NOT NULL,
         codigo VARCHAR(40) NULL,
@@ -19,6 +20,7 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS maquinas (
+        -- Tabla historica de maquinas remotas; no confundir con equipos detectados por n8n.
         id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         clave VARCHAR(64) NOT NULL,
         codigo VARCHAR(40) NULL,
@@ -35,6 +37,7 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS sync_log (
+        -- Resultado de cada sincronizacion del catalogo externo.
         id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         inicio DATETIME NOT NULL,
         fin DATETIME NULL,

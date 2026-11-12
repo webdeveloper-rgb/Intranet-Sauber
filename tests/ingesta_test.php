@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+/** Pruebas unitarias simples para las reglas puras de nombres y asuntos de ingesta. */
 require __DIR__ . '/../src/Backup/IngestionService.php';
 
 $checks = 0;

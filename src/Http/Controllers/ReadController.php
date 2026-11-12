@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Acciones de lectura del panel: sesion, novedades, copias recientes, equipos, catalogo y tokens.
+ */
 final class ReadController
 {
     public static function handle(string $action, array $user): bool

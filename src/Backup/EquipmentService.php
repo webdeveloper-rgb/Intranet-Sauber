@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Persistencia de equipos y asignaciones; importa avisos pendientes al historial al vincular un cliente.
+ */
 require_once __DIR__ . '/../Integration/ClientApi.php';
 require_once __DIR__ . '/IngestionService.php';
 

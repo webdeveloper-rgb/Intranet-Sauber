@@ -1,3 +1,6 @@
+/**
+ * Composicion de vistas, estado global, rutas del navegador y refresco de novedades.
+ */
 import { useState, useMemo, useEffect, useCallback, useReducer, useRef } from 'react';
 import { iniciarSesion, api } from './api';
 import { useCopias } from './hooks/useCopias';

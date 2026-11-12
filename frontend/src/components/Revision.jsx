@@ -1,3 +1,6 @@
+/**
+ * Formulario para documentar la solucion aplicada a una copia fallida.
+ */
 import { useState } from 'react';
 import { MIN_PALABRAS, palabras } from '../logic';
 

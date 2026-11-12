@@ -1,3 +1,6 @@
+/**
+ * Controles de estado de seguimiento y fecha de recordatorio de un error.
+ */
 import { vencido } from '../logic';
 import { descargarICS } from '../ics';
 

@@ -1,3 +1,6 @@
+/**
+ * Hook de carga, estado y acciones sobre copias mediante la API del panel.
+ */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api';
 

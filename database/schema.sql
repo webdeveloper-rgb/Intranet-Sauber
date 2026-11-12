@@ -2,6 +2,7 @@
 -- Esquema MySQL 5.7+ / MariaDB 10.3+ (utf8mb4)
 
 CREATE TABLE IF NOT EXISTS usuarios (
+  -- Perfil local: la autenticacion real se verifica con la API de usuarios autorizados.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   usuario VARCHAR(50) NOT NULL,
   api_user_id VARCHAR(100) NULL,
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS copias (
+  -- Historial definitivo mostrado por el panel; guarda tambien el estado de revision y seguimiento.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   fecha DATETIME NOT NULL,
   cliente VARCHAR(200) NOT NULL,
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS copias (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS notas (
+  -- Notas de tecnicos ligadas a una copia; la FK las elimina junto con la copia.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   copia_id INT UNSIGNED NOT NULL,
   usuario VARCHAR(50) NOT NULL,

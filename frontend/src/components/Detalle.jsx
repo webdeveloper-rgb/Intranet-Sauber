@@ -1,3 +1,6 @@
+/**
+ * Dialogo o panel con informacion completa de una copia y sus acciones de revision.
+ */
 import { useEffect } from 'react';
 import Tag from './Tag';
 import Revision from './Revision';

@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Acciones administrativas de asignacion, vigilancia y calendario esperado de copias por equipo.
+ */
 final class EquipmentController
 {
     public static function handle(string $action, array $input, array $user): bool

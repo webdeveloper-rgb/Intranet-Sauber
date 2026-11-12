@@ -1,3 +1,6 @@
+/**
+ * Selector accesible de cliente con busqueda y presentacion de codigo/nombre.
+ */
 import { useMemo, useState } from 'react';
 import { norm } from '../logic';
 

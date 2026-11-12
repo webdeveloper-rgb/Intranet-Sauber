@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Infraestructura compartida: configuracion, conexion PDO, sesion, seguridad, CSRF y utilidades comunes.
+ */
 $cfgFile = __DIR__ . '/../config/config.php';
 if (!is_file($cfgFile)) {
     http_response_code(500);

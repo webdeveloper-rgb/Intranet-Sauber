@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Almacenamiento, emision, extraccion y validacion de tokens Bearer para integraciones.
+ */
 /**
  * Tokens de API para sistemas externos (n8n).
  * - El token en claro se muestra UNA sola vez al crearlo.

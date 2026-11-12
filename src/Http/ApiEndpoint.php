@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Despachador JSON del panel; autentica la sesion, comprueba CSRF y deriva acciones a controladores.
+ */
 require __DIR__ . '/../bootstrap.php';
 require __DIR__ . '/../Integration/ClientApi.php';
 require __DIR__ . '/../Backup/EquipmentService.php';

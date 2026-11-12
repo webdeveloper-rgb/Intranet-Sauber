@@ -1,3 +1,6 @@
+/**
+ * Convierte la URL del navegador en estado de vista y construye enlaces respetando base href.
+ */
 function basePath() {
   const href = document.querySelector('base')?.href || `${window.location.origin}/`;
   return new URL(href).pathname.replace(/\/$/, '');

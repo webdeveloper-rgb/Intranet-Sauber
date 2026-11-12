@@ -1,3 +1,6 @@
+/**
+ * Lista de copias de un equipo y acceso a sus detalles.
+ */
 import Tag from './Tag';
 import Paginacion from './Paginacion';
 import { usePagination } from '../hooks/usePagination';

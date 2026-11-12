@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Comando CLI que elimina logs y staging vencidos segun la retencion configurada.
+ */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;

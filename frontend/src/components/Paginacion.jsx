@@ -1,3 +1,6 @@
+/**
+ * Controles de navegacion entre paginas de resultados.
+ */
 export default function Paginacion({ total, pagina, paginas, porPagina = 20, onCambiar, etiqueta = 'elementos' }) {
   if (total <= porPagina) return null;
   const inicio = (pagina - 1) * porPagina + 1;

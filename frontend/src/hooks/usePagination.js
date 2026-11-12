@@ -1,3 +1,6 @@
+/**
+ * Hook reutilizable para paginar colecciones locales y reiniciar pagina al cambiar filtros.
+ */
 import { useEffect, useState } from 'react';
 
 export function usePagination(items, pageSize = 20, resetKey = '') {

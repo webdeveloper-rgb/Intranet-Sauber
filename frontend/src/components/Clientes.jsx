@@ -1,3 +1,6 @@
+/**
+ * Vistas jerarquicas de clientes, equipos, asignacion y detalle del historial por equipo.
+ */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api';
 import { norm, TIPOS } from '../logic';

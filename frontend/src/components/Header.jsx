@@ -1,3 +1,6 @@
+/**
+ * Cabecera, navegacion principal y acceso a acciones de cuenta.
+ */
 import { rutaHref } from '../routes';
 
 const TEXTOS = {

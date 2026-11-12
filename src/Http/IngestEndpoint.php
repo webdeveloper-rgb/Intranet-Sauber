@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Endpoint de n8n; valida Bearer, payload y limites antes de guardar avisos de copia.
+ */
 // Endpoint para n8n. Sin sesión ni cookies: solo token Bearer.
 define('SIN_SESION', true);
 require __DIR__ . '/../bootstrap.php';

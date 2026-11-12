@@ -4,6 +4,8 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 
 ## Estructura
 
+La documentacion tecnica de responsabilidades, rutas de datos, acciones API y reglas para cambios esta en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
+
 Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL del panel, n8n ni las tareas de Plesk. Su implementación está agrupada por responsabilidad dentro de `src/`:
 
 ```

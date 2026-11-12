@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Ruta historica de clientes que redirige a la aplicacion principal.
+ */
 require __DIR__ . '/src/bootstrap.php';
 exigir_login();
 

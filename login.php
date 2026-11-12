@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Formulario y flujo de inicio de sesion; aplica limites de intentos y valida usuarios contra la API configurada.
+ */
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/Integration/ClientApi.php';
 

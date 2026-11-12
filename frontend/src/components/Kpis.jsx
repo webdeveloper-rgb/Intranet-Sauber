@@ -1,3 +1,6 @@
+/**
+ * Resumen visual de cantidades de copias en la vista actual.
+ */
 export default function Kpis({ n, total }) {
   const items = [
     ['er', n.p, 'Errores'],

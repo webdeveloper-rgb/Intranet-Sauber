@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Consultas y conversion de registros del historial de copias, notas y equipos sin copia reciente.
+ */
 function copia_fila(array $row): array
 {
     foreach (['id', 'revisado'] as $key)

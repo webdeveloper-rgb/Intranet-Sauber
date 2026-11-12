@@ -1,3 +1,6 @@
+/**
+ * Estilos propios de la pagina de autenticacion PHP.
+ */
 :root {
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);

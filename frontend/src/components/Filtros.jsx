@@ -1,3 +1,6 @@
+/**
+ * Controles de filtro y rango temporal de la lista de copias.
+ */
 import { FILTROS, EXTRA, ALERTA, PROGRAMAS } from '../logic';
 
 export default function Filtros({ filtro, setFiltro, n, f, setF, resultados }) {

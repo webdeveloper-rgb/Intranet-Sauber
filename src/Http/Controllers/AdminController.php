@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Acciones reservadas al administrador, actualmente creacion y revocacion de tokens.
+ */
 final class AdminController
 {
     public static function handle(string $action, array $input, array $user): bool

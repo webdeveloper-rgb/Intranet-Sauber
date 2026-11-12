@@ -2,15 +2,19 @@
 declare(strict_types=1);
 
 /**
+ * Clasifica, adapta, valida y guarda atomicamente los avisos interpretados por n8n.
+ */
+/**
  * Recepción de resultados de copia ya interpretados (n8n + ChatGPT).
  * El panel NO se fía del contenido: todo se valida y normaliza aquí.
  */
 
-const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'VMware', 'Otro'];
+const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'MicroFocus', 'Veeam', 'VMware', 'Otro'];
 const INGESTA_MAX_ITEMS = 100;
 // Programas (software de gestión del cliente) que se copian aparte de los equipos de usuario y los servidores.
 const INGESTA_PROGRAMAS = ['EuroAgro', 'EuroPos', 'EuroExtintor', 'EuroMetrics', 'DivaCon', 'DivaGes', 'BDP'];
 
+/** Normaliza el nombre de cliente extraido de un nombre de equipo. */
 function ingesta_limpiar_empresa(string $e): ?string
 {
     $e = trim(str_replace('_', ' ', $e));
@@ -57,6 +61,7 @@ function ingesta_clasificar_nombre(?string $nombre): array
     return $r;
 }
 
+/** Limpia un valor recibido por API, comprueba que sea escalar y limita su longitud. */
 function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = ''): ?string
 {
     if ($v === null || $v === '') {
@@ -81,6 +86,7 @@ function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = 
  */
 function ingesta_parsear_asunto(string $asunto): array
 {
+    // El asunto suele ser mas estable que la IA para identificar software y nombre del equipo.
     $r = ['software' => null, 'nombre' => null, 'sugerido' => null];
     if (preg_match('/Notificaci[oó]n de Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
         $origen = trim($m[1]);
@@ -99,6 +105,10 @@ function ingesta_parsear_asunto(string $asunto): array
         $r['software'] = 'Iperius';
         $r['nombre'] = trim($m[2]);
         $r['sugerido'] = ingesta_clasificar_nombre($r['nombre'])['empresa'];
+    } elseif (preg_match('/Micro\s*Focus/i', $asunto)) {
+        $r['software'] = 'MicroFocus';
+    } elseif (preg_match('/Veeam/i', $asunto)) {
+        $r['software'] = 'Veeam';
     } elseif (preg_match('/VMware|vSphere|ESXi/i', $asunto)) {
         $r['software'] = 'VMware';
     }
@@ -111,6 +121,7 @@ function ingesta_parsear_asunto(string $asunto): array
  */
 function ingesta_adaptar($it)
 {
+    // Si ya tiene el formato interno, no hace falta convertirlo desde el formato de n8n.
     if (!is_array($it) || isset($it['estado']))
         return $it;
 
@@ -161,11 +172,13 @@ function ingesta_adaptar($it)
     ];
 }
 
+/** Valida el elemento y devuelve el formato exacto que espera la base de datos. */
 function ingesta_normalizar($it): array
 {
     if (!is_array($it))
         throw new InvalidArgumentException('Cada elemento debe ser un objeto');
 
+    // Se usa para deduplicar notificaciones aunque el flujo las reenvie.
     $mid = ingesta_texto($it['message_id'] ?? null, 500, true, 'message_id');
 
     $software = null;
@@ -182,6 +195,7 @@ function ingesta_normalizar($it): array
 
     $nombre = ingesta_texto($it['nombre'] ?? null, 200, true, 'nombre');
 
+    // Convierte la fecha y evita aceptar notificaciones con fecha futura no razonable.
     $ts = strtotime((string) ($it['fecha'] ?? ''));
     if ($ts === false)
         throw new InvalidArgumentException("'fecha' no válida (usa ISO 8601, p. ej. 2026-11-09T03:15:00+01:00)");
@@ -220,8 +234,10 @@ function ingesta_normalizar($it): array
 /** Guarda un aviso. Devuelve ['nuevo','equipo','software','asignado','cliente']. */
 function ingesta_guardar(PDO $pdo, array $d): array
 {
+    // Equipo, asignacion y copia se guardan en una transaccion para evitar datos parciales.
     $pdo->beginTransaction();
     try {
+        // La clave unica de equipos evita duplicar la pareja software/nombre.
         $pdo->prepare('INSERT INTO equipos (nombre,software,origen,sugerido,tipo,programa) VALUES (?,?,?,?,?,?)
             ON DUPLICATE KEY UPDATE origen=VALUES(origen), sugerido=COALESCE(VALUES(sugerido),sugerido),
                 tipo=COALESCE(VALUES(tipo),tipo), programa=COALESCE(VALUES(programa),programa)')
@@ -245,6 +261,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
             }
         }
 
+        // Los reenvios de una copia existente se ignoran y se informan como duplicados.
         $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
             (message_key,equipo_id,fecha,estado,desc_error,codigo,software,destino,tamano,duracion)
             VALUES (?,?,?,?,?,?,?,?,?,?)');
@@ -279,6 +296,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
             'cliente' => $clienteNombre
         ];
     } catch (Throwable $e) {
+        // Si algo falla, revierte tambien equipo y asignacion creados en esta transaccion.
         if ($pdo->inTransaction())
             $pdo->rollBack();
         throw $e;

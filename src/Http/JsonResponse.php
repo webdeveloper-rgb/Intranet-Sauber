@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Emite respuestas JSON con codigo HTTP y cabeceras consistentes.
+ */
 final class JsonResponse
 {
     public static function send($data, int $status = 200): void

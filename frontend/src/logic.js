@@ -1,3 +1,6 @@
+/**
+ * Reglas puras de clasificacion, filtros, alertas, contadores y claves de equipo.
+ */
 // Reglas de negocio del panel (sin interfaz).
 // ERR: error sin revisar | REV: EN REVISIÓN (arreglo descrito, en vigilancia) | OK: copia OK o error con vigilancia cerrada
 export const MIN_PALABRAS = 15;

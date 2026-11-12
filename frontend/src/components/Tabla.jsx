@@ -1,3 +1,6 @@
+/**
+ * Tabla/lista de copias, incluida navegacion accesible al detalle.
+ */
 import { memo } from 'react';
 import Tag from './Tag';
 import { ef, vencido, atrasado, etiquetaTipo } from '../logic';

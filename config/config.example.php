@@ -1,4 +1,5 @@
 <?php
+/** Plantilla local de configuracion; copiar a config.php y sustituir todos los valores de ejemplo. */
 // ============================================================
 //  CONFIGURACIÓN — edita solo este fichero
 // ============================================================

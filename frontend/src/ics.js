@@ -1,3 +1,6 @@
+/**
+ * Construye y descarga eventos iCalendar para las tareas de seguimiento.
+ */
 // Genera un evento de calendario (.ics) a las 09:00 con aviso 15 min antes
 const esc = (s) => String(s).replace(/[,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
 

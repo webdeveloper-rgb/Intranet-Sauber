@@ -1,6 +1,7 @@
 -- Equipos detectados en los avisos recibidos por n8n y copias en staging.
 
 CREATE TABLE IF NOT EXISTS equipos (
+  -- Un equipo se identifica por software y nombre; cliente_id puede quedar vacio hasta asignacion manual.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(200) NOT NULL,
   software VARCHAR(80) NOT NULL DEFAULT '',
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS equipos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS correo_copias (
+  -- Staging de n8n; importada marca si el aviso ya paso al historial definitivo.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   message_key CHAR(40) NOT NULL,
   equipo_id INT UNSIGNED NOT NULL,
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS correo_copias (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS correo_sync_log (
+  -- Registro de recepciones del workflow para mostrar actividad y diagnosticar fallos.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   inicio DATETIME NOT NULL,
   fin DATETIME NULL,

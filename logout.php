@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Cierra la sesion web y elimina la cookie de sesion del navegador.
+ */
 require __DIR__ . '/src/bootstrap.php';
 
 $_SESSION = [];

@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Comando CLI que inicia una sincronizacion de clientes y registra su resultado.
+ */
 // Sincroniza clientes con la API (los avisos de copia llegan por ingest.php desde n8n). SOLO se ejecuta desde la línea de comandos
 // (tarea programada de Plesk); desde el navegador responde 404.
 if (PHP_SAPI !== 'cli') {

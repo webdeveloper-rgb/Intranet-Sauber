@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Shell HTML autenticado que carga los recursos compilados de React y establece la base de rutas.
+ */
 require __DIR__ . '/src/bootstrap.php';
 exigir_login();
 

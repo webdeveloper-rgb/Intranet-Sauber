@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Historial general y por equipo, paginado con cursor fecha/ID.
+ */
 final class HistoryController
 {
     public static function handle(string $action, array $input): bool

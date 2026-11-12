@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * Cliente HTTP para autenticacion, lectura y sincronizacion del catalogo de la API externa.
+ */
 // Sincronización de clientes desde la API (DSPYME / Euromanager sobre NocoDB).
 // Las credenciales viven solo en config/config.php y la conexión se hace siempre desde el servidor.
 

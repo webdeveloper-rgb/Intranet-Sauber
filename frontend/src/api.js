@@ -1,3 +1,6 @@
+/**
+ * Cliente HTTP unico del frontend; adjunta sesion/CSRF y normaliza errores del backend.
+ */
 // Única capa de comunicación con el servidor (api.php).
 // Si algún día cambias el backend (Node JS u otro), solo tocas este fichero.
 let csrf = '';

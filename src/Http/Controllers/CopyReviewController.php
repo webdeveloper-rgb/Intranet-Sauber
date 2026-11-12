@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Ciclo de revision de errores: revisar, reabrir, seguimiento y notas.
+ */
 final class CopyReviewController
 {
     public static function handle(string $action, array $input, array $user): bool

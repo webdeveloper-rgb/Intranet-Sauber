@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+
+/**
+ * Comando CLI que aplica cambios de esquema versionados de forma repetible.
+ */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
