@@ -689,6 +689,8 @@ tbody tr.sin-copia {
 
 /* ===== Usuarios ===== */
 .linkbtn {
+  display: inline-flex;
+  align-items: center;
   background: none;
   border: 1px solid var(--bd);
   border-radius: 8px;
@@ -697,9 +699,14 @@ tbody tr.sin-copia {
   color: var(--brand-t);
   font-weight: 600;
   font-size: 13px;
+  text-decoration: none;
 }
 .linkbtn:hover {
   background: var(--brand-s);
+}
+.linkbtn[aria-current="page"] {
+  background: var(--brand-s);
+  color: var(--brand-t);
 }
 .ucard {
   margin-top: 18px;
@@ -1657,6 +1664,188 @@ header {
 .wrap > table:not(.sin-copia-table) {
   min-width: 1120px;
   table-layout: fixed;
+}
+
+.cliente-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.cliente-tarjeta {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 16px 38px 16px 16px;
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--tx);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.cliente-tarjeta:hover,
+.cliente-tarjeta:focus-visible,
+.equipo-navegable-abrir:hover,
+.equipo-navegable-abrir:focus-visible {
+  border-color: var(--brand);
+  outline: none;
+}
+.cliente-tarjeta:hover {
+  transform: translateY(-1px);
+}
+.cliente-tarjeta strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.cliente-codigo,
+.cliente-conteo {
+  color: var(--mut);
+  font-size: 13px;
+}
+.cliente-tarjeta-pendiente {
+  border-style: dashed;
+}
+.cliente-tarjeta-flecha,
+.equipo-tarjeta-flecha {
+  color: var(--brand-t);
+  font-size: 28px;
+  line-height: 1;
+}
+.cliente-tarjeta-flecha {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+}
+.equipo-lista-navegable {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.equipo-navegable {
+  min-width: 0;
+  border: 1px solid var(--bd);
+  border-radius: 9px;
+  background: var(--card);
+}
+.equipo-navegable-abrir {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 12px 15px;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--tx);
+  text-align: left;
+  cursor: pointer;
+}
+.equipo-navegable-info {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+}
+.equipo-navegable-info strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.equipo-navegable-info span {
+  color: var(--mut);
+  font-size: 13px;
+}
+.equipo-tipo-pill {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--mut);
+  font-size: 12px;
+}
+.equipo-historial-vista {
+  display: grid;
+  gap: 16px;
+  margin-top: 14px;
+}
+.equipo-gestion {
+  border: 1px solid var(--bd);
+  border-radius: 9px;
+  background: var(--bg);
+}
+.equipo-gestion > summary {
+  padding: 11px 14px;
+  color: var(--tx);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.equipo-gestion .equipo-accion {
+  margin: 0 14px 14px;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--bd);
+  border-left: 0;
+}
+.historial-equipo {
+  min-width: 0;
+}
+.historial-equipo-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.historial-equipo-heading h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.historial-equipo-heading span {
+  color: var(--mut);
+  font-size: 13px;
+}
+.historial-equipo-lista {
+  display: grid;
+  border-top: 1px solid var(--bd);
+}
+.historial-equipo-fila {
+  display: grid;
+  grid-template-columns: minmax(145px, 190px) auto 1fr;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--bd);
+}
+.historial-equipo-fila time {
+  color: var(--mut);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.historial-equipo-fila p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--mut);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .equipo-navegable-abrir {
+    gap: 8px;
+    padding-inline: 10px;
+  }
+  .equipo-tipo-pill {
+    font-size: 11px;
+  }
+  .historial-equipo-fila {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .historial-equipo-fila p {
+    grid-column: 1 / -1;
+  }
 }
 .wrap > table:not(.sin-copia-table) th:nth-child(1),
 .wrap > table:not(.sin-copia-table) td:nth-child(1) { width: 12%; }

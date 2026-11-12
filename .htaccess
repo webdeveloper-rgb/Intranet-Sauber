@@ -18,6 +18,11 @@ DirectoryIndex index.php
   # Carpetas privadas: nadie puede abrirlas desde el navegador (403)
   RewriteRule ^(config|src|database|frontend)(/|$) - [F,L]
 
+  # Rutas del panel: conserva la URL amigable y sirve la aplicación React.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(copias|clientes)(/.*)?$ index.php [QSA,L]
+
   # Ficheros que no deben verse (permite .well-known para el certificado Let's Encrypt)
   RewriteCond %{REQUEST_URI} !^/\.well-known/
   RewriteRule (^|/)\. - [F,L]

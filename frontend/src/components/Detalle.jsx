@@ -3,7 +3,6 @@ import Tag from './Tag';
 import Revision from './Revision';
 import Seguimiento from './Seguimiento';
 import Notas from './Notas';
-import Historial from './Historial';
 import { etiquetaTipo } from '../logic';
 
 function Campo({ t, v }) {
@@ -11,7 +10,7 @@ function Campo({ t, v }) {
   return (<><dt>{t}</dt><dd>{v}</dd></>);
 }
 
-export default function Detalle({ c, onClose, acciones, hist, r, onOpen, modo = 'drawer', manejarEscape = true }) {
+export default function Detalle({ c, onClose, acciones, modo = 'drawer', manejarEscape = true }) {
   useEffect(() => {
     if (!manejarEscape) return undefined;
     const k = (e) => e.key === 'Escape' && onClose();
@@ -44,7 +43,6 @@ export default function Detalle({ c, onClose, acciones, hist, r, onOpen, modo = 
         {esError && <Revision c={c} onRevisar={acciones.revisar} onReabrir={acciones.reabrir} />}
         {esError && c.revisado && <Seguimiento c={c} onSeg={acciones.seguimiento} />}
         {esError && c.revisado && <Notas c={c} onNote={acciones.nota} />}
-        <Historial c={c} hist={hist} r={r} onOpen={onOpen} />
       </aside>
     </>
   );

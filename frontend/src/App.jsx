@@ -11,6 +11,7 @@ import Clientes from './components/Clientes';
 import Usuarios from './components/Usuarios';
 import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
+import { leerRuta, rutaHref } from './routes';
 
 const fechaLocal = (fecha) => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, '0'), String(fecha.getDate()).padStart(2, '0')].join('-');
 const filtrosIniciales = () => {
@@ -22,15 +23,31 @@ const filtrosIniciales = () => {
 
 export default function App() {
   const [sesion, setSesion] = useState(null);
+  const [ruta, setRuta] = useState(leerRuta);
   const copias = useCopias();
   const [filtro, setFiltro] = useState('todos');
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
-  const [sel, setSel] = useState(null);
-  const [selDialogo, setSelDialogo] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [actualizacionEquipos, setActualizacionEquipos] = useState(0);
-  const [vista, setVista] = useState('copias'); // 'copias' | 'clientes' | 'servidores'
+  const vista = ruta.vista;
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
+
+  const navegar = useCallback((path) => {
+    const href = rutaHref(path);
+    if (window.location.pathname !== href) window.history.pushState({}, '', href);
+    setRuta(leerRuta());
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    const sincronizarRuta = () => {
+      setRuta(leerRuta());
+    };
+    window.addEventListener('popstate', sincronizarRuta);
+    const canonica = rutaHref(ruta.path);
+    if (window.location.pathname !== canonica) window.history.replaceState({}, '', canonica);
+    return () => window.removeEventListener('popstate', sincronizarRuta);
+  }, []);
 
   // Detecta cambios de copias y equipos mientras la sesión del panel está abierta.
   const cargarRef = useRef(copias.cargar);
@@ -94,22 +111,17 @@ export default function App() {
   }, [data, filtro, f, rep]);
   const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.desde}|${f.hasta}`);
 
-  const abrir = useCallback((id) => setSel(id), []);
-  const cerrar = useCallback(() => setSel(null), []);
-  const cur = data.find((c) => c.id === sel);
-  const copiaDialogo = data.find((c) => c.id === selDialogo);
-  const hist = cur
-    ? data.filter((x) => claveEquipo(x) === claveEquipo(cur) && x.id !== cur.id)
-        .sort((a, b) => b.fecha.localeCompare(a.fecha))
-    : [];
-
+  const abrir = useCallback((id) => navegar(`/copias/${id}`), [navegar]);
+  const cerrar = useCallback(() => navegar('/copias'), [navegar]);
+  const cur = data.find((c) => Number(c.id) === Number(ruta.copiaId));
   return (
     <>
-      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onVista={setVista}
+      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}
         esAdmin={sesion?.rol === 'admin'} onCuenta={() => setCuentaAbierta(true)} />
       <main>
-        {(vista === 'clientes' || vista === 'servidores') && sesion ? (
-          <Clientes key={vista} sesion={sesion} modo={vista} refreshSignal={actualizacionEquipos} />
+        {vista === 'clientes' && sesion ? (
+          <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
+            clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} />
         ) : (
           <>
             {copias.fallo && (
@@ -133,28 +145,11 @@ export default function App() {
               onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
             <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
               porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />
-            {copias.hayMasHistorial && (
-              <div className="historial-cargar">
-                <button className="btn sec" disabled={copias.cargandoHistorial} onClick={async () => {
-                  const resultado = await copias.cargarMasHistorial();
-                  if (resultado?.desde) setF({ desde: resultado.desde });
-                }}>
-                  {copias.cargandoHistorial ? 'Cargando historial…' : 'Cargar 500 copias anteriores'}
-                </button>
-              </div>
-            )}
           </>
         )}
       </main>
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} acciones={copias} hist={hist} r={rep[claveEquipo(cur)] || 0}
-          onOpen={(id) => setSelDialogo(id)} manejarEscape={!copiaDialogo} />
-      )}
-      {copiaDialogo && vista === 'copias' && (
-        <Detalle modo="dialog" c={copiaDialogo} onClose={() => setSelDialogo(null)} acciones={copias}
-          hist={data.filter((x) => claveEquipo(x) === claveEquipo(copiaDialogo) && x.id !== copiaDialogo.id)
-            .sort((a, b) => b.fecha.localeCompare(a.fecha))}
-          r={rep[claveEquipo(copiaDialogo)] || 0} onOpen={(id) => setSelDialogo(id)} />
+        <Detalle c={cur} onClose={cerrar} acciones={copias} />
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
     </>

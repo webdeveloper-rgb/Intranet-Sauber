@@ -5,12 +5,15 @@ exigir_login();
 
 $js = __DIR__ . '/build/app.js';
 $css = __DIR__ . '/build/app.css';
+$basePath = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+$baseHref = ($basePath === '' || $basePath === '.') ? '/' : $basePath . '/';
 $compilado = is_file($js) && is_file($css);
 ?><!DOCTYPE html>
 <html lang="es">
 
 <head>
     <meta charset="utf-8">
+    <base href="<?= e($baseHref) ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="noindex,nofollow">
     <title><?= e(cfg('titulo')) ?> · Sauber Ofimática</title>

@@ -42,14 +42,10 @@ final class ReadController
                 $_SESSION['mig_tipos'] = 1;
                 $_SESSION['mig_dias_copia'] = 1;
             }
-            $rows = db()->query(SQL_COPIA . " WHERE fecha >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+            $rows = db()->query(SQL_COPIA . " WHERE fecha >= DATE_SUB(NOW(), INTERVAL 1 DAY)
                 ORDER BY cursor_fecha DESC, id DESC LIMIT 3001")->fetchAll();
-            $hasMore = count($rows) > 3000;
-            if ($hasMore) {
+            if (count($rows) > 3000) {
                 array_pop($rows);
-            }
-            if (!$hasMore) {
-                $hasMore = (bool) db()->query('SELECT 1 FROM copias WHERE fecha < DATE_SUB(NOW(), INTERVAL 60 DAY) LIMIT 1')->fetchColumn();
             }
             $rows = array_map('copia_fila', $rows);
             $rows = array_merge(copias_sin_recibir_cache(db()), $rows);
@@ -65,7 +61,7 @@ final class ReadController
             $body = json_encode([
                 'copias' => $rows,
                 'usuario' => $user['usuario'],
-                'hay_mas_historial' => $hasMore,
+                'hay_mas_historial' => false,
             ], JSON_UNESCAPED_UNICODE);
             http_response_code(200);
             header('Content-Length: ' . strlen($body));
