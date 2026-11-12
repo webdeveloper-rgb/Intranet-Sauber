@@ -31,19 +31,19 @@ function ingesta_clasificar_nombre(?string $nombre): array
     if ($n === '')
         return $r;
 
-    // Hostnames Windows comunes sin prefijo de cliente (p. ej. DESKTOP-ABC123).
-    if (preg_match('/^(?:DESKTOP|LAPTOP|PC|WIN)-[A-Z0-9][A-Z0-9-]*$/iu', $n)) {
+    // Hostnames comunes sin prefijo de cliente.
+    if (preg_match('/^(?:DESKTOP|LAPTOP|PC|WIN|NOTEBOOK|PORTATIL)-[A-Z0-9][A-Z0-9-]*$/iu', $n)) {
         return ['empresa' => null, 'tipo' => 'usuario', 'programa' => null];
     }
-    // Hosts ESXi que no siguen el formato EMPRESA_SRV-... .
-    if (preg_match('/^ESX(?:I)?[-_][A-Z0-9][A-Z0-9._-]*$/iu', $n)) {
+    // Servidores con hostname directo, sin el formato EMPRESA_SRV-... .
+    if (preg_match('/^(?:SRV|SERVER|SERVIDOR|DC|SQL|HV|ESX|ESXI|NAS|BCK|BACKUP|RDS|APP|FS|TS)(?:[-_ ]|\d)[A-Z0-9._ -]*$/iu', $n)) {
         return ['empresa' => null, 'tipo' => 'servidor', 'programa' => null];
     }
 
     if (preg_match('/^(.+?)_PC-.+$/iu', $n, $m)) {
         return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'usuario', 'programa' => null];
     }
-    if (preg_match('/^(.+?)_(?:SRV|SERVIDOR|SERVER)(?:[-_ ].*)?$/iu', $n, $m)) {
+    if (preg_match('/^(.+?)_(?:SRV|SERVIDOR|SERVER|DC|SQL|HV|ESX|ESXI|NAS|BCK|BACKUP|RDS|APP|FS|TS)(?:[-_ ].*)?$/iu', $n, $m)) {
         return ['empresa' => ingesta_limpiar_empresa($m[1]), 'tipo' => 'servidor', 'programa' => null];
     }
     $progs = implode('|', array_map('preg_quote', INGESTA_PROGRAMAS));
