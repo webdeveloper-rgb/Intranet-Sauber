@@ -8,6 +8,8 @@ if (!is_file($cfgFile)) {
 }
 $GLOBALS['cfg'] = require $cfgFile;
 
+const SCHEMA_VERSION_REQUERIDA = 2;
+
 date_default_timezone_set(cfg('timezone', 'Europe/Madrid'));
 ini_set('display_errors', cfg('debug') ? '1' : '0');
 error_reporting(E_ALL);
@@ -75,7 +77,7 @@ function schema_exigir_migraciones(PDO $pdo): void
     } catch (PDOException $e) {
         throw new RuntimeException('Falta ejecutar `php migrate.php` para preparar la base de datos.', 0, $e);
     }
-    if ((int) $version < 1) {
+    if ((int) $version < SCHEMA_VERSION_REQUERIDA) {
         throw new RuntimeException('La base de datos tiene migraciones pendientes. Ejecuta `php migrate.php`.');
     }
     $comprobado = true;

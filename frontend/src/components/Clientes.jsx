@@ -88,7 +88,7 @@ function sugerirCliente(clientes, sugerido) {
   return parciales.length === 1 ? parciales[0] : undefined;
 }
 
-export default function Clientes({ sesion, modo = 'clientes' }) {
+export default function Clientes({ sesion, modo = 'clientes', refreshSignal = 0 }) {
   const admin = sesion?.rol === 'admin';
   const servidores = modo === 'servidores'; // 'servidores' solo muestra servidores; 'clientes' muestra el resto de equipos
   const [cat, setCat] = useState(null);
@@ -139,6 +139,10 @@ export default function Clientes({ sesion, modo = 'clientes' }) {
     const timer = setInterval(() => cargar(true), 60000);
     return () => clearInterval(timer);
   }, [cargar]);
+
+  useEffect(() => {
+    if (refreshSignal > 0) cargar(true);
+  }, [refreshSignal, cargar]);
 
   const sincronizar = async () => {
     if (sincronizando.current) return;

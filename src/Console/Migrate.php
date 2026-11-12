@@ -54,6 +54,12 @@ try {
                 KEY idx_panel_cache_expires (expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         },
+        2 => static function (PDO $pdo): void {
+            // Reconciles installations that reached version 1 before newer columns were added.
+            asegurar_tablas_sync($pdo);
+            asegurar_tablas_equipos($pdo);
+            tokens_asegurar_tabla($pdo);
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

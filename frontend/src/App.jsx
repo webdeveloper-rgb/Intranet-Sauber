@@ -28,46 +28,48 @@ export default function App() {
   const [sel, setSel] = useState(null);
   const [selDialogo, setSelDialogo] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  const [actualizacionEquipos, setActualizacionEquipos] = useState(0);
   const [vista, setVista] = useState('copias'); // 'copias' | 'clientes' | 'servidores'
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
 
-  // Consulta cambios solo mientras se muestra Copias; la lista se actualiza sin recargar la página.
+  // Detecta cambios de copias y equipos mientras la sesión del panel está abierta.
   const cargarRef = useRef(copias.cargar);
   cargarRef.current = copias.cargar;
   const falloRef = useRef(copias.fallo);
   falloRef.current = copias.fallo;
-  const vistaAnterior = useRef(vista);
+  const vistaActual = useRef(vista);
+  vistaActual.current = vista;
   useEffect(() => {
-    if (vista !== 'copias') {
-      vistaAnterior.current = vista;
-      return;
-    }
-    if (vistaAnterior.current !== 'copias') cargarRef.current();
-    vistaAnterior.current = 'copias';
-
+    if (!sesion) return undefined;
     let ultima = null;
     let comprobando = false;
+    let activa = true;
     const comprobar = async () => {
-      if (document.hidden || comprobando) return;
+      if (!activa || document.hidden || comprobando) return;
       comprobando = true;
       try {
         const d = await api('novedades');
-        const clave = d.m + ':' + d.ausentes;
+        const clave = JSON.stringify([d.m, d.staging, d.ingesta, d.ausentes]);
         if (ultima === null) {
           ultima = clave;
-          cargarRef.current();
           return;
         }
-        if (clave !== ultima || falloRef.current) {
+        const cambio = clave !== ultima;
+        if (cambio) {
           ultima = clave;
-          cargarRef.current();
+          setActualizacionEquipos((actual) => actual + 1);
         }
+        if (vistaActual.current === 'copias' && (cambio || falloRef.current)) cargarRef.current();
       } catch { /* se reintenta en el siguiente ciclo */ }
       finally { comprobando = false; }
     };
+    comprobar();
     const t = setInterval(comprobar, 5000);
-    return () => clearInterval(t);
-  }, [vista]);
+    return () => {
+      activa = false;
+      clearInterval(t);
+    };
+  }, [sesion]);
 
   const { data } = copias;
   const n = useMemo(() => contadores(data, f.horas), [data, f.horas]);
@@ -103,7 +105,7 @@ export default function App() {
         esAdmin={sesion?.rol === 'admin'} onCuenta={() => setCuentaAbierta(true)} />
       <main>
         {(vista === 'clientes' || vista === 'servidores') && sesion ? (
-          <Clientes key={vista} sesion={sesion} modo={vista} />
+          <Clientes key={vista} sesion={sesion} modo={vista} refreshSignal={actualizacionEquipos} />
         ) : (
           <>
             {copias.fallo && (

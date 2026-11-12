@@ -16,6 +16,8 @@ final class ReadController
 
         if ($action === 'novedades') {
             $r = db()->query('SELECT COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
+            $staging = (int) db()->query('SELECT COALESCE(MAX(id), 0) FROM correo_copias')->fetchColumn();
+            $ingesta = (int) db()->query("SELECT COALESCE(MAX(id), 0) FROM correo_sync_log WHERE origen='n8n'")->fetchColumn();
             if (empty($_SESSION['mig_tipos']) || empty($_SESSION['mig_dias_copia'])) {
                 asegurar_tablas_equipos(db());
                 $_SESSION['mig_tipos'] = 1;
@@ -28,6 +30,8 @@ final class ReadController
             );
             out([
                 'm' => (int) $r['m'],
+                'staging' => $staging,
+                'ingesta' => $ingesta,
                 'ausentes' => hash('sha256', json_encode($ausentes, JSON_UNESCAPED_UNICODE)),
             ]);
         }
