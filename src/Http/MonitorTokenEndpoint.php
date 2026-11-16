@@ -46,9 +46,13 @@ try {
     }
 
     $pdo = db();
-    if (!monitor_agente_autenticar($pdo, token_de_peticion(), $machineId)) {
+    $authenticated = monitor_agente_autenticar($pdo, token_de_peticion(), $machineId);
+    if (!$authenticated) {
+        $authenticated = token_autenticar() !== null;
+    }
+    if (!$authenticated) {
         rate_limit_failure($authRateKey, 10, 60);
-        error_log('[monitor] solicitud de token con credencial de agente no válida, IP ' . $ip);
+        error_log('[monitor] solicitud de token con credencial de agente/bootstrap no válida, IP ' . $ip);
         header('WWW-Authenticate: Bearer');
         monitor_token_responder(['error' => 'Credencial de agente no válida'], 401);
     }
