@@ -77,6 +77,18 @@ try {
         6 => static function (PDO $pdo): void {
             monitor_migrar_esquema($pdo);
         },
+        7 => static function (PDO $pdo): void {
+            $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                WHERE table_schema=DATABASE() AND table_name='clientes'")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('tiene_satbk', $columns, true)) {
+                $pdo->exec('ALTER TABLE clientes ADD COLUMN tiene_satbk TINYINT(1) NOT NULL DEFAULT 0 AFTER activo');
+                $pdo->exec('UPDATE clientes SET tiene_satbk=activo');
+            }
+            $pdo->exec("UPDATE equipos SET vigilar=0
+                WHERE monitor_machine_id IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=equipos.id)
+                    AND NOT EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=equipos.id)");
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

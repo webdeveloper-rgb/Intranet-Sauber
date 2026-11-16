@@ -81,6 +81,8 @@ function equipos_listado(): array
     asegurar_tablas_equipos($pdo);
     $rows = $pdo->query("SELECT e.id,e.nombre,e.software,e.origen,e.sugerido,e.tipo,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
         (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
+        (EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)
+            OR EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=e.id)) AS tiene_copias,
         (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND (cc.importada=0 OR e.cliente_id IS NULL)) AS pendientes
         FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software")->fetchAll();
     foreach ($rows as &$row) {
@@ -88,6 +90,8 @@ function equipos_listado(): array
         $row['cliente_id'] = $row['cliente_id'] !== null ? (int) $row['cliente_id'] : null;
         $row['pendientes'] = (int) $row['pendientes'];
         $row['vigilar'] = (int) $row['vigilar'];
+        $row['tiene_monitor'] = (bool) $row['tiene_monitor'];
+        $row['tiene_copias'] = (bool) $row['tiene_copias'];
     }
     unset($row);
     $alertasMonitor = monitor_adjuntar_datos($rows, $pdo);
@@ -125,14 +129,21 @@ function equipos_asignar_cliente(int $equipoId, int $clienteId): int
     asegurar_tablas_equipos($pdo);
     $pdo->beginTransaction();
     try {
-        $st = $pdo->prepare('SELECT id FROM equipos WHERE id=? FOR UPDATE');
+        $st = $pdo->prepare('SELECT id,
+            (EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=equipos.id)
+                OR EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=equipos.id)) AS tiene_copias
+            FROM equipos WHERE id=? FOR UPDATE');
         $st->execute([$equipoId]);
-        if (!$st->fetchColumn())
+        $equipo = $st->fetch();
+        if (!$equipo)
             throw new ApiError('Equipo no encontrado');
-        $st = $pdo->prepare('SELECT id FROM clientes WHERE id=? AND activo=1');
+        $st = $pdo->prepare('SELECT id,tiene_satbk FROM clientes WHERE id=? AND activo=1');
         $st->execute([$clienteId]);
-        if (!$st->fetchColumn())
+        $cliente = $st->fetch();
+        if (!$cliente)
             throw new ApiError('Cliente no válido');
+        if ((bool) $equipo['tiene_copias'] && !(bool) $cliente['tiene_satbk'])
+            throw new ApiError('Este equipo ya tiene copias y solo se puede asignar a clientes con SATBK.');
         $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([$clienteId, $equipoId]);
         $st = $pdo->prepare('SELECT nombre,tipo,programa FROM equipos WHERE id=?');
         $st->execute([$equipoId]);

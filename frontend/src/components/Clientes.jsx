@@ -206,6 +206,12 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       ? { nombre: 'Cliente no activo' }
     : clientes.find((cliente) => Number(cliente.id) === Number(clienteAbierto));
   const equipoActual = equipos.find((equipo) => Number(equipo.id) === Number(equipoAbierto));
+  const clientesAsignables = equipoActual?.tiene_copias
+    ? clientes.filter((cliente) => cliente.tiene_satbk)
+    : clientes;
+  const clienteAsignadoActual = clientes.find((cliente) => Number(cliente.id) === Number(equipoActual?.cliente_id));
+  const asignacionSinSatbk = Boolean(equipoActual?.tiene_copias && equipoActual?.cliente_id
+    && clienteAsignadoActual && !clienteAsignadoActual.tiene_satbk);
   useEffect(() => {
     let activa = true;
     if (!equipoActual?.tiene_monitor) {
@@ -242,8 +248,13 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   const paginaEquipos = usePagination(equiposFiltrados, 24, `${clienteAbierto}|${textoBusqueda}`);
   const equiposSinAsignar = equipos.filter((equipo) => !equipo.cliente_id);
   const totalServidores = equiposCliente.filter((equipo) => equipo.tipo === 'servidor').length;
-  const equipoSugerencia = equipoActual?.sugerido ? sugerirCliente(clientes, equipoActual.sugerido) : undefined;
-  const clienteElegido = asignaciones[equipoActual?.id] ?? equipoActual?.cliente_id ?? equipoSugerencia?.id ?? '';
+  const equipoSugerencia = equipoActual?.sugerido ? sugerirCliente(clientesAsignables, equipoActual.sugerido) : undefined;
+  const seleccionGuardada = asignaciones[equipoActual?.id];
+  const seleccionGuardadaValida = clientesAsignables.some((cliente) => Number(cliente.id) === Number(seleccionGuardada));
+  const clienteActualElegible = clientesAsignables.some((cliente) => Number(cliente.id) === Number(equipoActual?.cliente_id));
+  const clienteElegido = seleccionGuardadaValida
+    ? seleccionGuardada
+    : asignacionSinSatbk ? '' : clienteActualElegible ? equipoActual?.cliente_id : equipoSugerencia?.id ?? '';
   const hayCambioAsignacion = Number(clienteElegido) > 0 && Number(clienteElegido) !== Number(equipoActual?.cliente_id || 0);
   const u = cat?.ultima;
 
@@ -333,7 +344,9 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
         <div>
           <h2 id="titulo-mapeo">{equipoActual ? equipoActual.nombre : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
           {clienteActual && !equipoActual && <p>{equiposCliente.length} equipos · {totalServidores} servidores</p>}
-          {equipoActual && <p>{equipoActual.software}{equipoActual.tipo ? ` · ${TIPOS[equipoActual.tipo]}` : ''}</p>}
+          {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
+            equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
+            equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
         </div>
         <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
           <strong>{equiposSinAsignar.length}</strong>
@@ -394,6 +407,9 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   onClick={() => { onNavigate(`/clientes/${cliente.id}`); setBusqueda(''); }}>
                   <span className="cliente-tarjeta-flecha">›</span>
                   <strong>{cliente.nombre}</strong>
+                  <span className={`cliente-satbk${cliente.tiene_satbk ? ' activo' : ''}`}>
+                    {cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}
+                  </span>
                   <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>
                 </button>;
               })}
@@ -438,12 +454,18 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
             <details className="equipo-gestion">
               <summary>Asignación y avisos</summary>
               <div className="equipo-accion">
+                {asignacionSinSatbk && <div className="estado-alertas" role="status">
+                  <p>Este equipo ya tiene copias y está asignado a {clienteAsignadoActual.nombre}, que no tiene SATBK. Se mantiene la asignación actual; elige un cliente con SATBK para cambiarla.</p>
+                </div>}
+                {equipoActual.tiene_copias && !clientesAsignables.length && <div className="estado-alertas" role="status">
+                  <p>No hay clientes con SATBK en el catálogo. Actualiza la lista de clientes antes de asignar este equipo.</p>
+                </div>}
                 <label htmlFor={`cliente-equipo-${equipoActual.id}`}>{equipoActual.cliente_id ? 'Cliente asociado' : 'Asignar a un cliente'}</label>
-                <SelectorCliente id={`cliente-equipo-${equipoActual.id}`} clientes={clientes}
+                <SelectorCliente id={`cliente-equipo-${equipoActual.id}`} clientes={clientesAsignables}
                   value={clienteElegido}
                   onChange={(value) => setAsignaciones((actual) => ({ ...actual, [equipoActual.id]: value }))}
-                  disabled={!clientes.length} />
-                <button className="btn" disabled={guardando === equipoActual.id || !clientes.length || !hayCambioAsignacion} onClick={asignar}>
+                  disabled={!clientesAsignables.length} />
+                <button className="btn" disabled={guardando === equipoActual.id || !clientesAsignables.length || !hayCambioAsignacion} onClick={asignar}>
                   {guardando === equipoActual.id ? 'Guardando…' : equipoActual.cliente_id ? 'Cambiar cliente' : 'Asignar equipo'}
                 </button>
                 {equipoActual.cliente_id && <button className="btn sec" disabled={guardando === equipoActual.id} onClick={desasignar}>

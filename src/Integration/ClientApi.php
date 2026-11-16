@@ -421,13 +421,14 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $clientesActivos = (int) $pdo->query('SELECT COUNT(*) FROM clientes WHERE activo=1')->fetchColumn();
 
         $st = $pdo->prepare(
-            'INSERT INTO clientes (clave, codigo, nombre, cif, email, telefono, localidad, provincia, datos, activo, visto)
-             VALUES (?,?,?,?,?,?,?,?,?,1,?)
+            'INSERT INTO clientes (clave, codigo, nombre, cif, email, telefono, localidad, provincia, datos, activo, tiene_satbk, visto)
+             VALUES (?,?,?,?,?,?,?,?,?,1,?,?)
              ON DUPLICATE KEY UPDATE codigo=?, nombre=?, cif=?, email=?, telefono=?, localidad=?, provincia=?, datos=?,
-                activo=1, visto=?'
+                activo=1, tiene_satbk=?, visto=?'
         );
         $pdo->exec('UPDATE clientes SET activo = 0');
         $nCli = 0;
+        $nSatbk = 0;
         foreach ($clientes as $r) {
             $codigo = api_sync_primero($r, ['Codigo', 'Cod', 'CodCliente'], 40);
             $clave = api_sync_primero($r, ['Clave', 'Id', 'Codigo'], 64);
@@ -435,7 +436,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 $saltados++;
                 continue;
             }
-            if (!isset($clientesConServicio[$clave])) continue;
+            $tieneSatbk = isset($clientesConServicio[$clave]) ? 1 : 0;
             $values = [
                 $clave,
                 $codigo,
@@ -446,10 +447,12 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 api_sync_primero($r, ['Localidad', 'Poblacion'], 100),
                 api_sync_primero($r, ['Provincia'], 100),
                 $json($r),
+                $tieneSatbk,
                 $ahora,
             ];
             $st->execute(array_merge($values, array_slice($values, 1)));
             $nCli++;
+            $nSatbk += $tieneSatbk;
         }
 
         if ($nCli === 0) {
@@ -468,6 +471,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
 
         return [
             'clientes' => $nCli,
+            'clientes_satbk' => $nSatbk,
             'omitidos' => $saltados,
             'servicio' => (string)$c['servicio_requerido'],
             'campos' => [
@@ -494,11 +498,12 @@ function api_sync_catalogo(): array
 {
     $pdo = db();
     asegurar_tablas_sync($pdo);
-    $cl = $pdo->query('SELECT id, clave, codigo, nombre, cif, email, telefono, localidad, provincia FROM clientes WHERE activo = 1 ORDER BY nombre')->fetchAll();
+    $cl = $pdo->query('SELECT id, codigo, nombre, tiene_satbk
+        FROM clientes WHERE activo = 1 ORDER BY nombre')->fetchAll();
     $out = [];
     foreach ($cl as $c) {
         $c['id'] = (int) $c['id'];
-        unset($c['clave']);
+        $c['tiene_satbk'] = (bool) $c['tiene_satbk'];
         $out[] = $c;
     }
     $ult = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha, ok, mensaje, clientes, origen

@@ -62,7 +62,7 @@ function copias_sin_recibir(PDO $pdo): array
             NULL AS intentos, 0 AS revisado, NULL AS revisado_por, NULL AS revisado_fecha,
             NULL AS revision_desc, NULL AS seg, NULL AS recordar, NULL AS notas
         FROM equipos e
-        INNER JOIN clientes c ON c.id=e.cliente_id AND c.activo=1
+        INNER JOIN clientes c ON c.id=e.cliente_id AND c.activo=1 AND c.tiene_satbk=1
         LEFT JOIN (SELECT equipo_id, MAX(fecha) AS ultima FROM copias WHERE equipo_id IS NOT NULL GROUP BY equipo_id) cp
             ON cp.equipo_id=e.id
         INNER JOIN (
@@ -88,7 +88,7 @@ function copias_sin_recibir(PDO $pdo): array
 
 function copias_sin_recibir_cache(PDO $pdo): array
 {
-    $key = hash('sha256', 'copias_sin_recibir:v1');
+    $key = hash('sha256', 'copias_sin_recibir:v2');
     $st = $pdo->prepare('SELECT payload FROM panel_cache WHERE cache_key=? AND expires_at>NOW()');
     $st->execute([$key]);
     $payload = $st->fetchColumn();

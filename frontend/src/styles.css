@@ -1966,6 +1966,20 @@ header {
   font-size: 16px;
   overflow-wrap: anywhere;
 }
+.cliente-satbk {
+  width: fit-content;
+  padding: 2px 6px;
+  border: 1px solid var(--bd);
+  border-radius: 999px;
+  color: var(--mut);
+  font-size: 11px;
+  font-weight: 650;
+}
+.cliente-satbk.activo {
+  border-color: var(--ok);
+  background: var(--okb);
+  color: var(--ok);
+}
 .cliente-conteo {
   color: var(--mut);
   font-size: 13px;

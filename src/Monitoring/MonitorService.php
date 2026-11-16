@@ -482,7 +482,7 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
                     $suffix = substr(preg_replace('/[^a-zA-Z0-9]/', '', $report['machineId']), 0, 8);
                     $name = mb_substr($name, 0, 188) . ' [' . ($suffix ?: 'monitor') . ']';
                 }
-                $pdo->prepare("INSERT INTO equipos (nombre,software,origen,monitor_machine_id) VALUES (?,'MonitorAgent','Monitor-Equipos',?)")
+                $pdo->prepare("INSERT INTO equipos (nombre,software,origen,monitor_machine_id,vigilar) VALUES (?,'MonitorAgent','Monitor-Equipos',?,0)")
                     ->execute([$name, $report['machineId']]);
                 $equipmentId = (int) $pdo->lastInsertId();
             }

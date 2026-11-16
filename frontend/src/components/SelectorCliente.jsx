@@ -4,7 +4,9 @@
 import { useMemo, useState } from 'react';
 import { norm } from '../logic';
 
-const etiqueta = (cliente) => cliente ? `${cliente.nombre || '(sin nombre)'}${cliente.codigo ? ` · ${cliente.codigo}` : ''}` : '';
+const etiqueta = (cliente) => cliente
+  ? `${cliente.nombre || '(sin nombre)'}${cliente.codigo ? ` · ${cliente.codigo}` : ''} · ${cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}`
+  : '';
 
 export default function SelectorCliente({ clientes, value, onChange, disabled = false, id }) {
   const [abierto, setAbierto] = useState(false);

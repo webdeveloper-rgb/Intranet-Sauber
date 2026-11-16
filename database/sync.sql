@@ -13,6 +13,7 @@ CREATE TABLE
         provincia VARCHAR(100) NULL,
         datos LONGTEXT NULL,
         activo TINYINT (1) NOT NULL DEFAULT 1,
+        tiene_satbk TINYINT (1) NOT NULL DEFAULT 0,
         visto DATETIME NULL,
         UNIQUE KEY uq_clientes_clave (clave),
         KEY idx_clientes_codigo (codigo)

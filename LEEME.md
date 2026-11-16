@@ -157,7 +157,7 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 
 ## Conectar Monitor-Equipos
 
-1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar la migración 5.
+1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 7).
 2. Para instalaciones automatizadas con el mismo instalador, crea un token API exclusivo para Monitor-Equipos en **Usuarios → Tokens**. El instalador usa ese token compartido como credencial de bootstrap.
 3. Guarda el token en el archivo local `monitor-secrets.iss` junto a `monitor.iss`:
    ```iss
@@ -171,7 +171,9 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
    ```
 5. Antes de cada informe, el servicio usa la credencial para pedir un token temporal. Ese token sirve para un único informe, está ligado al `MachineId` y caduca a los cinco minutos. También se usa un token nuevo para cada reintento de la cola. La credencial queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores.
 6. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
-7. En **Clientes**, las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra el último informe y las alertas activas.
+7. En **Clientes** aparecen todos los clientes sincronizados, con una marca que indica si tienen SATBK. Los equipos recibidos solo por Monitor-Equipos se pueden asignar a cualquier cliente; si ya han llegado copias, solo se pueden asignar a clientes con SATBK. Si llegan copias después de haber asignado el equipo a un cliente sin SATBK, se conserva la asignación y el detalle avisa para corregirla.
+8. Las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra qué datos han llegado (agente, copias o ambos), el último informe y las alertas activas.
+9. La sección **Eventos** muestra los errores y eventos críticos de Windows recibidos durante los últimos 30 días.
 
 Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); disco `Warning`, menos del 15 % de espacio libre o salud de batería inferior al 50 % (advertencia). No se conservan los mensajes del registro de eventos de Windows. Las alertas se deduplican mientras sigan activas y vuelven a avisar por email si reaparecen tras resolverse.
 

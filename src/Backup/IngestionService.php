@@ -269,7 +269,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
         // Si el equipo aún no tiene cliente y el nombre sugerido (el de las llaves del asunto) coincide
         // con UN solo cliente activo, se asigna solo. Si no coincide, queda "Sin asignar" con la sugerencia.
         if ($eq['cliente_id'] === null && $d['sugerido'] !== null) {
-            $q = $pdo->prepare('SELECT id FROM clientes WHERE activo=1 AND LOWER(nombre)=LOWER(?)');
+            $q = $pdo->prepare('SELECT id FROM clientes WHERE activo=1 AND tiene_satbk=1 AND LOWER(nombre)=LOWER(?)');
             $q->execute([$d['sugerido']]);
             $ids = $q->fetchAll(PDO::FETCH_COLUMN);
             if (count($ids) === 1) {
