@@ -1099,6 +1099,14 @@ tbody tr.sin-copia {
   border-radius: 10px;
   background: var(--bg);
 }
+.monitor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
 .monitor-heading h3,
 .monitor-alertas h3,
 .monitor-alertas h4 {

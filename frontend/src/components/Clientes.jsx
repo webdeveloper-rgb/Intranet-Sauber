@@ -526,7 +526,8 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                 }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
               </section>
               {equipoActual.tiene_monitor && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
-                cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin} />}
+                cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin}
+                clienteNombre={clienteAsignadoActual?.nombre || ''} />}
             </div>
           </div>}
         </>

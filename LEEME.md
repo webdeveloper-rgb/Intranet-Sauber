@@ -160,7 +160,7 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 8).
 2. En **Alta de Monitor-Equipos**, genera un código de alta de un solo uso para cada equipo.
 3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID y lo incluirá en los informes del agente.
-4. Compila `webs\s.iss` con Inno Setup y ejecútalo como administrador. Instala Asistente de Justificaciones y MonitorAgent, y solicita el código de alta individual. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
+4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita el código de alta individual. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
    Para instalar MonitorAgent manualmente:
    ```text
    MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --enroll-code CODIGO_DE_UN_SOLO_USO
@@ -171,6 +171,7 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
    - **Auditoría Completa**: todos los errores y críticos que sigan retenidos en esos canales, sin límite temporal. El agente los recupera por lotes; el backfill puede tardar según el volumen.
    El cambio se aplica en el siguiente ciclo del agente. Auditoría Completa solo puede recuperar registros que Windows aún conserve; no puede restaurar eventos borrados o sobrescritos. Los eventos ya recibidos se conservan en la base de datos.
 7. El ID de RustDesk aparece en el detalle del equipo después de recibirse el primer informe del agente.
+   Desde **Estado y especificaciones**, el botón **Descargar PDF** genera un informe con la identificación del equipo, el estado de monitorización, las alertas y las especificaciones del último informe recibido.
 8. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
 9. En **Clientes** aparecen todos los clientes sincronizados, con una marca que indica si tienen SATBK. Los equipos recibidos solo por Monitor-Equipos se pueden asignar a cualquier cliente; si ya han llegado copias, solo se pueden asignar a clientes con SATBK. Si llegan copias después de haber asignado el equipo a un cliente sin SATBK, se conserva la asignación y el detalle avisa para corregirla.
 10. Las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra qué datos han llegado (agente, copias o ambos), el último informe y las alertas activas.
