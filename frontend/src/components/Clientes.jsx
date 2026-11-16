@@ -378,6 +378,11 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           <span className="sr-only">Buscar equipo</span>
           <input type="search" placeholder="Buscar equipo o software…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </label>}
+        {equipoActual?.tiene_monitor && (
+          <button className="btn" onClick={() => onNavigate(`/eventos?equipo_id=${equipoActual.id}`)}>
+            Ver eventos de Windows
+          </button>
+        )}
         {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
       </div>
 

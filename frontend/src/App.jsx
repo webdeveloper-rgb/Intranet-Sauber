@@ -39,7 +39,7 @@ export default function App() {
 
   const navegar = useCallback((path) => {
     const href = rutaHref(path);
-    if (window.location.pathname !== href) window.history.pushState({}, '', href);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState({}, '', href);
     setRuta(leerRuta());
     if (!/^\/copias\/\d+$/.test(path)) setCopiaSeleccionada(null);
     window.scrollTo(0, 0);
@@ -52,7 +52,7 @@ export default function App() {
     };
     window.addEventListener('popstate', sincronizarRuta);
     const canonica = rutaHref(ruta.path);
-    if (window.location.pathname !== canonica) window.history.replaceState({}, '', canonica);
+    if (`${window.location.pathname}${window.location.search}` !== canonica) window.history.replaceState({}, '', canonica);
     return () => window.removeEventListener('popstate', sincronizarRuta);
   }, []);
 
@@ -134,7 +134,7 @@ export default function App() {
         esAdmin={sesion?.rol === 'admin'} onCuenta={() => setCuentaAbierta(true)} />
       <main>
         {vista === 'eventos' ? (
-          sesion ? <Eventos key={vista} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
+          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} acciones={copias} />

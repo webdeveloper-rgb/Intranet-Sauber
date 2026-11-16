@@ -926,7 +926,7 @@ tbody tr.sin-copia {
 .eventos-heading p {
   margin: 6px 0 0;
   color: var(--mut);
-  font-size: 13px;
+  font-size: 15px;
 }
 .eventos-actualizacion {
   display: flex;
@@ -934,7 +934,7 @@ tbody tr.sin-copia {
   gap: 7px;
   flex: 0 0 auto;
   color: var(--mut);
-  font-size: 12px;
+  font-size: 14px;
   white-space: nowrap;
 }
 .eventos-indicador {
@@ -961,7 +961,7 @@ tbody tr.sin-copia {
   display: grid;
   gap: 4px;
   color: var(--mut);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .eventos-busqueda {
@@ -975,8 +975,8 @@ tbody tr.sin-copia {
 .eventos-controles input,
 .eventos-controles select {
   min-width: 0;
-  min-height: 38px;
-  padding: 7px 10px;
+  min-height: 42px;
+  padding: 8px 11px;
   background: var(--bg);
   border: 1px solid var(--bd);
   border-radius: 8px;
@@ -988,7 +988,7 @@ tbody tr.sin-copia {
 .eventos-recuento {
   margin: 0 0 8px auto;
   color: var(--mut);
-  font-size: 13px;
+  font-size: 15px;
   white-space: nowrap;
 }
 .eventos-tabla-wrap {
@@ -1013,7 +1013,7 @@ tbody tr.sin-copia {
 .eventos-table th:nth-child(7),
 .eventos-table td:nth-child(7) { width: 85px; }
 .eventos-table td {
-  font-size: 13px;
+  font-size: 15px;
   overflow-wrap: anywhere;
 }
 .eventos-table tbody tr {
@@ -1033,7 +1033,7 @@ tbody tr.sin-copia {
   display: inline-flex;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 750;
   letter-spacing: 0.02em;
   line-height: 1.5;

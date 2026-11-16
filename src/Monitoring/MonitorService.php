@@ -674,7 +674,7 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     ];
 }
 
-function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level): array
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null): array
 {
     if (!in_array($level, ['all', 'Critical', 'Error'], true)) {
         throw new InvalidArgumentException('El nivel de evento no es válido.');
@@ -685,6 +685,10 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     $search = monitor_texto($search, 150) ?? '';
     $where = ['ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY'];
     $params = [];
+    if ($equipoId !== null) {
+        $where[] = 'ev.equipo_id = ?';
+        $params[] = $equipoId;
+    }
     if ($level !== 'all') {
         $where[] = 'ev.level = ?';
         $params[] = $level;

@@ -25,7 +25,7 @@ function Nivel({ nivel }) {
   return <span className={`evento-nivel ${critical ? 'critical' : 'error'}`}>{etiqueta}</span>;
 }
 
-export default function Eventos() {
+export default function Eventos({ equipoId = null }) {
   const [buscar, setBuscar] = useState('');
   const [q, setQ] = useState('');
   const [nivel, setNivel] = useState('all');
@@ -33,8 +33,8 @@ export default function Eventos() {
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const parametrosRef = useRef({ page: pagina, q, nivel });
-  parametrosRef.current = { page: pagina, q, nivel };
+  const parametrosRef = useRef({ page: pagina, q, nivel, equipoId });
+  parametrosRef.current = { page: pagina, q, nivel, equipoId };
   const enCursoRef = useRef(false);
   const pendienteRef = useRef(false);
   const activaRef = useRef(true);
@@ -61,7 +61,7 @@ export default function Eventos() {
     setCargando(true);
     try {
       const data = await api(
-        `monitor_eventos&page=${parametros.page}&q=${encodeURIComponent(parametros.q)}&nivel=${encodeURIComponent(parametros.nivel)}`,
+        `monitor_eventos&page=${parametros.page}&q=${encodeURIComponent(parametros.q)}&nivel=${encodeURIComponent(parametros.nivel)}${parametros.equipoId ? `&equipo_id=${parametros.equipoId}` : ''}`,
       );
       if (!activaRef.current) return;
       if (clave === JSON.stringify(parametrosRef.current)) {
@@ -91,7 +91,7 @@ export default function Eventos() {
         }
       }
     }
-  }, []);
+  }, [equipoId]);
   cargarRef.current = cargar;
 
   useEffect(() => {
@@ -113,14 +113,17 @@ export default function Eventos() {
   const eventos = resultado?.eventos || [];
   const total = resultado?.total || 0;
   const paginas = Math.max(1, Math.ceil(total / (resultado?.porPagina || POR_PAGINA)));
+  const equipoNombre = eventos[0]?.equipo || `equipo #${equipoId}`;
 
   return (
     <section className="eventos-page" aria-labelledby="eventos-title">
       <div className="eventos-heading">
         <div>
           <span className="eyebrow">Monitor de equipos</span>
-          <h2 id="eventos-title">Eventos de Windows</h2>
-          <p>Eventos de nivel Crítico y Error de los canales System y Application, recibidos durante los últimos 30 días.</p>
+          <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
+          <p>{equipoId
+            ? 'Solo se muestran los eventos Críticos y de Error de este equipo recibidos durante los últimos 30 días.'
+            : 'Eventos de nivel Crítico y Error de los canales System y Application, recibidos durante los últimos 30 días.'}</p>
         </div>
         <div className="eventos-actualizacion" aria-live="polite">
           <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
@@ -172,7 +175,8 @@ export default function Eventos() {
           <span>{error ? 'Comprueba la conexión e inténtalo de nuevo.' : 'Prueba a cambiar los filtros o la búsqueda.'}</span>
         </div>
       ) : (
-        <div className="wrap eventos-tabla-wrap" role="region" aria-label="Eventos de Windows" tabIndex="0">
+        <div className="wrap eventos-tabla-wrap" role="region"
+          aria-label={equipoId ? `Eventos de Windows de ${equipoNombre}` : 'Eventos de Windows'} tabIndex="0">
           <table className="eventos-table">
             <thead>
               <tr>

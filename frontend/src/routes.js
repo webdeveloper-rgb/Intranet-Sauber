@@ -42,7 +42,13 @@ export function leerRuta() {
   }
 
   if (partes[0] === 'eventos') {
-    return { vista: 'eventos', clienteId: null, equipoId: null, copiaId: null, path: '/eventos' };
+    const parametroEquipo = new URLSearchParams(window.location.search).get('equipo_id');
+    const candidatoEquipo = parametroEquipo && /^\d+$/.test(parametroEquipo) ? Number(parametroEquipo) : null;
+    const equipoId = Number.isSafeInteger(candidatoEquipo) && candidatoEquipo > 0 ? candidatoEquipo : null;
+    return {
+      vista: 'eventos', clienteId: null, equipoId, copiaId: null,
+      path: equipoId ? `/eventos?equipo_id=${equipoId}` : '/eventos',
+    };
   }
 
   return { vista: 'copias', clienteId: null, equipoId: null, copiaId: null, path: '/copias' };

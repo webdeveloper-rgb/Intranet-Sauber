@@ -131,11 +131,15 @@ final class ReadController
             $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
             $search = $_GET['q'] ?? '';
             $level = $_GET['nivel'] ?? 'all';
+            $equipoId = array_key_exists('equipo_id', $_GET)
+                ? filter_var($_GET['equipo_id'], FILTER_VALIDATE_INT)
+                : null;
             if ($page === false || $page < 1 || !is_string($search)
-                || !is_string($level) || !in_array($level, ['all', 'Critical', 'Error'], true)) {
+                || !is_string($level) || !in_array($level, ['all', 'Critical', 'Error'], true)
+                || ($equipoId !== null && ($equipoId === false || $equipoId < 1))) {
                 fail('Los filtros de eventos no son válidos.');
             }
-            out(monitor_eventos_listar(db(), $page, $search, $level));
+            out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId));
         }
 
         return false;
