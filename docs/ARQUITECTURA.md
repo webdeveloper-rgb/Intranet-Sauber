@@ -10,6 +10,7 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 | `api.php` | Punto unico de entrada de las acciones JSON del panel. |
 | `ingest.php` | Punto de entrada de avisos de n8n, protegido con token Bearer. |
 | `monitor-ingest.php` | Receptor autenticado de informes de hardware y alertas de Monitor-Equipos. |
+| `monitor-token.php` | Intercambia la clave de bootstrap por un token temporal de un solo uso. |
 | `src/bootstrap.php` | Configuracion, PDO, sesion, CSRF, escape HTML y utilidades comunes. |
 | `src/Http/ApiEndpoint.php` | Autorizacion, validacion de sesion/CSRF y despacho hacia controladores. |
 | `src/Http/Controllers/` | Acciones de lectura, historial, clientes, equipos, tokens y revision de copias. |
@@ -48,11 +49,12 @@ La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocab
 
 ## Informes de Monitor-Equipos
 
-1. Monitor-Equipos envia su informe JSON por `POST` a `monitor-ingest.php`, con `Authorization: Bearer ...` y `X-Machine-Id`. Se usa un token revocable creado desde el panel; no se reutiliza el token de n8n.
-2. El receptor valida el token, limita el cuerpo a 2 MB, comprueba que la cabecera y `machineId` coinciden y conserva solo los campos de hardware reconocidos. Los mensajes de eventos de Windows no se guardan.
-3. La primera recepción se asocia a un equipo cuyo nombre coincide exactamente (sin distinguir mayúsculas) con el hostname, si solo hay una coincidencia. Si no existe una coincidencia única, se crea un equipo MonitorAgent sin cliente; se puede asignar desde **Clientes** como cualquier otro equipo.
-4. Se conserva el último informe recibido. Las alertas activas se deduplican por equipo y condición, se resuelven al desaparecer la condición y pueden volver a avisar si reaparecen.
-5. Se genera una alerta crítica si SMART predice fallo o un disco figura como `Unhealthy`; una advertencia si un disco figura como `Warning`, un volumen tiene menos del 15 % libre o la salud de una batería es inferior al 50 %. Los avisos aparecen en la vista de clientes/equipos y se envían por correo cuando se configuran destinatarios.
+1. Monitor-Equipos solicita un token temporal a `monitor-token.php` con su clave de bootstrap revocable y `X-Machine-Id`. El servidor devuelve un token de un solo uso, ligado a esa máquina y válido durante cinco minutos.
+2. El agente envía el informe JSON por `POST` a `monitor-ingest.php` con ese token temporal y `X-Machine-Id`. Cada informe de la cola de reintentos solicita un token nuevo.
+3. El receptor consume el token de forma atómica, limita el cuerpo a 2 MB, comprueba que la cabecera y `machineId` coinciden y conserva solo los campos de hardware reconocidos. Los mensajes de eventos de Windows no se guardan.
+4. La primera recepción se asocia a un equipo cuyo nombre coincide exactamente (sin distinguir mayúsculas) con el hostname, si solo hay una coincidencia. Si no existe una coincidencia única, se crea un equipo MonitorAgent sin cliente; se puede asignar desde **Clientes** como cualquier otro equipo.
+5. Se conserva el último informe recibido. Las alertas activas se deduplican por equipo y condición, se resuelven al desaparecer la condición y pueden volver a avisar si reaparecen.
+6. Se genera una alerta crítica si SMART predice fallo o un disco figura como `Unhealthy`; una advertencia si un disco figura como `Warning`, un volumen tiene menos del 15 % libre o la salud de una batería es inferior al 50 %. Los avisos aparecen en la vista de clientes/equipos y se envían por correo cuando se configuran destinatarios.
 
 El envío de correo usa `mail()` de PHP, por lo que también debe estar configurado el transporte de correo del servidor. Añade `monitor_alert_recipients` (lista de direcciones) y, opcionalmente, `monitor_alert_sender` a `config/config.php`; los valores vacíos de la plantilla no envían email. Los intentos fallidos quedan en el log PHP del servidor y se reintentan como máximo una vez por hora mientras la alerta siga activa.
 

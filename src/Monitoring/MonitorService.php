@@ -165,6 +165,51 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     ];
 }
 
+function monitor_token_emitir(PDO $pdo, string $machineId): string
+{
+    $pdo->exec("DELETE FROM monitor_ingest_tokens
+        WHERE expires_at < DATE_SUB(NOW(), INTERVAL 1 DAY)
+            OR consumed_at < DATE_SUB(NOW(), INTERVAL 1 DAY)");
+    $token = 'mtr_' . bin2hex(random_bytes(32));
+    $pdo->prepare('INSERT INTO monitor_ingest_tokens (token_hash,machine_id,expires_at)
+        VALUES (?,?,DATE_ADD(NOW(), INTERVAL 5 MINUTE))')
+        ->execute([hash('sha256', $token), $machineId]);
+    return $token;
+}
+
+function monitor_token_consumir(PDO $pdo, ?string $token, string $machineId): bool
+{
+    if ($token === null || !preg_match('/\Amtr_[0-9a-f]{64}\z/', $token)) {
+        return false;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT id,machine_id FROM monitor_ingest_tokens
+            WHERE token_hash=? AND consumed_at IS NULL AND expires_at>NOW() FOR UPDATE');
+        $st->execute([hash('sha256', $token)]);
+        $row = $st->fetch();
+        if (!$row || !hash_equals((string) $row['machine_id'], $machineId)) {
+            $pdo->rollBack();
+            return false;
+        }
+        $st = $pdo->prepare('UPDATE monitor_ingest_tokens SET consumed_at=NOW()
+            WHERE id=? AND consumed_at IS NULL');
+        $st->execute([$row['id']]);
+        if ($st->rowCount() !== 1) {
+            $pdo->rollBack();
+            return false;
+        }
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
 function monitor_evaluar_alertas(array $report): array
 {
     $alerts = [];

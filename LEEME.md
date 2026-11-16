@@ -10,7 +10,7 @@ Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL de
 
 ```
 api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
-monitor-ingest.php                  Recepción autenticada de informes Monitor-Equipos
+monitor-ingest.php, monitor-token.php Recepción de informes y emisión de tokens temporales
 sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
 index.php, login.php, clientes.php Páginas del panel
 src/Http/                          Implementaciones de endpoints y respuesta JSON común
@@ -157,13 +157,13 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 
 ## Conectar Monitor-Equipos
 
-1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar la migración 3.
-2. En **Usuarios → Tokens**, crea un token distinto para cada instalación de Monitor-Equipos y guárdalo de forma segura: el panel solo lo muestra una vez.
+1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones 3 y 4.
+2. En **Usuarios → Tokens**, crea un token distinto para cada instalación de Monitor-Equipos y guárdalo de forma segura: el panel solo lo muestra una vez. Este será la clave de bootstrap, no se adjunta a los informes.
 3. Instala el agente apuntando al receptor nuevo, no a `ingest.php`:
    ```text
    MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --token TU_TOKEN
    ```
-   El servicio envía los informes JSON existentes con `X-Machine-Id`; el token se almacena en `%ProgramData%\MonitorAgent\config.json`, protegido para SYSTEM y Administradores.
+   Antes de cada informe, el servicio usa la clave de bootstrap para pedir un token temporal. Ese token solo sirve para un informe, está ligado al `MachineId` y caduca a los cinco minutos. También se usa un token nuevo para cada reintento de la cola. La clave de bootstrap queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores.
 4. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
 5. En **Clientes**, las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra el último informe y las alertas activas.
 

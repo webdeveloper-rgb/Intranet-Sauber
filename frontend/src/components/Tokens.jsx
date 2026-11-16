@@ -70,7 +70,7 @@ export default function Tokens() {
   return (
     <section className="ucard">
       <h3>Tokens de integraciones</h3>
-      <p className="mut">Crea un token distinto para cada integración. n8n envía avisos a <code>ingest.php</code> y Monitor-Equipos envía informes a <code>monitor-ingest.php</code>. El token completo solo se muestra al crearlo.</p>
+      <p className="mut">Crea un token distinto para cada integración. n8n envía avisos a <code>ingest.php</code>; Monitor-Equipos usa este token como clave de bootstrap para pedir un token temporal antes de cada informe. El token completo solo se muestra al crearlo.</p>
 
       <form className="token-form" onSubmit={crear}>
         <label>

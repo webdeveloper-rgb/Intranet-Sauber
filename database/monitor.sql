@@ -16,3 +16,16 @@ CREATE TABLE IF NOT EXISTS monitor_alertas (
   KEY idx_monitor_alertas_activo (activo, severidad),
   CONSTRAINT fk_monitor_alerta_equipo FOREIGN KEY (equipo_id) REFERENCES equipos (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tokens temporales, de un solo uso y ligados a la identidad de cada agente.
+CREATE TABLE IF NOT EXISTS monitor_ingest_tokens (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  token_hash CHAR(64) NOT NULL,
+  machine_id VARCHAR(128) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME NULL,
+  UNIQUE KEY uq_monitor_ingest_token_hash (token_hash),
+  KEY idx_monitor_ingest_token_expiry (expires_at),
+  KEY idx_monitor_ingest_token_machine (machine_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -26,14 +26,6 @@ try {
     if (rate_limit_blocked($rateKey)) {
         monitor_responder(['error' => 'Demasiados intentos. Espera un minuto.'], 429);
     }
-    $token = token_autenticar();
-    if (!$token) {
-        rate_limit_failure($rateKey, 10, 60);
-        error_log('[monitor] intento de ingesta con token no válido, IP ' . $ip);
-        header('WWW-Authenticate: Bearer');
-        monitor_responder(['error' => 'Token no válido'], 401);
-    }
-    rate_limit_clear([$rateKey]);
 
     $raw = (string) file_get_contents('php://input', false, null, 0, 2097153);
     if (strlen($raw) > 2097152) {
@@ -44,12 +36,22 @@ try {
         monitor_responder(['error' => 'JSON no válido'], 400);
     }
     try {
-        $report = monitor_normalizar_informe($data, (string) ($_SERVER['HTTP_X_MACHINE_ID'] ?? ''));
+        $machineId = (string) ($_SERVER['HTTP_X_MACHINE_ID'] ?? '');
+        $report = monitor_normalizar_informe($data, $machineId);
     } catch (InvalidArgumentException $e) {
         monitor_responder(['error' => $e->getMessage()], 422);
     }
 
-    $equipmentId = monitor_guardar_informe(db(), $report);
+    $pdo = db();
+    if (!monitor_token_consumir($pdo, token_de_peticion(), $report['machineId'])) {
+        rate_limit_failure($rateKey, 10, 60);
+        error_log('[monitor] intento de ingesta con token temporal no válido, IP ' . $ip);
+        header('WWW-Authenticate: Bearer');
+        monitor_responder(['error' => 'Token temporal no válido, caducado o ya utilizado'], 401);
+    }
+    rate_limit_clear([$rateKey]);
+
+    $equipmentId = monitor_guardar_informe($pdo, $report);
     monitor_responder([
         'ok' => true,
         'equipo_id' => $equipmentId,
