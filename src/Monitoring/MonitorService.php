@@ -207,7 +207,7 @@ function monitor_enrollment_crear(string $createdBy): array
 
 function monitor_enrollment_listar(PDO $pdo): array
 {
-    $rows = $pdo->query("SELECT id,code_prefix,created_by,machine_id,
+    $rows = $pdo->query("SELECT id,code_prefix,created_by,consumed_machine_id AS machine_id,
             DATE_FORMAT(created_at,'%Y-%m-%d %H:%i') AS created_at,
             DATE_FORMAT(expires_at,'%Y-%m-%d %H:%i') AS expires_at,
             DATE_FORMAT(consumed_at,'%Y-%m-%d %H:%i') AS consumed_at,
