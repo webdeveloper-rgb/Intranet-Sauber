@@ -9,10 +9,12 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 | `index.php`, `login.php`, `logout.php`, `clientes.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
 | `api.php` | Punto unico de entrada de las acciones JSON del panel. |
 | `ingest.php` | Punto de entrada de avisos de n8n, protegido con token Bearer. |
+| `monitor-ingest.php` | Receptor autenticado de informes de hardware y alertas de Monitor-Equipos. |
 | `src/bootstrap.php` | Configuracion, PDO, sesion, CSRF, escape HTML y utilidades comunes. |
 | `src/Http/ApiEndpoint.php` | Autorizacion, validacion de sesion/CSRF y despacho hacia controladores. |
 | `src/Http/Controllers/` | Acciones de lectura, historial, clientes, equipos, tokens y revision de copias. |
 | `src/Backup/` | Ingesta de avisos, gestion de equipos y lectura de copias. |
+| `src/Monitoring/MonitorService.php` | Normalizacion de informes, asociacion de máquinas y alertas de salud. |
 | `src/Security/ApiTokens.php` | Creacion, autenticacion y registro de uso de tokens para integraciones. |
 | `src/Integration/ClientApi.php` | Cliente HTTP de la API externa de clientes y sincronizacion local. |
 | `src/Console/` | Migraciones y tareas CLI de sincronizacion y retencion. |
@@ -44,6 +46,16 @@ Los archivos PHP de la raiz son puntos de entrada de compatibilidad. La logica n
 
 La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocable; las personas usan sesion web y proteccion CSRF.
 
+## Informes de Monitor-Equipos
+
+1. Monitor-Equipos envia su informe JSON por `POST` a `monitor-ingest.php`, con `Authorization: Bearer ...` y `X-Machine-Id`. Se usa un token revocable creado desde el panel; no se reutiliza el token de n8n.
+2. El receptor valida el token, limita el cuerpo a 2 MB, comprueba que la cabecera y `machineId` coinciden y conserva solo los campos de hardware reconocidos. Los mensajes de eventos de Windows no se guardan.
+3. La primera recepción se asocia a un equipo cuyo nombre coincide exactamente (sin distinguir mayúsculas) con el hostname, si solo hay una coincidencia. Si no existe una coincidencia única, se crea un equipo MonitorAgent sin cliente; se puede asignar desde **Clientes** como cualquier otro equipo.
+4. Se conserva el último informe recibido. Las alertas activas se deduplican por equipo y condición, se resuelven al desaparecer la condición y pueden volver a avisar si reaparecen.
+5. Se genera una alerta crítica si SMART predice fallo o un disco figura como `Unhealthy`; una advertencia si un disco figura como `Warning`, un volumen tiene menos del 15 % libre o la salud de una batería es inferior al 50 %. Los avisos aparecen en la vista de clientes/equipos y se envían por correo cuando se configuran destinatarios.
+
+El envío de correo usa `mail()` de PHP, por lo que también debe estar configurado el transporte de correo del servidor. Añade `monitor_alert_recipients` (lista de direcciones) y, opcionalmente, `monitor_alert_sender` a `config/config.php`; los valores vacíos de la plantilla no envían email. Los intentos fallidos quedan en el log PHP del servidor y se reintentan como máximo una vez por hora mientras la alerta siga activa.
+
 ## API del panel
 
 `api.php` delega en `src/Http/ApiEndpoint.php`. `ReadController` atiende lecturas. Los controladores de historial, cliente, administracion, equipo y revision se ejecutan solo para POST despues de validar CSRF. Las acciones administrativas comprueban el rol `admin` en servidor.
@@ -52,9 +64,10 @@ La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocab
 |---|---|
 | `sesion`, `novedades`, `list`, `history`, `equipo_historial` | Sesion, actualizacion incremental, copias recientes e historiales paginados. |
 | `catalogo`, `equipos`, `sync` | Catalogo de clientes, equipos detectados y sincronizacion externa. |
+| `monitor_equipo` | Informe de hardware y alertas del equipo seleccionado. |
 | `equipo_asignar`, `equipo_desasignar`, `equipo_vigilar`, `equipo_horario` | Asignacion y seguimiento del equipo. |
 | `revisar`, `reabrir`, `seguimiento`, `nota` | Ciclo de revision de una copia fallida. |
-| `tokens`, `token_crear`, `token_revocar` | Gestion administrativa de credenciales n8n. |
+| `tokens`, `token_crear`, `token_revocar` | Gestion administrativa de credenciales de integraciones. |
 
 ## Datos principales
 
@@ -64,6 +77,7 @@ La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocab
 - `equipos`: identidad del host, software, cliente, tipo y dias esperados de copia.
 - `correo_copias`: avisos recibidos por n8n en staging, con clave unica para deduplicacion.
 - `correo_sync_log`: estado de las recepciones e ingestas.
+- `monitor_alertas`: alertas de salud activas y registro de notificacion por correo.
 - `clientes`, `maquinas`, `sync_log`: tablas historicas de sincronizacion descritas por `database/sync.sql`; revisar su uso antes de retirarlas.
 - `api_tokens`: tokens de integracion; la tabla se asegura desde el modulo de seguridad.
 
@@ -83,7 +97,7 @@ La lista diaria consulta las ultimas 24 horas. Los historiales se cargan con cur
 - Mantener los limites de campos de `IngestionService.php` alineados con las columnas SQL.
 - Si cambia una accion, sincronizar cliente frontend, controlador PHP y workflow n8n cuando aplique.
 - No editar `build/` manualmente. Regenerarlo desde `frontend/` con `npm run build`.
-- Las pruebas actuales de clasificacion se ejecutan con `php tests/ingesta_test.php`.
+- Las pruebas puras se ejecutan con `php tests/ingesta_test.php` y `php tests/monitor_ingesta_test.php`.
 
 ## Convenciones de comentarios
 

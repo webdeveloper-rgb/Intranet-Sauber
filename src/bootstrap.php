@@ -12,7 +12,7 @@ if (!is_file($cfgFile)) {
 }
 $GLOBALS['cfg'] = require $cfgFile;
 
-const SCHEMA_VERSION_REQUERIDA = 2;
+const SCHEMA_VERSION_REQUERIDA = 3;
 
 date_default_timezone_set(cfg('timezone', 'Europe/Madrid'));
 ini_set('display_errors', cfg('debug') ? '1' : '0');

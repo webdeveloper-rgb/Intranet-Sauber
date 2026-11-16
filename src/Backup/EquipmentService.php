@@ -7,6 +7,7 @@ declare(strict_types=1);
  */
 require_once __DIR__ . '/../Integration/ClientApi.php';
 require_once __DIR__ . '/IngestionService.php';
+require_once __DIR__ . '/../Monitoring/MonitorService.php';
 
 function asegurar_tablas_equipos(PDO $pdo): void
 {
@@ -79,6 +80,7 @@ function equipos_listado(): array
     $pdo = db();
     asegurar_tablas_equipos($pdo);
     $rows = $pdo->query("SELECT e.id,e.nombre,e.software,e.origen,e.sugerido,e.tipo,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
+        (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
         (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND (cc.importada=0 OR e.cliente_id IS NULL)) AS pendientes
         FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software")->fetchAll();
     foreach ($rows as &$row) {
@@ -88,6 +90,7 @@ function equipos_listado(): array
         $row['vigilar'] = (int) $row['vigilar'];
     }
     unset($row);
+    $alertasMonitor = monitor_adjuntar_datos($rows, $pdo);
     $mailRun = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,nuevos,ignorados,mensaje,origen,
         TIMESTAMPDIFF(MINUTE,inicio,NOW()) AS minutos_desde
         FROM correo_sync_log WHERE origen='n8n' ORDER BY id DESC LIMIT 1")->fetch() ?: null;
@@ -113,7 +116,7 @@ function equipos_listado(): array
             'umbral_horas' => $horasAlerta,
         ];
     }
-    return ['equipos' => $rows, 'correo' => $mailRun];
+    return ['equipos' => $rows, 'correo' => $mailRun, 'alertas_monitor' => $alertasMonitor];
 }
 
 function equipos_asignar_cliente(int $equipoId, int $clienteId): int

@@ -105,6 +105,12 @@ function ingesta_parsear_asunto(string $asunto): array
         $r['software'] = 'Iperius';
         $r['nombre'] = trim($m[2]);
         $r['sugerido'] = ingesta_clasificar_nombre($r['nombre'])['empresa'];
+        $r['software'] = 'Iperius';
+        $nombre = trim($m[2]);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $nombre)) {
+            $r['nombre'] = $nombre;
+            $r['sugerido'] = ingesta_clasificar_nombre($nombre)['empresa'];
+        }
     } elseif (preg_match('/Micro\s*Focus/i', $asunto)) {
         $r['software'] = 'MicroFocus';
     } elseif (preg_match('/Veeam/i', $asunto)) {

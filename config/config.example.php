@@ -45,6 +45,10 @@ return [
     // Horas sin recepción de n8n antes de alertar en el panel.
     'ingest_alert_hours' => 24,
 
+    // Avisos de salud de Monitor-Equipos. El servidor debe tener PHP mail() configurado.
+    'monitor_alert_recipients' => [],
+    'monitor_alert_sender' => '',
+
     // Retención de logs y staging ya importado; nunca elimina copias finales ni staging pendiente.
     'maintenance_retention_days' => 365,
 

@@ -1,5 +1,5 @@
 /**
- * Interfaz administrativa para emitir, listar y revocar tokens n8n.
+ * Interfaz administrativa para emitir, listar y revocar tokens de integraciones.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
@@ -44,7 +44,7 @@ export default function Tokens() {
   };
 
   const revocar = async (token) => {
-    if (!window.confirm(`¿Revocar el token «${token.nombre}»? n8n dejará de poder enviar avisos con él.`)) return;
+    if (!window.confirm(`¿Revocar el token «${token.nombre}»? La integración dejará de poder enviar datos con él.`)) return;
     setOcupado(true);
     setFallo('');
     try {
@@ -69,14 +69,14 @@ export default function Tokens() {
 
   return (
     <section className="ucard">
-      <h3>Tokens para n8n</h3>
-      <p className="mut">Crea un token para autenticar el nodo HTTP que envía avisos a <code>ingest.php</code>. El token completo solo se muestra al crearlo.</p>
+      <h3>Tokens de integraciones</h3>
+      <p className="mut">Crea un token distinto para cada integración. n8n envía avisos a <code>ingest.php</code> y Monitor-Equipos envía informes a <code>monitor-ingest.php</code>. El token completo solo se muestra al crearlo.</p>
 
       <form className="token-form" onSubmit={crear}>
         <label>
           Nombre
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={100}
-            placeholder="n8n producción" required />
+            placeholder="Monitor-Equipos - equipo" required />
         </label>
         <label>
           Caducidad
@@ -96,7 +96,7 @@ export default function Tokens() {
       {tokenNuevo && (
         <div className="token-created" role="status">
           <b>Copia ahora el token completo</b>
-          <p>n8n no podrá volver a mostrarlo. Configura la cabecera <code>Authorization</code> con el valor <code>Bearer</code> seguido del token.</p>
+          <p>No se podrá volver a mostrar. Configura la cabecera <code>Authorization</code> con el valor <code>Bearer</code> seguido del token.</p>
           <div className="token-copy-row">
             <input aria-label="Token nuevo" readOnly value={tokenNuevo}
               onFocus={(e) => e.currentTarget.select()} />

@@ -6,6 +6,7 @@ import { api } from '../api';
 import { norm, TIPOS } from '../logic';
 import Tag from './Tag';
 import Detalle from './Detalle';
+import MonitorDetalle from './MonitorDetalle';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
 import { usePagination } from '../hooks/usePagination';
@@ -95,6 +96,10 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
+  const [alertasMonitor, setAlertasMonitor] = useState([]);
+  const [detalleMonitor, setDetalleMonitor] = useState(null);
+  const [cargandoMonitor, setCargandoMonitor] = useState(false);
+  const [falloMonitor, setFalloMonitor] = useState('');
   const clienteAbierto = clienteId;
   const equipoAbierto = equipoId;
   const [busqueda, setBusqueda] = useState('');
@@ -124,12 +129,14 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       const [c, e] = await Promise.all([api('catalogo'), api('equipos')]);
       if (carga !== cargaActual.current) return { error: '', actualizado: false };
       if (!Array.isArray(e.equipos)) throw new Error('La respuesta de equipos no es válida.');
+      if (!Array.isArray(e.alertas_monitor)) throw new Error('La respuesta de alertas de Monitor-Equipos no es válida.');
       if (equiposActuales.current.length && !e.equipos.length) {
         throw new Error('La actualización devolvió una lista vacía. Se mantienen los datos anteriores.');
       }
       setCat(c);
       equiposActuales.current = e.equipos;
       setEquipos(e.equipos);
+      setAlertasMonitor(e.alertas_monitor);
       if (e.correo) setUltimaLectura(e.correo);
       setFallo('');
       return { error: '', actualizado: true };
@@ -199,6 +206,23 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       ? { nombre: 'Cliente no activo' }
     : clientes.find((cliente) => Number(cliente.id) === Number(clienteAbierto));
   const equipoActual = equipos.find((equipo) => Number(equipo.id) === Number(equipoAbierto));
+  useEffect(() => {
+    let activa = true;
+    if (!equipoActual?.tiene_monitor) {
+      setDetalleMonitor(null);
+      setFalloMonitor('');
+      setCargandoMonitor(false);
+      return () => { activa = false; };
+    }
+    setDetalleMonitor(null);
+    setFalloMonitor('');
+    setCargandoMonitor(true);
+    api(`monitor_equipo&id=${encodeURIComponent(equipoActual.id)}`)
+      .then((result) => { if (activa) setDetalleMonitor(result); })
+      .catch((error) => { if (activa) setFalloMonitor(error.message); })
+      .finally(() => { if (activa) setCargandoMonitor(false); });
+    return () => { activa = false; };
+  }, [equipoActual?.id, equipoActual?.tiene_monitor, refreshSignal]);
   const equiposCliente = useMemo(() => {
     if (clienteAbierto === 'sin-asignar') return equipos.filter((equipo) => !equipo.cliente_id);
     if (clienteAbierto === 'cliente-inactivo') return equipos.filter((equipo) => equipo.cliente_id && !idsClientesActivos.has(Number(equipo.cliente_id)));
@@ -341,6 +365,18 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           {u.mensaje && <p>{u.mensaje}</p>}
         </details>}
       </div>}
+      {alertasMonitor.length > 0 && <section className={`monitor-alertas monitor-alertas-global ${alertasMonitor.some((alert) => alert.severidad === 'critical') ? 'critica' : 'aviso'}`}
+        role={alertasMonitor.some((alert) => alert.severidad === 'critical') ? 'alert' : 'status'}>
+        <h3>Alertas de salud de equipos ({alertasMonitor.length})</h3>
+        <ul>{alertasMonitor.map((alert) => <li key={alert.id}>
+          <button type="button" onClick={() => onNavigate(alert.cliente_id
+            ? `/clientes/${alert.cliente_id}/equipos/${alert.equipo_id}`
+            : `/clientes/sin-asignar/equipos/${alert.equipo_id}`)}>
+            <strong>{alert.severidad === 'critical' ? 'Crítica' : 'Advertencia'} · {alert.cliente || 'Sin asignar'} · {alert.equipo}</strong>
+            <span>{alert.titulo}: {alert.detalle}</span>
+          </button>
+        </li>)}</ul>
+      </section>}
 
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
@@ -399,6 +435,8 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           </>}
 
           {equipoActual && <div className="equipo-historial-vista">
+            {equipoActual.tiene_monitor && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
+              cargando={cargandoMonitor} error={falloMonitor} />}
             <details className="equipo-gestion">
               <summary>Asignación y avisos</summary>
               <div className="equipo-accion">

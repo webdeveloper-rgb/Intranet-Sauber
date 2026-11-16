@@ -10,14 +10,16 @@ Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL de
 
 ```
 api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
+monitor-ingest.php                  Recepción autenticada de informes Monitor-Equipos
 sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
 index.php, login.php, clientes.php Páginas del panel
 src/Http/                          Implementaciones de endpoints y respuesta JSON común
 src/Http/Controllers/              Acciones de lectura, historial, clientes, usuarios, equipos y revisión
 src/Console/                       Comandos de sincronización, migración y limpieza
 src/Backup/                        Ingesta de avisos, equipos y copias
+src/Monitoring/                    Informes de hardware y alertas de salud
 src/Integration/ClientApi.php      Sincronización e inicio de sesión con la API de clientes
-src/Security/ApiTokens.php          Creación y validación de tokens de n8n
+src/Security/ApiTokens.php          Creación y validación de tokens de integración
 src/bootstrap.php                  Configuración, sesión, PDO y seguridad común
 database/                           Esquema y SQL de las tablas
 frontend/                           Código fuente React
@@ -97,7 +99,7 @@ El acceso se valida con las credenciales personales en la API y los usuarios con
 ## Cambios en la base de datos
 
 Las peticiones web no alteran el esquema. Cada cambio de base de datos debe añadirse como una migración versionada en `migrate.php` y ejecutarse después del despliegue con `php migrate.php`. El comando es seguro al repetirse; la web muestra un error explícito si falta aplicarlo.
-Las pruebas puras de clasificación y asunto se ejecutan con `php tests/ingesta_test.php`.
+Las pruebas puras se ejecutan con `php tests/ingesta_test.php` y `php tests/monitor_ingesta_test.php`.
 
 ## Clientes desde la API
 
@@ -152,6 +154,20 @@ Añade una tarea programada para sincronizar clientes y limpiar logs:
 El workflow de n8n lee el buzón IMAP, clasifica cada aviso y envía el resultado a ingest.php con un token Bearer. El panel no se conecta al buzón ni procesa correos por su cuenta.
 
 Cada aviso debe incluir un identificador estable (message_id) para que la ingesta pueda reconocer reintentos y evitar duplicados. Los avisos aceptados crean o reutilizan un equipo; los que aún no tienen cliente quedan en staging hasta que se asignen desde **Clientes**.
+
+## Conectar Monitor-Equipos
+
+1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar la migración 3.
+2. En **Usuarios → Tokens**, crea un token distinto para cada instalación de Monitor-Equipos y guárdalo de forma segura: el panel solo lo muestra una vez.
+3. Instala el agente apuntando al receptor nuevo, no a `ingest.php`:
+   ```text
+   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --token TU_TOKEN
+   ```
+   El servicio envía los informes JSON existentes con `X-Machine-Id`; el token se almacena en `%ProgramData%\MonitorAgent\config.json`, protegido para SYSTEM y Administradores.
+4. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
+5. En **Clientes**, las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra el último informe y las alertas activas.
+
+Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); disco `Warning`, menos del 15 % de espacio libre o salud de batería inferior al 50 % (advertencia). No se conservan los mensajes del registro de eventos de Windows. Las alertas se deduplican mientras sigan activas y vuelven a avisar por email si reaparecen tras resolverse.
 
 ## Seguridad incluida
 

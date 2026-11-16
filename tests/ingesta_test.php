@@ -31,6 +31,7 @@ $same('ACME_PC-WS01', $acronis['nombre'], 'equipo Acronis');
 $same('ACME', $acronis['sugerido'], 'cliente sugerido Acronis');
 $same(null, ingesta_parsear_asunto('Notificación de Acronis True Image de fallo 2026-04-15')['nombre'], 'Acronis sin equipo');
 
+
 $iperius = ingesta_parsear_asunto('Copia de seguridad diaria - ACME_SERVER-SQL01 - Iperius Backup');
 $same('Iperius', $iperius['software'], 'asunto Iperius');
 $same('ACME_SERVER-SQL01', $iperius['nombre'], 'equipo Iperius');

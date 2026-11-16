@@ -114,6 +114,14 @@ final class ReadController
             out($listado);
         }
 
+        if ($action === 'monitor_equipo') {
+            $detalle = monitor_detalle_equipo(db(), (int) ($_GET['id'] ?? 0));
+            if ($detalle === null) {
+                fail('No hay un informe de Monitor-Equipos para este equipo', 404);
+            }
+            out($detalle);
+        }
+
         return false;
     }
 }

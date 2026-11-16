@@ -14,6 +14,7 @@ define('SCHEMA_MIGRATING', true);
 require __DIR__ . '/../bootstrap.php';
 require __DIR__ . '/../Integration/ClientApi.php';
 require __DIR__ . '/../Backup/EquipmentService.php';
+require_once __DIR__ . '/../Monitoring/MonitorService.php';
 require __DIR__ . '/../Security/ApiTokens.php';
 
 try {
@@ -63,6 +64,9 @@ try {
             asegurar_tablas_sync($pdo);
             asegurar_tablas_equipos($pdo);
             tokens_asegurar_tabla($pdo);
+        },
+        3 => static function (PDO $pdo): void {
+            monitor_migrar_esquema($pdo);
         },
     ];
 
