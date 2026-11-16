@@ -1938,6 +1938,56 @@ header {
   gap: 12px;
   margin-top: 16px;
 }
+.cliente-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0;
+}
+.cliente-filtros-label {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 650;
+}
+.cliente-filtros-opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cliente-filtros-opciones button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--mut);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.cliente-filtros-opciones button:hover,
+.cliente-filtros-opciones button:focus-visible {
+  border-color: var(--brand);
+  outline: none;
+}
+.cliente-filtros-opciones button.activo {
+  border-color: var(--brand-t);
+  background: var(--brand-s);
+  color: var(--brand);
+  font-weight: 650;
+}
+.cliente-filtros-opciones button span {
+  color: inherit;
+  opacity: 0.75;
+}
+.cliente-filtros > small {
+  flex-basis: 100%;
+  color: var(--mut);
+  font-size: 11px;
+}
 .cliente-tarjeta {
   position: relative;
   display: grid;

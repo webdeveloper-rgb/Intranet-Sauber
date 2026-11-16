@@ -103,6 +103,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   const clienteAbierto = clienteId;
   const equipoAbierto = equipoId;
   const [busqueda, setBusqueda] = useState('');
+  const [filtroSatbk, setFiltroSatbk] = useState('todos');
   const [asignaciones, setAsignaciones] = useState({});
   const [cargando, setCargando] = useState(true);
   const [sync, setSync] = useState(false);
@@ -241,15 +242,20 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     return equipos.filter((equipo) => Number(equipo.cliente_id) === Number(clienteAbierto));
   }, [equipos, clienteAbierto, cat]);
   const textoBusqueda = norm(busqueda.trim());
-  const clientesFiltrados = useMemo(() => clientes.filter((cliente) => {
+  const clientesPorSatbk = useMemo(() => {
+    if (filtroSatbk === 'con') return clientes.filter((cliente) => cliente.tiene_satbk);
+    if (filtroSatbk === 'sin') return clientes.filter((cliente) => !cliente.tiene_satbk);
+    return clientes;
+  }, [clientes, filtroSatbk]);
+  const clientesFiltrados = useMemo(() => clientesPorSatbk.filter((cliente) => {
     const datos = unir(cliente.nombre, cliente.codigo);
     return !textoBusqueda || norm(datos).includes(textoBusqueda);
-  }), [clientes, textoBusqueda]);
+  }), [clientesPorSatbk, textoBusqueda]);
   const equiposFiltrados = useMemo(() => equiposCliente
     .filter((equipo) => !textoBusqueda || norm(unir(equipo.nombre, equipo.software, equipo.sugerido, equipo.origen)).includes(textoBusqueda))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
   [equiposCliente, textoBusqueda]);
-  const paginaClientes = usePagination(clientesFiltrados, 24, textoBusqueda);
+  const paginaClientes = usePagination(clientesFiltrados, 24, `${textoBusqueda}|${filtroSatbk}`);
   const paginaEquipos = usePagination(equiposFiltrados, 24, `${clienteAbierto}|${textoBusqueda}`);
   const equiposSinAsignar = equipos.filter((equipo) => !equipo.cliente_id);
   const totalServidores = equiposCliente.filter((equipo) => equipo.tipo === 'servidor').length;
@@ -400,6 +406,18 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
       {sync && <p className="sync-estado" role="status" aria-live="polite">Actualizando los clientes.</p>}
       {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
+      {!clienteActual && !equipoActual && <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por SATBK">
+        <span className="cliente-filtros-label">Filtrar clientes</span>
+        <div className="cliente-filtros-opciones">
+          <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'todos'}
+            onClick={() => setFiltroSatbk('todos')}>Todos <span>{clientes.length}</span></button>
+          <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''} aria-pressed={filtroSatbk === 'con'}
+            onClick={() => setFiltroSatbk('con')}>Con SATBK <span>{clientes.filter((cliente) => cliente.tiene_satbk).length}</span></button>
+          <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sin'}
+            onClick={() => setFiltroSatbk('sin')}>Sin SATBK <span>{clientes.filter((cliente) => !cliente.tiene_satbk).length}</span></button>
+        </div>
+        <small>El filtro solo cambia la vista; no modifica clientes ni asignaciones.</small>
+      </div>}
 
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
