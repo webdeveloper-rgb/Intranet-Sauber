@@ -107,15 +107,49 @@ $auditoriaCompleta = monitor_normalizar_informe([
     'hostname' => 'PC-CLIENTE',
     'timestampUtc' => gmdate('c', $reportTime),
     'eventExtractionMode' => 'full',
-    'events' => [[
-        'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
-        'log' => 'Application',
-        'eventId' => 1000,
-        'level' => 'Error',
-    ]],
+    'events' => [
+        [
+            'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+            'log' => 'Application',
+            'eventId' => 1000,
+            'level' => 'Error',
+        ],
+        [
+            'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+            'log' => 'Security',
+            'eventId' => 4624,
+            'level' => 'Information',
+        ],
+        [
+            'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+            'log' => 'System',
+            'eventId' => 1,
+            'level' => 'Warning',
+        ],
+        [
+            'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+            'log' => 'ForwardedEvents',
+            'eventId' => 2,
+            'level' => 'Verbose',
+        ],
+        [
+            'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+            'log' => 'Setup',
+            'eventId' => 3,
+            'level' => 'LogAlways',
+        ],
+        [
+            'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+            'log' => 'CustomChannel',
+            'eventId' => 4,
+            'level' => 'Level 17',
+        ],
+    ],
 ], 'machine-123');
-$same(1, count($auditoriaCompleta['events']), 'auditoría completa acepta eventos históricos retenidos');
+$same(6, count($auditoriaCompleta['events']), 'auditoría completa acepta eventos históricos de todos los niveles y canales');
 $same('full', $auditoriaCompleta['eventExtractionMode'], 'se conserva el modo de auditoría completa');
+$same('Information', $auditoriaCompleta['events'][1]['level'], 'se conserva un nivel informativo en auditoría completa');
+$same('Level 17', $auditoriaCompleta['events'][5]['level'], 'se conservan niveles no estándar de Windows');
 
 $checks++;
 try {
@@ -125,10 +159,10 @@ try {
         'eventId' => 1,
         'level' => 'Warning',
     ]], $reportTime);
-    fwrite(STDERR, "Nivel Warning: se esperaba InvalidArgumentException\n");
+    fwrite(STDERR, "Nivel Warning en modo estándar: se esperaba InvalidArgumentException\n");
     exit(1);
 } catch (InvalidArgumentException $e) {
-    $same(true, strpos($e->getMessage(), 'nivel del evento') !== false, 'se excluyen niveles distintos de Critical y Error');
+    $same(true, strpos($e->getMessage(), 'nivel del evento') !== false, 'estándar solo acepta niveles Critical y Error');
 }
 
 $checks++;

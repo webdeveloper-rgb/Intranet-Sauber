@@ -7,6 +7,11 @@ const niveles = [
   ['all', 'Todos los niveles'],
   ['Critical', 'Crítico'],
   ['Error', 'Error'],
+  ['Warning', 'Advertencia'],
+  ['Information', 'Información'],
+  ['Verbose', 'Detallado'],
+  ['LogAlways', 'Siempre registrado'],
+  ['Unknown', 'Desconocido'],
 ];
 
 function fechaHora(value) {
@@ -20,9 +25,18 @@ function fechaHora(value) {
 }
 
 function Nivel({ nivel }) {
-  const critical = nivel === 'Critical';
-  const etiqueta = critical ? 'Crítico' : nivel === 'Error' ? 'Error' : nivel || '—';
-  return <span className={`evento-nivel ${critical ? 'critical' : 'error'}`}>{etiqueta}</span>;
+  const estilo = nivel === 'Critical' ? 'critical'
+    : nivel === 'Error' ? 'error'
+      : nivel === 'Warning' ? 'warning' : 'other';
+  const etiqueta = {
+    Critical: 'Crítico',
+    Error: 'Error',
+    Warning: 'Advertencia',
+    Information: 'Información',
+    Verbose: 'Detallado',
+    LogAlways: 'Siempre registrado',
+  }[nivel] || nivel || '—';
+  return <span className={`evento-nivel ${estilo}`}>{etiqueta}</span>;
 }
 
 export default function Eventos({ equipoId = null }) {
@@ -122,8 +136,8 @@ export default function Eventos({ equipoId = null }) {
           <span className="eyebrow">Monitor de equipos</span>
           <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
           <p>{equipoId
-            ? 'Historial Error/Crítico de System y Application; su alcance depende del modo configurado para este equipo.'
-            : 'Historial Error/Crítico de System y Application. Cada equipo puede usar Estándar (30 días) o Auditoría Completa.'}</p>
+            ? 'En Estándar se muestran errores y críticos de System y Application de los últimos 30 días; Auditoría Completa incluye los niveles y canales disponibles.'
+            : 'Estándar recoge errores y críticos de System y Application de los últimos 30 días. Auditoría Completa incluye todos los niveles y canales disponibles.'}</p>
         </div>
         <div className="eventos-actualizacion" aria-live="polite">
           <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />

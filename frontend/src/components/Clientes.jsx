@@ -355,6 +355,11 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
             equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
             equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
+          {equipoActual?.tiene_monitor && <div className="equipo-rustdesk-id">
+            <span>ID de RustDesk</span>
+            <code>{detalleMonitor?.monitor?.rustDeskId
+              || (cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Aún no recibido')}</code>
+          </div>}
         </div>
         <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
           <strong>{equiposSinAsignar.length}</strong>

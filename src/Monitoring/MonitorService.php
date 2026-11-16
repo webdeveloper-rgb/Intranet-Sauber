@@ -126,7 +126,10 @@ function monitor_eventos_normalizar($source, int $reportTimestamp, string $event
             throw new InvalidArgumentException("La fecha del evento {$index} no está dentro del intervalo permitido.");
         }
         $level = monitor_texto($event['level'] ?? null, 20, true, 'events.level');
-        if (!in_array($level, ['Critical', 'Error'], true)) {
+        $knownLevel = in_array($level, [
+            'LogAlways', 'Critical', 'Error', 'Warning', 'Information', 'Verbose', 'Unknown',
+        ], true) || preg_match('/^Level \d+$/D', $level) === 1;
+        if (!$knownLevel || ($eventMode === 'standard' && !in_array($level, ['Critical', 'Error'], true))) {
             throw new InvalidArgumentException("El nivel del evento {$index} no es válido.");
         }
         $eventId = monitor_numero($event['eventId'] ?? null);
@@ -695,7 +698,9 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
 
 function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null): array
 {
-    if (!in_array($level, ['all', 'Critical', 'Error'], true)) {
+    if (!in_array($level, [
+        'all', 'LogAlways', 'Critical', 'Error', 'Warning', 'Information', 'Verbose', 'Unknown',
+    ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
         throw new InvalidArgumentException('El nivel de evento no es válido.');
     }
 
@@ -793,7 +798,8 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         SELECT CONCAT('evento-',ev.id) AS id,
             DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%s') AS fecha,
             CASE WHEN {$crash} THEN 'crash' ELSE 'windows' END AS tipo,
-            CASE WHEN ev.level='Critical' OR {$bugCheck} THEN 'critico' ELSE 'error' END AS nivel,
+            CASE WHEN ev.level='Critical' OR {$bugCheck} THEN 'critico'
+                WHEN ev.level='Warning' THEN 'advertencia' ELSE 'error' END AS nivel,
             CASE
                 WHEN {$bugCheck} THEN 'Fallo crítico de Windows'
                 WHEN ev.log_name='Application' AND ev.event_id=1000 THEN 'Cierre inesperado de aplicación'
@@ -806,7 +812,8 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         FROM monitor_eventos ev
         JOIN equipos e ON e.id=ev.equipo_id
         LEFT JOIN clientes c ON c.id=e.cliente_id
-        WHERE (e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)
+        WHERE ev.level IN ('Critical','Error','Warning')
+            AND (e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)
         UNION ALL
         SELECT CONCAT('copias-',e.id) AS id,
             DATE_FORMAT(MAX(cp.fecha),'%Y-%m-%dT%H:%i:%s') AS fecha,

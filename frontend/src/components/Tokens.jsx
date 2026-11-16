@@ -9,21 +9,14 @@ export default function Tokens() {
   const [nombre, setNombre] = useState('');
   const [dias, setDias] = useState('0');
   const [tokenNuevo, setTokenNuevo] = useState('');
-  const [enrollments, setEnrollments] = useState([]);
-  const [codigoNuevo, setCodigoNuevo] = useState('');
   const [copiado, setCopiado] = useState(false);
-  const [codigoCopiado, setCodigoCopiado] = useState(false);
   const [fallo, setFallo] = useState('');
   const [ocupado, setOcupado] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
-      const [tokenData, enrollmentData] = await Promise.all([
-        api('tokens'),
-        api('monitor_enrollments'),
-      ]);
+      const tokenData = await api('tokens');
       setTokens(tokenData.tokens);
-      setEnrollments(enrollmentData.enrollments);
       setFallo('');
     } catch (e) {
       setFallo(e.message);
@@ -75,56 +68,16 @@ export default function Tokens() {
     }
   };
 
-  const crearCodigo = async () => {
-    setOcupado(true);
-    setFallo('');
-    setCodigoNuevo('');
-    setCodigoCopiado(false);
-    try {
-      const respuesta = await api('monitor_enrollment_crear', {});
-      setCodigoNuevo(respuesta.code);
-      await cargar();
-    } catch (error) {
-      setFallo(error.message);
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  const revocarCodigo = async (enrollment) => {
-    if (!window.confirm(`¿Revocar el código ${enrollment.code_prefix}…?`)) return;
-    setOcupado(true);
-    setFallo('');
-    try {
-      await api('monitor_enrollment_revocar', { id: enrollment.id });
-      if (codigoNuevo && codigoNuevo.startsWith(enrollment.code_prefix)) setCodigoNuevo('');
-      await cargar();
-    } catch (error) {
-      setFallo(error.message);
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  const copiarCodigo = async () => {
-    try {
-      await navigator.clipboard.writeText(codigoNuevo);
-      setCodigoCopiado(true);
-    } catch {
-      setFallo('No se pudo copiar automáticamente. Selecciona el código y cópialo manualmente.');
-    }
-  };
-
   return (
     <section className="ucard">
       <h3>Tokens de integraciones</h3>
-      <p className="mut">Los tokens API se utilizan para integraciones como n8n. El instalador automatizado de Monitor-Equipos puede usar un token compartido, pero cualquiera que obtenga el instalador podría extraerlo; los códigos de alta individuales son más seguros.</p>
+      <p className="mut">Para Monitor-Equipos, crea una sola clave API compartida sin caducidad y reutiliza esa misma clave en todos los equipos. El instalador la solicitará; no necesitas generar una por equipo. Limita quién puede acceder a la clave y revócala si se filtra.</p>
 
       <form className="token-form" onSubmit={crear}>
         <label>
           Nombre
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={100}
-            placeholder="Monitor-Equipos - equipo" required />
+            placeholder="Monitor-Equipos compartido" required />
         </label>
         <label>
           Caducidad
@@ -144,7 +97,7 @@ export default function Tokens() {
       {tokenNuevo && (
         <div className="token-created" role="status">
           <b>Copia ahora el token completo</b>
-          <p>No se podrá volver a mostrar. Configura la cabecera <code>Authorization</code> con el valor <code>Bearer</code> seguido del token.</p>
+          <p>No se podrá volver a mostrar. Introduce esta misma clave en cada instalación de Monitor-Equipos.</p>
           <div className="token-copy-row">
             <input aria-label="Token nuevo" readOnly value={tokenNuevo}
               onFocus={(e) => e.currentTarget.select()} />
@@ -152,45 +105,6 @@ export default function Tokens() {
           </div>
         </div>
       )}
-
-      <div className="token-list">
-        <h3>Alta de Monitor-Equipos</h3>
-        <p className="mut">Genera un código válido durante 15 minutos. Se puede usar una sola vez y el instalador no necesita una clave compartida.</p>
-        <button className="btn" disabled={ocupado} type="button" onClick={crearCodigo}>
-          {ocupado ? 'Generando…' : 'Crear código de alta'}
-        </button>
-        {codigoNuevo && (
-          <div className="token-created" role="status">
-            <b>Copia ahora el código de alta</b>
-            <p>Introdúcelo en el instalador de Monitor-Equipos. Solo se mostrará esta vez.</p>
-            <div className="token-copy-row">
-              <input aria-label="Código de alta nuevo" readOnly value={codigoNuevo}
-                onFocus={(e) => e.currentTarget.select()} />
-              <button className="btn sec" type="button" onClick={copiarCodigo}>
-                {codigoCopiado ? 'Copiado' : 'Copiar'}
-              </button>
-            </div>
-          </div>
-        )}
-        {enrollments.map((enrollment) => (
-          <div className={'urow' + (!enrollment.active ? ' off' : '')} key={enrollment.id}>
-            <div className="uinfo">
-              <b>{enrollment.code_prefix}…</b>
-              <small>Creado por {enrollment.created_by} · {enrollment.created_at}</small>
-              <small>{enrollment.consumed_at
-                ? `Utilizado ${enrollment.consumed_at} · equipo ${enrollment.machine_id}`
-                : enrollment.revoked_at
-                  ? `Revocado ${enrollment.revoked_at}`
-                  : enrollment.active
-                    ? `Caduca ${enrollment.expires_at}`
-                    : `Caducado ${enrollment.expires_at}`}</small>
-            </div>
-            {!!enrollment.active && <button className="btn sec" disabled={ocupado}
-              type="button" onClick={() => revocarCodigo(enrollment)}>Revocar</button>}
-          </div>
-        ))}
-        {enrollments.length === 0 && <p className="mut">Aún no hay códigos de alta.</p>}
-      </div>
 
       <div className="token-list">
         {tokens.map((token) => (

@@ -158,19 +158,19 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 ## Conectar Monitor-Equipos
 
 1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 8).
-2. En **Alta de Monitor-Equipos**, genera un código de alta de un solo uso para cada equipo.
+2. En **Tokens de integraciones**, crea una sola clave API compartida sin caducidad para Monitor-Equipos. Reutiliza la misma clave en todas las instalaciones; no generes una clave por equipo. Guárdala de forma segura: quien la obtenga podrá dar de alta agentes.
 3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID y lo incluirá en los informes del agente.
-4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita el código de alta individual. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
+4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita la clave compartida `sbr_…`. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
    Para instalar MonitorAgent manualmente:
    ```text
-   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --enroll-code CODIGO_DE_UN_SOLO_USO
+   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --token CLAVE_COMPARTIDA
    ```
-5. Antes de cada informe, el servicio usa la credencial individual del agente para pedir un token temporal. Ese token solo sirve para un informe, está ligado al `MachineId` y caduca a los cinco minutos. La credencial queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores.
+5. El agente guarda la clave compartida en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores. Antes de cada informe, la usa para solicitar un token temporal ligado al `MachineId`, válido durante cinco minutos y para un solo informe.
 6. En el detalle de cada equipo, un administrador puede seleccionar:
    - **Estándar**: errores y críticos de los canales `System` y `Application` de los últimos 30 días.
-   - **Auditoría Completa**: todos los errores y críticos que sigan retenidos en esos canales, sin límite temporal. El agente los recupera por lotes; el backfill puede tardar según el volumen.
-   El cambio se aplica en el siguiente ciclo del agente. Auditoría Completa solo puede recuperar registros que Windows aún conserve; no puede restaurar eventos borrados o sobrescritos. Los eventos ya recibidos se conservan en la base de datos.
-7. El ID de RustDesk aparece en el detalle del equipo después de recibirse el primer informe del agente.
+   - **Auditoría Completa**: todos los niveles y canales del Visor de eventos que Windows aún conserve, sin límite temporal. El agente los recupera por lotes; el backfill puede tardar según el volumen.
+   El cambio se aplica en el siguiente ciclo del agente. Auditoría Completa no puede recuperar registros borrados o sobrescritos. Las notificaciones se reservan para niveles críticos, errores y advertencias; los registros informativos siguen visibles en **Eventos**.
+7. El ID de RustDesk aparece destacado en la cabecera de la ficha del equipo tras recibirse el primer informe del agente.
    Desde **Estado y especificaciones**, el botón **Descargar PDF** genera un informe con la identificación del equipo, el estado de monitorización, las alertas y las especificaciones del último informe recibido.
 8. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
 9. En **Clientes** aparecen todos los clientes sincronizados, con una marca que indica si tienen SATBK. Los equipos recibidos solo por Monitor-Equipos se pueden asignar a cualquier cliente; si ya han llegado copias, solo se pueden asignar a clientes con SATBK. Si llegan copias después de haber asignado el equipo a un cliente sin SATBK, se conserva la asignación y el detalle avisa para corregirla.

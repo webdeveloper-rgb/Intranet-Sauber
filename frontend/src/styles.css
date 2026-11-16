@@ -903,6 +903,26 @@ tbody tr.sin-copia {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+.equipo-rustdesk-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 9px;
+  margin-top: 9px;
+  font-size: 13px;
+}
+.equipo-rustdesk-id span {
+  color: var(--mut);
+  font-weight: 650;
+}
+.equipo-rustdesk-id code {
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--tx);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 
 /* ===== Eventos del monitor ===== */
 .eventos-page {
@@ -1049,6 +1069,14 @@ tbody tr.sin-copia {
 .evento-nivel.error {
   background: var(--wab);
   color: var(--wa);
+}
+.evento-nivel.warning {
+  background: var(--wab);
+  color: var(--wa);
+}
+.evento-nivel.other {
+  background: var(--bg);
+  color: var(--mut);
 }
 .eventos-estado {
   display: grid;
