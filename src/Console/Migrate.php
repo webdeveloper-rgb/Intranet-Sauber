@@ -74,6 +74,9 @@ try {
         5 => static function (PDO $pdo): void {
             monitor_migrar_esquema($pdo);
         },
+        6 => static function (PDO $pdo): void {
+            monitor_migrar_esquema($pdo);
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

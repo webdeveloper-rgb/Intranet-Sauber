@@ -127,6 +127,17 @@ final class ReadController
             out($detalle);
         }
 
+        if ($action === 'monitor_eventos') {
+            $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
+            $search = $_GET['q'] ?? '';
+            $level = $_GET['nivel'] ?? 'all';
+            if ($page === false || $page < 1 || !is_string($search)
+                || !is_string($level) || !in_array($level, ['all', 'Critical', 'Error'], true)) {
+                fail('Los filtros de eventos no son válidos.');
+            }
+            out(monitor_eventos_listar(db(), $page, $search, $level));
+        }
+
         return false;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/../src/Monitoring/MonitorService.php';
 
 $checks = 0;
+$reportTime = time();
 $same = static function ($expected, $actual, string $case) use (&$checks): void {
     $checks++;
     if ($expected !== $actual) {
@@ -16,7 +17,7 @@ $report = monitor_normalizar_informe([
     'agentVersion' => '1.0',
     'machineId' => 'machine-123',
     'hostname' => 'PC-CLIENTE',
-    'timestampUtc' => gmdate('c'),
+    'timestampUtc' => gmdate('c', $reportTime),
     'system' => ['osName' => 'Windows', 'totalRamBytes' => 8589934592, 'campoNoAdmitido' => 'no guardar'],
     'disks' => [
         ['model' => 'Disco crítico', 'healthStatus' => 'Unhealthy', 'temperatureC' => 61],
@@ -32,12 +33,32 @@ $report = monitor_normalizar_informe([
         ['name' => 'Batería límite', 'healthPercent' => 50],
     ],
     'smartPredictFailure' => true,
-    'events' => [['message' => 'no guardar mensajes de eventos']],
+    'events' => [[
+        'recordId' => 55,
+        'timeUtc' => gmdate('c', $reportTime - 60),
+        'log' => 'System',
+        'source' => 'Service Control Manager',
+        'eventId' => 7000,
+        'level' => 'Error',
+        'message' => 'No se pudo iniciar el servicio.',
+    ]],
 ], 'machine-123');
 
 $same('PC-CLIENTE', $report['hostname'], 'hostname normalizado');
 $same(null, $report['system']['campoNoAdmitido'] ?? null, 'se descartan campos no admitidos');
-$same(false, array_key_exists('events', $report), 'no se almacenan mensajes de eventos');
+$same(1, count($report['events']), 'se normalizan los eventos recibidos');
+$same('System', $report['events'][0]['log'], 'se conserva el registro de eventos');
+$same('Error', $report['events'][0]['level'], 'se conserva el nivel del evento');
+$same(
+    monitor_evento_clave('machine-123', $report['events'][0]),
+    monitor_evento_clave('machine-123', $report['events'][0]),
+    'la clave del evento es estable para reintentos'
+);
+$same(
+    false,
+    monitor_evento_clave('machine-123', $report['events'][0]) === monitor_evento_clave('machine-456', $report['events'][0]),
+    'la clave separa eventos de equipos distintos'
+);
 $same(true, monitor_enrollment_code_valido('mre_' . str_repeat('a', 48)), 'se acepta el formato del código de alta');
 $same(false, monitor_enrollment_code_valido('sbr_' . str_repeat('a', 48)), 'se rechaza un prefijo de código incorrecto');
 $same(true, monitor_credencial_agente_valida('mra_' . str_repeat('0', 64)), 'se acepta el formato de credencial de agente');
@@ -58,6 +79,39 @@ $sinAlertas = monitor_evaluar_alertas([
     'batteries' => [['healthPercent' => 50]],
 ]);
 $same([], $sinAlertas, 'los valores sanos y los umbrales exactos no alertan');
+
+$checks++;
+try {
+    monitor_normalizar_informe([
+        'machineId' => 'machine-123',
+        'hostname' => 'PC-CLIENTE',
+        'timestampUtc' => gmdate('c', $reportTime),
+        'events' => [[
+            'timeUtc' => gmdate('c', $reportTime - 31 * 86400),
+            'log' => 'System',
+            'eventId' => 7000,
+            'level' => 'Error',
+        ]],
+    ], 'machine-123');
+    fwrite(STDERR, "Evento fuera de los últimos 30 días: se esperaba InvalidArgumentException\n");
+    exit(1);
+} catch (InvalidArgumentException $e) {
+    $same(true, strpos($e->getMessage(), 'fecha del evento') !== false, 'se rechazan eventos anteriores al límite de 30 días');
+}
+
+$checks++;
+try {
+    monitor_eventos_normalizar([[
+        'timeUtc' => gmdate('c', $reportTime),
+        'log' => 'System',
+        'eventId' => 1,
+        'level' => 'Warning',
+    ]], $reportTime);
+    fwrite(STDERR, "Nivel Warning: se esperaba InvalidArgumentException\n");
+    exit(1);
+} catch (InvalidArgumentException $e) {
+    $same(true, strpos($e->getMessage(), 'nivel del evento') !== false, 'se excluyen niveles distintos de Critical y Error');
+}
 
 $checks++;
 try {

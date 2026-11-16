@@ -41,5 +41,9 @@ export function leerRuta() {
     return { vista: 'clientes', clienteId: null, equipoId: null, path: '/clientes' };
   }
 
+  if (partes[0] === 'eventos') {
+    return { vista: 'eventos', clienteId: null, equipoId: null, copiaId: null, path: '/eventos' };
+  }
+
   return { vista: 'copias', clienteId: null, equipoId: null, copiaId: null, path: '/copias' };
 }

@@ -693,6 +693,14 @@ tbody tr.sin-copia {
   header p {
     display: none;
   }
+  .eventos-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .eventos-recuento {
+    margin-left: 0;
+  }
 }
 @media (max-width: 560px) {
   .c-desc {
@@ -700,6 +708,16 @@ tbody tr.sin-copia {
   }
   dl {
     grid-template-columns: 100px 1fr;
+  }
+  .eventos-controles {
+    align-items: stretch;
+  }
+  .eventos-busqueda,
+  .eventos-nivel {
+    flex-basis: 100%;
+  }
+  .eventos-recuento {
+    margin: 0;
   }
 }
 
@@ -881,6 +899,172 @@ tbody tr.sin-copia {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+
+/* ===== Eventos del monitor ===== */
+.eventos-page {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.eventos-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+.eventos-heading > div:first-child {
+  min-width: 0;
+}
+.eventos-heading h2 {
+  margin: 0;
+  font-size: clamp(20px, 2.4vw, 26px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.eventos-heading p {
+  margin: 6px 0 0;
+  color: var(--mut);
+  font-size: 13px;
+}
+.eventos-actualizacion {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  color: var(--mut);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.eventos-indicador {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+.eventos-indicador.actualizando {
+  background: var(--wa);
+}
+.eventos-controles {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  box-shadow: var(--sh);
+}
+.eventos-controles label {
+  display: grid;
+  gap: 4px;
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 600;
+}
+.eventos-busqueda {
+  flex: 1 1 320px;
+  min-width: 200px;
+}
+.eventos-nivel {
+  flex: 0 1 190px;
+  min-width: 150px;
+}
+.eventos-controles input,
+.eventos-controles select {
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  background: var(--bg);
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+}
+.eventos-controles input:focus,
+.eventos-controles select:focus {
+  border-color: var(--brand);
+}
+.eventos-recuento {
+  margin: 0 0 8px auto;
+  color: var(--mut);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.eventos-tabla-wrap {
+  min-width: 0;
+}
+.eventos-table {
+  min-width: 1280px;
+  table-layout: auto;
+}
+.eventos-table th:nth-child(1),
+.eventos-table td:nth-child(1) { width: 150px; }
+.eventos-table th:nth-child(2),
+.eventos-table td:nth-child(2) { width: 160px; }
+.eventos-table th:nth-child(3),
+.eventos-table td:nth-child(3) { width: 150px; }
+.eventos-table th:nth-child(4),
+.eventos-table td:nth-child(4) { width: 110px; }
+.eventos-table th:nth-child(5),
+.eventos-table td:nth-child(5) { width: 125px; }
+.eventos-table th:nth-child(6),
+.eventos-table td:nth-child(6) { width: 160px; }
+.eventos-table th:nth-child(7),
+.eventos-table td:nth-child(7) { width: 85px; }
+.eventos-table td {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.eventos-table tbody tr {
+  cursor: default;
+}
+.eventos-table .evento-fecha,
+.eventos-table .evento-id {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.eventos-table .evento-mensaje {
+  min-width: 260px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.evento-nivel {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+.evento-nivel.critical {
+  background: var(--erb);
+  color: var(--er);
+}
+.evento-nivel.error {
+  background: var(--wab);
+  color: var(--wa);
+}
+.eventos-estado {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 34px 16px;
+  color: var(--mut);
+  text-align: center;
+  background: var(--card);
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+}
+.eventos-estado strong {
+  color: var(--tx);
+  font-size: 15px;
+}
+.eventos-error {
+  margin: 0;
+}
+
 .estado-alertas {
   display: grid;
   gap: 6px;

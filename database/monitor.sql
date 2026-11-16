@@ -54,3 +54,23 @@ CREATE TABLE IF NOT EXISTS monitor_enrollments (
   KEY idx_monitor_enrollment_expiry (expires_at),
   KEY idx_monitor_enrollment_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Errores críticos y de evento recibidos en la ventana móvil de 30 días.
+CREATE TABLE IF NOT EXISTS monitor_eventos (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  event_key CHAR(64) NOT NULL,
+  machine_id VARCHAR(128) NOT NULL,
+  equipo_id INT UNSIGNED NOT NULL,
+  record_id BIGINT UNSIGNED NULL,
+  event_time DATETIME NOT NULL,
+  log_name VARCHAR(128) NOT NULL,
+  source VARCHAR(255) NULL,
+  event_id INT UNSIGNED NOT NULL,
+  level ENUM('Critical','Error') NOT NULL,
+  message TEXT NULL,
+  received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_monitor_event_key (event_key),
+  KEY idx_monitor_event_time (event_time, id),
+  KEY idx_monitor_event_equipo_time (equipo_id, event_time, id),
+  CONSTRAINT fk_monitor_evento_equipo FOREIGN KEY (equipo_id) REFERENCES equipos (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

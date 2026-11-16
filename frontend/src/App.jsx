@@ -12,6 +12,7 @@ import Tabla from './components/Tabla';
 import Detalle from './components/Detalle';
 import Clientes from './components/Clientes';
 import Usuarios from './components/Usuarios';
+import Eventos from './components/Eventos';
 import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
 import { leerRuta, rutaHref } from './routes';
@@ -132,7 +133,9 @@ export default function App() {
       <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}
         esAdmin={sesion?.rol === 'admin'} onCuenta={() => setCuentaAbierta(true)} />
       <main>
-        {vista === 'clientes' && sesion ? (
+        {vista === 'eventos' ? (
+          sesion ? <Eventos key={vista} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
+        ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} acciones={copias} />
         ) : (

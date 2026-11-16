@@ -101,6 +101,71 @@ function monitor_lista($source, array $fields, int $maxItems): array
     return $result;
 }
 
+function monitor_eventos_normalizar($source, int $reportTimestamp): array
+{
+    if ($source === null) {
+        return [];
+    }
+    if (!is_array($source) || count($source) > 500) {
+        throw new InvalidArgumentException('La lista de eventos no es válida o supera el máximo permitido.');
+    }
+
+    $events = [];
+    foreach ($source as $index => $event) {
+        if (!is_array($event)) {
+            throw new InvalidArgumentException("El evento {$index} no es válido.");
+        }
+        $timeText = monitor_texto($event['timeUtc'] ?? null, 64, true, 'events.timeUtc');
+        $eventTimestamp = strtotime($timeText);
+        if ($eventTimestamp === false
+            || $eventTimestamp < $reportTimestamp - 30 * 86400
+            || $eventTimestamp > $reportTimestamp + 300) {
+            throw new InvalidArgumentException("La fecha del evento {$index} no está dentro del intervalo permitido.");
+        }
+        $level = monitor_texto($event['level'] ?? null, 20, true, 'events.level');
+        if (!in_array($level, ['Critical', 'Error'], true)) {
+            throw new InvalidArgumentException("El nivel del evento {$index} no es válido.");
+        }
+        $eventId = monitor_numero($event['eventId'] ?? null);
+        if ($eventId === null) {
+            throw new InvalidArgumentException("Falta el identificador del evento {$index}.");
+        }
+        $recordId = array_key_exists('recordId', $event) && $event['recordId'] !== null
+            ? monitor_numero($event['recordId'])
+            : null;
+        if (array_key_exists('recordId', $event) && $event['recordId'] !== null && $recordId === null) {
+            throw new InvalidArgumentException("El RecordId del evento {$index} no es válido.");
+        }
+
+        $events[] = [
+            'recordId' => $recordId,
+            'timeUtc' => gmdate('Y-m-d H:i:s', $eventTimestamp),
+            'log' => monitor_texto($event['log'] ?? null, 128, true, 'events.log'),
+            'source' => monitor_texto($event['source'] ?? null, 255),
+            'eventId' => $eventId,
+            'level' => $level,
+            'message' => monitor_texto($event['message'] ?? null, 2000),
+        ];
+    }
+    return $events;
+}
+
+function monitor_evento_clave(string $machineId, array $event): string
+{
+    $identity = [
+        $machineId,
+        strtolower($event['log']),
+        (string) ($event['recordId'] ?? ''),
+        $event['timeUtc'],
+    ];
+    if ($event['recordId'] === null) {
+        $identity[] = (string) ($event['source'] ?? '');
+        $identity[] = (string) $event['eventId'];
+        $identity[] = (string) ($event['message'] ?? '');
+    }
+    return hash('sha256', implode("\0", $identity));
+}
+
 function monitor_normalizar_informe(array $data, string $machineHeader): array
 {
     $machineId = monitor_texto($data['machineId'] ?? null, 128, true, 'machineId');
@@ -162,6 +227,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'volumes' => monitor_lista($data['volumes'] ?? null, $volumeFields, 128),
         'batteries' => monitor_lista($data['batteries'] ?? null, $batteryFields, 16),
         'smartPredictFailure' => is_bool($data['smartPredictFailure'] ?? null) ? $data['smartPredictFailure'] : null,
+        'events' => monitor_eventos_normalizar($data['events'] ?? null, $timestamp),
     ];
 }
 
@@ -393,6 +459,9 @@ function monitor_evaluar_alertas(array $report): array
 
 function monitor_guardar_informe(PDO $pdo, array $report): int
 {
+    $events = $report['events'] ?? [];
+    unset($report['events']);
+
     $pdo->beginTransaction();
     try {
         $st = $pdo->prepare('SELECT id FROM equipos WHERE monitor_machine_id=?');
@@ -422,6 +491,25 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
         $json = json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
             ->execute([$report['machineId'], $json, $equipmentId]);
+
+        $pdo->exec('DELETE FROM monitor_eventos WHERE event_time < UTC_TIMESTAMP() - INTERVAL 30 DAY');
+        $saveEvent = $pdo->prepare('INSERT INTO monitor_eventos
+            (event_key,machine_id,equipo_id,record_id,event_time,log_name,source,event_id,level,message)
+            VALUES (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
+        foreach ($events as $event) {
+            $saveEvent->execute([
+                monitor_evento_clave($report['machineId'], $event),
+                $report['machineId'],
+                $equipmentId,
+                $event['recordId'],
+                $event['timeUtc'],
+                $event['log'],
+                $event['source'],
+                $event['eventId'],
+                $event['level'],
+                $event['message'],
+            ]);
+        }
 
         $current = monitor_evaluar_alertas($report);
         foreach ($current as &$alert) {
@@ -583,6 +671,64 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
         'monitor' => $report,
         'monitor_last_seen' => $row['monitor_last_seen'],
         'alertas' => $alerts,
+    ];
+}
+
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level): array
+{
+    if (!in_array($level, ['all', 'Critical', 'Error'], true)) {
+        throw new InvalidArgumentException('El nivel de evento no es válido.');
+    }
+
+    $page = max(1, min($page, 100000));
+    $pageSize = 50;
+    $search = monitor_texto($search, 150) ?? '';
+    $where = ['ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY'];
+    $params = [];
+    if ($level !== 'all') {
+        $where[] = 'ev.level = ?';
+        $params[] = $level;
+    }
+    if ($search !== '') {
+        $where[] = '(e.nombre LIKE ? OR COALESCE(c.nombre, \'\') LIKE ? OR COALESCE(ev.source, \'\') LIKE ? OR COALESCE(ev.message, \'\') LIKE ?)';
+        $term = '%' . $search . '%';
+        array_push($params, $term, $term, $term, $term);
+    }
+    $whereSql = implode(' AND ', $where);
+
+    $count = $pdo->prepare("SELECT COUNT(*) FROM monitor_eventos ev
+        JOIN equipos e ON e.id=ev.equipo_id
+        LEFT JOIN clientes c ON c.id=e.cliente_id
+        WHERE {$whereSql}");
+    $count->execute($params);
+    $total = (int) $count->fetchColumn();
+
+    $offset = ($page - 1) * $pageSize;
+    $rows = $pdo->prepare("SELECT ev.id,
+            DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%sZ') AS fecha,
+            COALESCE(c.nombre,'Sin asignar') AS cliente,e.nombre AS equipo,
+            ev.level AS nivel,ev.log_name AS canal,ev.record_id AS registro,
+            ev.event_id,ev.source AS origen,ev.message AS mensaje
+        FROM monitor_eventos ev
+        JOIN equipos e ON e.id=ev.equipo_id
+        LEFT JOIN clientes c ON c.id=e.cliente_id
+        WHERE {$whereSql}
+        ORDER BY ev.event_time DESC,ev.id DESC
+        LIMIT {$pageSize} OFFSET {$offset}");
+    $rows->execute($params);
+    $events = $rows->fetchAll();
+    foreach ($events as &$event) {
+        $event['id'] = (int) $event['id'];
+        $event['registro'] = $event['registro'] !== null ? (int) $event['registro'] : null;
+        $event['event_id'] = (int) $event['event_id'];
+    }
+    unset($event);
+
+    return [
+        'eventos' => $events,
+        'total' => $total,
+        'pagina' => $page,
+        'por_pagina' => $pageSize,
     ];
 }
 
