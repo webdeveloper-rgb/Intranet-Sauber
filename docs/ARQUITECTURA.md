@@ -50,13 +50,15 @@ La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocab
 
 ## Informes de Monitor-Equipos
 
-1. Durante la instalación, Monitor-Equipos canjea en `monitor-enroll.php` un código de alta de un solo uso por una credencial individual. El código caduca en 15 minutos, se consume atómicamente y un reintento idéntico es seguro si se pierde la respuesta.
-2. El agente guarda su credencial individual en `%ProgramData%\MonitorAgent\config.json`, protegido para SYSTEM y Administradores, y solicita un token temporal a `monitor-token.php` con `X-Machine-Id`. El servidor devuelve un token ligado a esa máquina y válido durante cinco minutos. Las claves de bootstrap anteriores se mantienen temporalmente para no interrumpir agentes aún no actualizados.
+1. Para el alta individual, Monitor-Equipos canjea en `monitor-enroll.php` un código de un solo uso por una credencial propia; un reintento idéntico es seguro si se pierde la respuesta. El instalador Inno Setup también puede usar un token API compartido de bootstrap, configurado localmente al compilar.
+2. El agente guarda la credencial en `%ProgramData%\MonitorAgent\config.json`, protegido para SYSTEM y Administradores, y solicita un token temporal a `monitor-token.php` con `X-Machine-Id`. El servidor devuelve un token ligado a esa máquina y válido durante cinco minutos. Los tokens API `sbr_` existentes se aceptan como bootstrap para compatibilidad.
 3. El agente envía el informe JSON por `POST` a `monitor-ingest.php` con ese token temporal y `X-Machine-Id`. Cada informe de la cola de reintentos solicita un token nuevo.
 4. El receptor consume el token de forma atómica, limita el cuerpo a 2 MB, comprueba que la cabecera y `machineId` coinciden y conserva solo los campos de hardware reconocidos. Los mensajes de eventos de Windows no se guardan.
 5. La primera recepción se asocia a un equipo cuyo nombre coincide exactamente (sin distinguir mayúsculas) con el hostname, si solo hay una coincidencia. Si no existe una coincidencia única, se crea un equipo MonitorAgent sin cliente; se puede asignar desde **Clientes** como cualquier otro equipo.
 6. Se conserva el último informe recibido. Las alertas activas se deduplican por equipo y condición, se resuelven al desaparecer la condición y pueden volver a avisar si reaparecen.
 7. Se genera una alerta crítica si SMART predice fallo o un disco figura como `Unhealthy`; una advertencia si un disco figura como `Warning`, un volumen tiene menos del 15 % libre o la salud de una batería es inferior al 50 %. Los avisos aparecen en la vista de clientes/equipos y se envían por correo cuando se configuran destinatarios.
+
+El bootstrap compartido simplifica la instalación, pero queda incorporado al ejecutable y puede extraerse. Usa un token dedicado, revócalo si se filtra y recompila el instalador. La credencial individual por equipo es la opción recomendada.
 
 El envío de correo usa `mail()` de PHP, por lo que también debe estar configurado el transporte de correo del servidor. Añade `monitor_alert_recipients` (lista de direcciones) y, opcionalmente, `monitor_alert_sender` a `config/config.php`; los valores vacíos de la plantilla no envían email. Los intentos fallidos quedan en el log PHP del servidor y se reintentan como máximo una vez por hora mientras la alerta siga activa.
 

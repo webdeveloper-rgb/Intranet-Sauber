@@ -118,7 +118,7 @@ export default function Tokens() {
   return (
     <section className="ucard">
       <h3>Tokens de integraciones</h3>
-      <p className="mut">Los tokens API se utilizan para integraciones como n8n. Para Monitor-Equipos, crea un código de alta distinto para cada equipo; el agente lo canjea durante la instalación y recibe su propia credencial.</p>
+      <p className="mut">Los tokens API se utilizan para integraciones como n8n. El instalador automatizado de Monitor-Equipos puede usar un token compartido, pero cualquiera que obtenga el instalador podría extraerlo; los códigos de alta individuales son más seguros.</p>
 
       <form className="token-form" onSubmit={crear}>
         <label>

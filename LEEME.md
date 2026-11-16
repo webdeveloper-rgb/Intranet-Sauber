@@ -158,16 +158,20 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 ## Conectar Monitor-Equipos
 
 1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar la migración 5.
-2. En **Usuarios → Tokens → Alta de Monitor-Equipos**, crea un código por equipo. Caduca en 15 minutos, se consume una sola vez y puede revocarse mientras no se haya usado.
-3. Ejecuta el instalador Inno Setup `monitor.iss`, pega el código en la página de configuración y termina la instalación. El instalador lo intercambia por una credencial propia del equipo; no se incluye una clave compartida en el instalador. Para automatizar instalaciones silenciosas, pásalo con `/ENROLLCODE=CODIGO` y la URL con `/URL=https://TU_DOMINIO/monitor-ingest.php`.
-   Para instalar manualmente, el comando equivalente es:
-   ```text
-   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --enroll-code CODIGO
+2. Para instalaciones automatizadas con el mismo instalador, crea un token API exclusivo para Monitor-Equipos en **Usuarios → Tokens**. El instalador usa ese token compartido como credencial de bootstrap.
+3. Guarda el token en el archivo local `monitor-secrets.iss` junto a `monitor.iss`:
+   ```iss
+   #define MonitorBootstrapToken "sbr_TU_TOKEN"
    ```
-   Las instalaciones anteriores solicitarán un código la primera vez que se actualicen con este instalador. Después del alta, las siguientes actualizaciones conservan la configuración y no vuelven a pedirlo. El servicio funciona en segundo plano sin CMD.
-4. Antes de cada informe, el servicio usa su credencial individual para pedir un token temporal. Ese token sirve para un único informe, está ligado al `MachineId` y caduca a los cinco minutos. También se usa un token nuevo para cada reintento de la cola. La credencial del equipo queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores. Los agentes que aún usan una clave de bootstrap anterior pueden seguir enviando mientras se actualizan.
-5. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
-6. En **Clientes**, las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra el último informe y las alertas activas.
+   No subas ese archivo ni distribuyas el instalador fuera de confianza: el token queda extraíble del ejecutable. Si se filtra, revócalo en el panel y compila uno nuevo. La opción más segura es usar códigos individuales desde **Alta de Monitor-Equipos**.
+4. Compila `monitor.iss` con Inno Setup y ejecuta el instalador. No pide código ni token en cada equipo.
+   Para instalar manualmente con credencial compartida:
+   ```text
+   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --token TU_TOKEN
+   ```
+5. Antes de cada informe, el servicio usa la credencial para pedir un token temporal. Ese token sirve para un único informe, está ligado al `MachineId` y caduca a los cinco minutos. También se usa un token nuevo para cada reintento de la cola. La credencial queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores.
+6. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
+7. En **Clientes**, las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra el último informe y las alertas activas.
 
 Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); disco `Warning`, menos del 15 % de espacio libre o salud de batería inferior al 50 % (advertencia). No se conservan los mensajes del registro de eventos de Windows. Las alertas se deduplican mientras sigan activas y vuelven a avisar por email si reaparecen tras resolverse.
 
