@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 
 /**
- * Almacenamiento, emision, extraccion y validacion de tokens Bearer para integraciones.
+ * Almacenamiento, emision, extraccion y validacion de tokens Bearer para integraciones externas.
  */
 /**
- * Tokens de API para integraciones externas (n8n y clave de bootstrap de Monitor-Equipos).
+ * Tokens de API para integraciones externas como n8n. Monitor-Equipos usa credenciales individuales.
  * - El token en claro se muestra UNA sola vez al crearlo.
  * - En la base de datos solo se guarda su hash SHA-256 (si se filtra la BD, los tokens no sirven).
  * - Se pueden revocar y caducar de forma individual.

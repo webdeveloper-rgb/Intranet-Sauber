@@ -103,6 +103,11 @@ final class ReadController
             out(['tokens' => $rows]);
         }
 
+        if ($action === 'monitor_enrollments') {
+            exigir_admin($user);
+            out(['enrollments' => monitor_enrollment_listar(db())]);
+        }
+
         if ($action === 'catalogo') {
             out(api_sync_catalogo());
         }

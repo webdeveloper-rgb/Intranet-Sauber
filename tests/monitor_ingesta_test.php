@@ -38,6 +38,10 @@ $report = monitor_normalizar_informe([
 $same('PC-CLIENTE', $report['hostname'], 'hostname normalizado');
 $same(null, $report['system']['campoNoAdmitido'] ?? null, 'se descartan campos no admitidos');
 $same(false, array_key_exists('events', $report), 'no se almacenan mensajes de eventos');
+$same(true, monitor_enrollment_code_valido('mre_' . str_repeat('a', 48)), 'se acepta el formato del código de alta');
+$same(false, monitor_enrollment_code_valido('sbr_' . str_repeat('a', 48)), 'se rechaza un prefijo de código incorrecto');
+$same(true, monitor_credencial_agente_valida('mra_' . str_repeat('0', 64)), 'se acepta el formato de credencial de agente');
+$same(false, monitor_credencial_agente_valida('mra_' . str_repeat('g', 64)), 'se rechaza una credencial con caracteres inválidos');
 
 $alerts = monitor_evaluar_alertas($report);
 $same(5, count($alerts), 'alertas de SMART, discos, espacio y batería');

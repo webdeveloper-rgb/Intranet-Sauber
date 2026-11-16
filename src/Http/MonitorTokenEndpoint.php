@@ -26,19 +26,6 @@ try {
     if (rate_limit_blocked($authRateKey)) {
         monitor_token_responder(['error' => 'Demasiados intentos. Espera un minuto.'], 429);
     }
-    if (!token_autenticar()) {
-        rate_limit_failure($authRateKey, 10, 60);
-        error_log('[monitor] solicitud de token con credencial de bootstrap no válida, IP ' . $ip);
-        header('WWW-Authenticate: Bearer');
-        monitor_token_responder(['error' => 'Credencial de bootstrap no válida'], 401);
-    }
-    rate_limit_clear([$authRateKey]);
-
-    $issueRateKey = rate_limit_bucket('monitor-token-issue', $ip);
-    if (rate_limit_blocked($issueRateKey)) {
-        monitor_token_responder(['error' => 'Límite de solicitudes de token alcanzado'], 429);
-    }
-    rate_limit_failure($issueRateKey, 120, 60);
 
     $raw = (string) file_get_contents('php://input', false, null, 0, 16385);
     if (strlen($raw) > 16384) {
@@ -58,7 +45,22 @@ try {
         monitor_token_responder(['error' => $e->getMessage()], 422);
     }
 
-    $token = monitor_token_emitir(db(), $machineId);
+    $pdo = db();
+    if (!monitor_agente_autenticar($pdo, token_de_peticion(), $machineId)) {
+        rate_limit_failure($authRateKey, 10, 60);
+        error_log('[monitor] solicitud de token con credencial de agente no válida, IP ' . $ip);
+        header('WWW-Authenticate: Bearer');
+        monitor_token_responder(['error' => 'Credencial de agente no válida'], 401);
+    }
+    rate_limit_clear([$authRateKey]);
+
+    $issueRateKey = rate_limit_bucket('monitor-token-issue', $ip);
+    if (rate_limit_blocked($issueRateKey)) {
+        monitor_token_responder(['error' => 'Límite de solicitudes de token alcanzado'], 429);
+    }
+    rate_limit_failure($issueRateKey, 120, 60);
+
+    $token = monitor_token_emitir($pdo, $machineId);
     monitor_token_responder(['token' => $token, 'expires_in' => 300]);
 } catch (Throwable $e) {
     error_log('[monitor] emision de token temporal: ' . $e->getMessage());

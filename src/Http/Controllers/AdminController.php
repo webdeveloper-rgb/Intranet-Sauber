@@ -26,6 +26,17 @@ final class AdminController
             out(['ok' => true]);
         }
 
+        if ($action === 'monitor_enrollment_crear') {
+            exigir_admin($user);
+            out(['ok' => true] + monitor_enrollment_crear($user['usuario']), 201);
+        }
+
+        if ($action === 'monitor_enrollment_revocar') {
+            exigir_admin($user);
+            monitor_enrollment_revocar(db(), (int) ($input['id'] ?? 0));
+            out(['ok' => true]);
+        }
+
         if (in_array($action, ['mi_password', 'usuario_crear', 'usuario_editar'], true)) {
             fail('Los accesos se administran desde la API de usuarios autorizados.', 403);
         }

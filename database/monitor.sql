@@ -29,3 +29,28 @@ CREATE TABLE IF NOT EXISTS monitor_ingest_tokens (
   KEY idx_monitor_ingest_token_expiry (expires_at),
   KEY idx_monitor_ingest_token_machine (machine_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Credenciales individuales de agentes y códigos de alta de un solo uso.
+CREATE TABLE IF NOT EXISTS monitor_agents (
+  machine_id VARCHAR(128) NOT NULL PRIMARY KEY,
+  credential_hash CHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at DATETIME NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_monitor_agent_credential_hash (credential_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS monitor_enrollments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  code_hash CHAR(64) NOT NULL,
+  code_prefix CHAR(12) NOT NULL,
+  created_by VARCHAR(50) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME NULL,
+  consumed_machine_id VARCHAR(128) NULL,
+  revoked_at DATETIME NULL,
+  UNIQUE KEY uq_monitor_enrollment_code_hash (code_hash),
+  KEY idx_monitor_enrollment_expiry (expires_at),
+  KEY idx_monitor_enrollment_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
