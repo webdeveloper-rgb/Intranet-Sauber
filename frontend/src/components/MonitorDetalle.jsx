@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { api } from '../api';
+
 function bytes(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return null;
@@ -37,13 +40,43 @@ function fecha(value) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('es-ES');
 }
 
-export default function MonitorDetalle({ equipo, datos, cargando, error }) {
+export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin = false }) {
   const monitor = datos?.monitor;
+  const modoConfigurado = datos?.event_extraction_mode || 'standard';
+  const [modoGuardado, setModoGuardado] = useState(modoConfigurado);
+  const [modoEventos, setModoEventos] = useState(modoConfigurado);
+  const [guardandoModo, setGuardandoModo] = useState(false);
+  const [errorModo, setErrorModo] = useState('');
+  const [modoActualizado, setModoActualizado] = useState(false);
+
+  useEffect(() => {
+    setModoGuardado(modoConfigurado);
+    setModoEventos(modoConfigurado);
+    setErrorModo('');
+    setModoActualizado(false);
+  }, [equipo.id, modoConfigurado]);
+
+  const guardarModoEventos = async () => {
+    setGuardandoModo(true);
+    setErrorModo('');
+    setModoActualizado(false);
+    try {
+      await api('monitor_event_mode', { id: equipo.id, event_extraction_mode: modoEventos });
+      setModoGuardado(modoEventos);
+      setModoActualizado(true);
+    } catch (e) {
+      setErrorModo(e.message || 'No se pudo guardar el modo de extracción.');
+    } finally {
+      setGuardandoModo(false);
+    }
+  };
+
   if (!monitor && cargando) return <div className="monitor-panel" role="status">Cargando especificaciones de Monitor-Equipos…</div>;
   if (!monitor && error) return <div className="errbox" role="alert">No se pudieron cargar las especificaciones: {error}</div>;
   if (!monitor) return null;
 
   const alerts = datos.alertas || equipo.alertas || [];
+  const modoAgente = monitor.eventExtractionMode || 'standard';
   return <section className="monitor-panel" aria-labelledby="monitor-heading">
     <div className="monitor-heading">
       <h3 id="monitor-heading">Estado y especificaciones</h3>
@@ -59,6 +92,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
 
     <Seccion titulo="Sistema">
       <dl className="monitor-campos">
+        <Campo label="ID de RustDesk" value={monitor.rustDeskId} />
         <Campo label="Sistema operativo" value={[monitor.system?.osName, monitor.system?.osVersion, monitor.system?.osArchitecture].filter(Boolean).join(' · ')} />
         <Campo label="Fabricante y modelo" value={[monitor.system?.manufacturer, monitor.system?.model].filter(Boolean).join(' · ')} />
         <Campo label="Número de serie" value={monitor.system?.serialNumber} />
@@ -67,6 +101,31 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
         <Campo label="Último arranque" value={fecha(monitor.system?.lastBootUtc)} />
         <Campo label="Predicción SMART" value={monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto'} />
       </dl>
+    </Seccion>
+
+    <Seccion titulo="Eventos del Visor de Windows">
+      <div className="monitor-modo-eventos">
+        <p>Estándar envía errores y críticos de los últimos 30 días. Auditoría Completa envía todos los registros Error/Crítico retenidos en System y Application.</p>
+        <label>
+          Modo de extracción
+          <select value={modoEventos} disabled={!esAdmin || guardandoModo}
+            onChange={(event) => { setModoEventos(event.target.value); setModoActualizado(false); }}>
+            <option value="standard">Estándar</option>
+            <option value="full">Auditoría Completa</option>
+          </select>
+        </label>
+        {esAdmin && <button className="btn sec" disabled={guardandoModo || modoEventos === modoGuardado}
+          onClick={guardarModoEventos}>
+          {guardandoModo ? 'Guardando…' : 'Guardar modo'}
+        </button>}
+        <span className={`monitor-modo-estado${errorModo ? ' error' : ''}`} role={errorModo ? 'alert' : 'status'} aria-live="polite">
+          {errorModo || (modoActualizado
+            ? 'Modo guardado. El agente lo aplicará en su próximo envío.'
+            : modoAgente !== modoGuardado
+              ? 'El agente todavía está aplicando el modo anterior; se actualizará en su próximo envío.'
+              : '')}
+        </span>
+      </div>
     </Seccion>
 
     <Seccion titulo="Placa base y BIOS">

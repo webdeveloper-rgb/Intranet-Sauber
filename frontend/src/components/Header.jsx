@@ -6,7 +6,7 @@ import { rutaHref } from '../routes';
 const TEXTOS = {
   copias: ['Panel de Control de Copias', 'ERROR pasa a EN REVISIÓN al describir el arreglo y a OK al cerrar la vigilancia'],
   clientes: ['Clientes y equipos', ''],
-  eventos: ['Eventos de Windows', 'Errores críticos y del sistema recibidos en los últimos 30 días'],
+  eventos: ['Eventos de Windows', 'Historial de errores según el modo de extracción de cada equipo'],
 };
 const NAV = [['copias', 'Copias'], ['clientes', 'Clientes'], ['eventos', 'Eventos']];
 

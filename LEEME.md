@@ -157,25 +157,25 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 
 ## Conectar Monitor-Equipos
 
-1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 7).
-2. Para instalaciones automatizadas con el mismo instalador, crea un token API exclusivo para Monitor-Equipos en **Usuarios → Tokens**. El instalador usa ese token compartido como credencial de bootstrap.
-3. Guarda el token en el archivo local `monitor-secrets.iss` junto a `monitor.iss`:
-   ```iss
-   #define MonitorBootstrapToken "sbr_TU_TOKEN"
-   ```
-   No subas ese archivo ni distribuyas el instalador fuera de confianza: el token queda extraíble del ejecutable. Si se filtra, revócalo en el panel y compila uno nuevo. La opción más segura es usar códigos individuales desde **Alta de Monitor-Equipos**.
-4. Compila `monitor.iss` con Inno Setup y ejecuta el instalador. No pide código ni token en cada equipo.
-   Para instalar manualmente con credencial compartida:
+1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 8).
+2. En **Alta de Monitor-Equipos**, genera un código de alta de un solo uso para cada equipo.
+3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID y lo incluirá en los informes del agente.
+4. Compila `webs\s.iss` con Inno Setup y ejecútalo como administrador. Instala Asistente de Justificaciones y MonitorAgent, y solicita el código de alta individual. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
+   Para instalar MonitorAgent manualmente:
    ```text
-   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --token TU_TOKEN
+   MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --enroll-code CODIGO_DE_UN_SOLO_USO
    ```
-5. Antes de cada informe, el servicio usa la credencial para pedir un token temporal. Ese token sirve para un único informe, está ligado al `MachineId` y caduca a los cinco minutos. También se usa un token nuevo para cada reintento de la cola. La credencial queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores.
-6. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
-7. En **Clientes** aparecen todos los clientes sincronizados, con una marca que indica si tienen SATBK. Los equipos recibidos solo por Monitor-Equipos se pueden asignar a cualquier cliente; si ya han llegado copias, solo se pueden asignar a clientes con SATBK. Si llegan copias después de haber asignado el equipo a un cliente sin SATBK, se conserva la asignación y el detalle avisa para corregirla.
-8. Las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra qué datos han llegado (agente, copias o ambos), el último informe y las alertas activas.
-9. La sección **Eventos** muestra los errores y eventos críticos de Windows recibidos durante los últimos 30 días.
+5. Antes de cada informe, el servicio usa la credencial individual del agente para pedir un token temporal. Ese token solo sirve para un informe, está ligado al `MachineId` y caduca a los cinco minutos. La credencial queda en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores.
+6. En el detalle de cada equipo, un administrador puede seleccionar:
+   - **Estándar**: errores y críticos de los canales `System` y `Application` de los últimos 30 días.
+   - **Auditoría Completa**: todos los errores y críticos que sigan retenidos en esos canales, sin límite temporal. El agente los recupera por lotes; el backfill puede tardar según el volumen.
+   El cambio se aplica en el siguiente ciclo del agente. Auditoría Completa solo puede recuperar registros que Windows aún conserve; no puede restaurar eventos borrados o sobrescritos. Los eventos ya recibidos se conservan en la base de datos.
+7. El ID de RustDesk aparece en el detalle del equipo después de recibirse el primer informe del agente.
+8. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
+9. En **Clientes** aparecen todos los clientes sincronizados, con una marca que indica si tienen SATBK. Los equipos recibidos solo por Monitor-Equipos se pueden asignar a cualquier cliente; si ya han llegado copias, solo se pueden asignar a clientes con SATBK. Si llegan copias después de haber asignado el equipo a un cliente sin SATBK, se conserva la asignación y el detalle avisa para corregirla.
+10. Las máquinas cuyo hostname coincide de forma única con el nombre de un equipo existente se vinculan automáticamente. Los demás aparecen como equipos MonitorAgent sin asignar y se pueden vincular manualmente. El detalle del equipo muestra qué datos han llegado (agente, copias o ambos), el último informe y las alertas activas.
 
-Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); disco `Warning`, menos del 15 % de espacio libre o salud de batería inferior al 50 % (advertencia). No se conservan los mensajes del registro de eventos de Windows. Las alertas se deduplican mientras sigan activas y vuelven a avisar por email si reaparecen tras resolverse.
+Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); disco `Warning`, menos del 15 % de espacio libre o salud de batería inferior al 50 % (advertencia). Los eventos guardan su mensaje y se deduplican por equipo, canal y `RecordId`. Las alertas se deduplican mientras sigan activas y vuelven a avisar por email si reaparecen tras resolverse.
 
 ## Seguridad incluida
 

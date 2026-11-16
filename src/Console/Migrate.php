@@ -89,6 +89,9 @@ try {
                     AND NOT EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=equipos.id)
                     AND NOT EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=equipos.id)");
         },
+        8 => static function (PDO $pdo): void {
+            monitor_migrar_esquema($pdo);
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

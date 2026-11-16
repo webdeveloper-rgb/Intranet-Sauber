@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS monitor_enrollments (
   KEY idx_monitor_enrollment_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Errores críticos y de evento recibidos en la ventana móvil de 30 días.
+-- Eventos Error/Crítico retenidos según el modo de extracción configurado por equipo.
 CREATE TABLE IF NOT EXISTS monitor_eventos (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   event_key CHAR(64) NOT NULL,

@@ -18,6 +18,7 @@ $report = monitor_normalizar_informe([
     'machineId' => 'machine-123',
     'hostname' => 'PC-CLIENTE',
     'timestampUtc' => gmdate('c', $reportTime),
+    'rustDeskId' => '123456789',
     'system' => ['osName' => 'Windows', 'totalRamBytes' => 8589934592, 'campoNoAdmitido' => 'no guardar'],
     'disks' => [
         ['model' => 'Disco crítico', 'healthStatus' => 'Unhealthy', 'temperatureC' => 61],
@@ -45,6 +46,8 @@ $report = monitor_normalizar_informe([
 ], 'machine-123');
 
 $same('PC-CLIENTE', $report['hostname'], 'hostname normalizado');
+$same('123456789', $report['rustDeskId'], 'se conserva el ID de RustDesk');
+$same('standard', $report['eventExtractionMode'], 'el modo por defecto es estándar');
 $same(null, $report['system']['campoNoAdmitido'] ?? null, 'se descartan campos no admitidos');
 $same(1, count($report['events']), 'se normalizan los eventos recibidos');
 $same('System', $report['events'][0]['log'], 'se conserva el registro de eventos');
@@ -98,6 +101,21 @@ try {
 } catch (InvalidArgumentException $e) {
     $same(true, strpos($e->getMessage(), 'fecha del evento') !== false, 'se rechazan eventos anteriores al límite de 30 días');
 }
+
+$auditoriaCompleta = monitor_normalizar_informe([
+    'machineId' => 'machine-123',
+    'hostname' => 'PC-CLIENTE',
+    'timestampUtc' => gmdate('c', $reportTime),
+    'eventExtractionMode' => 'full',
+    'events' => [[
+        'timeUtc' => gmdate('c', $reportTime - 365 * 86400),
+        'log' => 'Application',
+        'eventId' => 1000,
+        'level' => 'Error',
+    ]],
+], 'machine-123');
+$same(1, count($auditoriaCompleta['events']), 'auditoría completa acepta eventos históricos retenidos');
+$same('full', $auditoriaCompleta['eventExtractionMode'], 'se conserva el modo de auditoría completa');
 
 $checks++;
 try {

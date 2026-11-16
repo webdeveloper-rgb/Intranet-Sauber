@@ -18,6 +18,9 @@ function monitor_migrar_esquema(PDO $pdo): void
     if (!in_array('monitor_last_seen', $columns, true)) {
         $pdo->exec('ALTER TABLE equipos ADD COLUMN monitor_last_seen DATETIME NULL');
     }
+    if (!in_array('monitor_event_mode', $columns, true)) {
+        $pdo->exec("ALTER TABLE equipos ADD COLUMN monitor_event_mode VARCHAR(20) NOT NULL DEFAULT 'standard'");
+    }
     $index = $pdo->query("SELECT COUNT(*) FROM information_schema.statistics
         WHERE table_schema=DATABASE() AND table_name='equipos' AND index_name='uq_equipos_monitor_machine_id'")->fetchColumn();
     if (!(int) $index) {
@@ -101,7 +104,7 @@ function monitor_lista($source, array $fields, int $maxItems): array
     return $result;
 }
 
-function monitor_eventos_normalizar($source, int $reportTimestamp): array
+function monitor_eventos_normalizar($source, int $reportTimestamp, string $eventMode = 'standard'): array
 {
     if ($source === null) {
         return [];
@@ -118,7 +121,7 @@ function monitor_eventos_normalizar($source, int $reportTimestamp): array
         $timeText = monitor_texto($event['timeUtc'] ?? null, 64, true, 'events.timeUtc');
         $eventTimestamp = strtotime($timeText);
         if ($eventTimestamp === false
-            || $eventTimestamp < $reportTimestamp - 30 * 86400
+            || ($eventMode === 'standard' && $eventTimestamp < $reportTimestamp - 30 * 86400)
             || $eventTimestamp > $reportTimestamp + 300) {
             throw new InvalidArgumentException("La fecha del evento {$index} no está dentro del intervalo permitido.");
         }
@@ -178,6 +181,10 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     if ($timestamp === false || $timestamp > time() + 300) {
         throw new InvalidArgumentException('timestampUtc no válido');
     }
+    $eventMode = monitor_texto($data['eventExtractionMode'] ?? 'standard', 20) ?? 'standard';
+    if (!in_array($eventMode, ['standard', 'full'], true)) {
+        throw new InvalidArgumentException('El modo de extracción de eventos no es válido.');
+    }
 
     $systemFields = [
         'osName' => 'text', 'osVersion' => 'text', 'osArchitecture' => 'text',
@@ -218,6 +225,8 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'machineId' => $machineId,
         'hostname' => $hostname,
         'timestampUtc' => gmdate('c', $timestamp),
+        'rustDeskId' => monitor_texto($data['rustDeskId'] ?? null, 128),
+        'eventExtractionMode' => $eventMode,
         'system' => monitor_campos($data['system'] ?? null, $systemFields),
         'board' => monitor_campos($data['board'] ?? null, $boardFields),
         'cpus' => monitor_lista($data['cpus'] ?? null, $cpuFields, 32),
@@ -227,7 +236,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'volumes' => monitor_lista($data['volumes'] ?? null, $volumeFields, 128),
         'batteries' => monitor_lista($data['batteries'] ?? null, $batteryFields, 16),
         'smartPredictFailure' => is_bool($data['smartPredictFailure'] ?? null) ? $data['smartPredictFailure'] : null,
-        'events' => monitor_eventos_normalizar($data['events'] ?? null, $timestamp),
+        'events' => monitor_eventos_normalizar($data['events'] ?? null, $timestamp, $eventMode),
     ];
 }
 
@@ -492,7 +501,6 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
         $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
             ->execute([$report['machineId'], $json, $equipmentId]);
 
-        $pdo->exec('DELETE FROM monitor_eventos WHERE event_time < UTC_TIMESTAMP() - INTERVAL 30 DAY');
         $saveEvent = $pdo->prepare('INSERT INTO monitor_eventos
             (event_key,machine_id,equipo_id,record_id,event_time,log_name,source,event_id,level,message)
             VALUES (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
@@ -628,9 +636,36 @@ function monitor_enviar_alertas_pendientes(PDO $pdo): void
     }
 }
 
+function monitor_event_mode_obtener(PDO $pdo, int $equipmentId): string
+{
+    $st = $pdo->prepare('SELECT monitor_event_mode FROM equipos WHERE id=?');
+    $st->execute([$equipmentId]);
+    $mode = $st->fetchColumn();
+    if (!is_string($mode) || !in_array($mode, ['standard', 'full'], true)) {
+        throw new RuntimeException('El modo de extracción de eventos guardado no es válido.');
+    }
+    return $mode;
+}
+
+function monitor_event_mode_guardar(PDO $pdo, int $equipmentId, string $mode): void
+{
+    if ($equipmentId < 1 || !in_array($mode, ['standard', 'full'], true)) {
+        throw new ApiError('El equipo o el modo de extracción no es válido.');
+    }
+    $st = $pdo->prepare('UPDATE equipos SET monitor_event_mode=? WHERE id=?');
+    $st->execute([$mode, $equipmentId]);
+    if (!$st->rowCount()) {
+        $st = $pdo->prepare('SELECT id FROM equipos WHERE id=?');
+        $st->execute([$equipmentId]);
+        if (!$st->fetchColumn()) {
+            throw new ApiError('Equipo no encontrado.');
+        }
+    }
+}
+
 function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
 {
-    $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
+    $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen,monitor_event_mode FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
     $st->execute([$equipmentId]);
     $row = $st->fetch();
     if (!$row) {
@@ -653,6 +688,7 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     return [
         'monitor' => $report,
         'monitor_last_seen' => $row['monitor_last_seen'],
+        'event_extraction_mode' => $row['monitor_event_mode'],
         'alertas' => $alerts,
     ];
 }
@@ -666,7 +702,7 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     $page = max(1, min($page, 100000));
     $pageSize = 50;
     $search = monitor_texto($search, 150) ?? '';
-    $where = ['ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY'];
+    $where = ["(e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)"];
     $params = [];
     if ($equipoId !== null) {
         $where[] = 'ev.equipo_id = ?';
@@ -770,7 +806,7 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         FROM monitor_eventos ev
         JOIN equipos e ON e.id=ev.equipo_id
         LEFT JOIN clientes c ON c.id=e.cliente_id
-        WHERE ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY
+        WHERE (e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)
         UNION ALL
         SELECT CONCAT('copias-',e.id) AS id,
             DATE_FORMAT(MAX(cp.fecha),'%Y-%m-%dT%H:%i:%s') AS fecha,

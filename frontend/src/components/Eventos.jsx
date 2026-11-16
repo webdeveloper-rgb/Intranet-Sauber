@@ -122,8 +122,8 @@ export default function Eventos({ equipoId = null }) {
           <span className="eyebrow">Monitor de equipos</span>
           <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
           <p>{equipoId
-            ? 'Solo se muestran los eventos Críticos y de Error de este equipo recibidos durante los últimos 30 días.'
-            : 'Eventos de nivel Crítico y Error de los canales System y Application, recibidos durante los últimos 30 días.'}</p>
+            ? 'Historial Error/Crítico de System y Application; su alcance depende del modo configurado para este equipo.'
+            : 'Historial Error/Crítico de System y Application. Cada equipo puede usar Estándar (30 días) o Auditoría Completa.'}</p>
         </div>
         <div className="eventos-actualizacion" aria-live="polite">
           <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />

@@ -55,6 +55,7 @@ try {
     monitor_responder([
         'ok' => true,
         'equipo_id' => $equipmentId,
+        'event_extraction_mode' => monitor_event_mode_obtener($pdo, $equipmentId),
         'alertas_activas' => count(monitor_evaluar_alertas($report)),
     ]);
 } catch (Throwable $e) {

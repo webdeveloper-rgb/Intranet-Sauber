@@ -39,6 +39,20 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'monitor_event_mode') {
+            exigir_admin($user);
+            try {
+                monitor_event_mode_guardar(
+                    db(),
+                    (int) ($input['id'] ?? 0),
+                    is_string($input['event_extraction_mode'] ?? null) ? $input['event_extraction_mode'] : ''
+                );
+                out(['ok' => true]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_desasignar') {
             exigir_admin($user);
             try {

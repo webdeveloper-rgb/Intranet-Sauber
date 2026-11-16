@@ -2468,6 +2468,38 @@ dd,
   color: var(--mut);
   text-align: center;
 }
+.monitor-modo-eventos {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.monitor-modo-eventos p {
+  margin: 0;
+  color: var(--mut);
+  font-size: 13px;
+}
+.monitor-modo-eventos label {
+  display: grid;
+  gap: 5px;
+  width: min(100%, 340px);
+  font-size: 13px;
+  font-weight: 650;
+}
+.monitor-modo-eventos select {
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--card);
+}
+.monitor-modo-estado {
+  color: var(--mut);
+  font-size: 12px;
+}
+.monitor-modo-estado.error {
+  color: var(--er);
+}
 @media (max-width: 560px) {
   .notificaciones-drawer {
     padding-right: 14px;

@@ -91,7 +91,7 @@ export default function Notificaciones({ onClose, onAbrir }) {
         <div className="notificaciones-heading">
           <span className="notificaciones-eyebrow">Centro de incidencias</span>
           <h2 id="notificaciones-titulo">Notificaciones</h2>
-          <p>Alertas activas, eventos de Windows de los últimos 30 días y fallos de copias de las últimas 24 horas.</p>
+          <p>Alertas activas, eventos de Windows según el modo de cada equipo y fallos de copias de las últimas 24 horas.</p>
         </div>
 
         <div className="notificaciones-filtros">
