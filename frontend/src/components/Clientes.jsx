@@ -435,8 +435,6 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           </>}
 
           {equipoActual && <div className="equipo-historial-vista">
-            {equipoActual.tiene_monitor && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
-              cargando={cargandoMonitor} error={falloMonitor} />}
             <details className="equipo-gestion">
               <summary>Asignación y avisos</summary>
               <div className="equipo-accion">
@@ -459,28 +457,32 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
               </div>
             </details>
 
-            <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
-              <div className="historial-equipo-heading">
-                <h3 id="titulo-historial-equipo">Historial de copias</h3>
-                <span>{historial.length}{hayMasHistorial ? '+' : ''}</span>
-              </div>
-              {cargandoHistorial && !historial.length ? <div className="mapeo-vacio">Cargando historial…</div>
-                : historial.length ? <div className="historial-equipo-lista">
-                  {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
-                    onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
-                    <time>{copia.fecha}</time>
-                    <Tag c={copia} />
-                    {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
-                  </button>)}
-                </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
-              {historialFallo && <div className="errbox" role="alert">{historialFallo}
-                <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
-              </div>}
-              {hayMasHistorial && <button className="btn sec" disabled={cargandoMas} onClick={() => {
-                const ultima = historial[historial.length - 1];
-                cargarHistorial(equipoActual.id, ultima, true);
-              }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
-            </section>
+            <div className={`equipo-historial-columnas${equipoActual.tiene_monitor ? ' con-monitor' : ''}`}>
+              <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
+                <div className="historial-equipo-heading">
+                  <h3 id="titulo-historial-equipo">Historial de copias</h3>
+                  <span>{historial.length}{hayMasHistorial ? '+' : ''}</span>
+                </div>
+                {cargandoHistorial && !historial.length ? <div className="mapeo-vacio">Cargando historial…</div>
+                  : historial.length ? <div className="historial-equipo-lista">
+                    {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
+                      onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
+                      <time>{copia.fecha}</time>
+                      <Tag c={copia} />
+                      {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
+                    </button>)}
+                  </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
+                {historialFallo && <div className="errbox" role="alert">{historialFallo}
+                  <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
+                </div>}
+                {hayMasHistorial && <button className="btn sec" disabled={cargandoMas} onClick={() => {
+                  const ultima = historial[historial.length - 1];
+                  cargarHistorial(equipoActual.id, ultima, true);
+                }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
+              </section>
+              {equipoActual.tiene_monitor && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
+                cargando={cargandoMonitor} error={falloMonitor} />}
+            </div>
           </div>}
         </>
       )}

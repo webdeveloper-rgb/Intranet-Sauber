@@ -1850,8 +1850,17 @@ header {
 }
 .equipo-historial-vista {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   margin-top: 14px;
+}
+.equipo-historial-columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.equipo-historial-columnas.con-monitor {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
 }
 .equipo-gestion {
   border: 1px solid var(--bd);
@@ -1860,7 +1869,7 @@ header {
 }
 .equipo-gestion > summary {
   padding: 11px 14px;
-  color: var(--tx);
+  color: var(--mut);
   font-size: 14px;
   font-weight: 650;
   cursor: pointer;
@@ -1873,6 +1882,10 @@ header {
 }
 .historial-equipo {
   min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+  background: var(--bg);
 }
 .historial-equipo-heading {
   display: flex;
@@ -1894,7 +1907,7 @@ header {
 }
 .historial-equipo-fila {
   display: grid;
-  grid-template-columns: minmax(145px, 190px) auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -1926,6 +1939,11 @@ header {
   color: var(--mut);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .equipo-historial-columnas.con-monitor {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 560px) {
   .equipo-navegable-abrir {

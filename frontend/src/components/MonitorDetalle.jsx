@@ -46,10 +46,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
   const alerts = datos.alertas || equipo.alertas || [];
   return <section className="monitor-panel" aria-labelledby="monitor-heading">
     <div className="monitor-heading">
-      <div>
-        <h3 id="monitor-heading">Estado y especificaciones</h3>
-        <p>Monitor-Equipos · último informe: {fecha(monitor.timestampUtc) || 'sin fecha'}</p>
-      </div>
+      <h3 id="monitor-heading">Estado y especificaciones</h3>
     </div>
     {alerts.length > 0 && <div className={`monitor-alertas ${alerts.some((alert) => alert.severidad === 'critical') ? 'critica' : 'aviso'}`}
       role={alerts.some((alert) => alert.severidad === 'critical') ? 'alert' : 'status'}>
@@ -75,7 +72,6 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
     <Seccion titulo="Placa base y BIOS">
       <dl className="monitor-campos">
         <Campo label="Placa" value={[monitor.board?.manufacturer, monitor.board?.product].filter(Boolean).join(' · ')} />
-        <Campo label="Serie placa" value={monitor.board?.serialNumber} />
         <Campo label="BIOS" value={[monitor.board?.biosVendor, monitor.board?.biosVersion, monitor.board?.biosDate].filter(Boolean).join(' · ')} />
       </dl>
     </Seccion>
@@ -83,7 +79,6 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
     <Seccion titulo="Procesadores">
       <Lista items={monitor.cpus} render={(cpu) => <>
         <Campo label="Modelo" value={cpu.name} />
-        <Campo label="Fabricante" value={cpu.manufacturer} />
         <Campo label="Núcleos / procesadores lógicos" value={[cpu.cores, cpu.logicalProcessors].filter((v) => v != null).join(' / ')} />
         <Campo label="Frecuencia máxima" value={cpu.maxClockMHz != null ? `${cpu.maxClockMHz} MHz` : null} />
         <Campo label="Uso" value={cpu.loadPercent != null ? `${cpu.loadPercent}%` : null} />
@@ -103,7 +98,6 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
       <Lista items={monitor.gpus} render={(gpu) => <>
         <Campo label="Modelo" value={gpu.name} />
         <Campo label="Memoria" value={bytes(gpu.adapterRamBytes)} />
-        <Campo label="Controlador" value={gpu.driverVersion} />
       </>} />
     </Seccion>
 
@@ -116,7 +110,6 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
         <Campo label="Vida restante / desgaste" value={[disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}% restante` : null, disk.wearPercent != null ? `${disk.wearPercent}% desgaste` : null].filter(Boolean).join(' · ')} />
         <Campo label="Horas encendido" value={disk.powerOnHours} />
         <Campo label="Errores lectura / escritura" value={[disk.readErrorsTotal, disk.writeErrorsTotal].filter((v) => v != null).join(' / ')} />
-        <Campo label="Serie / firmware" value={[disk.serialNumber, disk.firmwareVersion].filter(Boolean).join(' · ')} />
       </>} />
     </Seccion>
 
