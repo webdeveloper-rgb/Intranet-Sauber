@@ -199,9 +199,13 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
 
   const clientes = cat?.clientes || [];
   const idsClientesActivos = new Set(clientes.map((cliente) => Number(cliente.id)));
+  const idsClientesSinSatbk = new Set(clientes.filter((cliente) => !cliente.tiene_satbk).map((cliente) => Number(cliente.id)));
   const equiposClienteInactivo = equipos.filter((equipo) => equipo.cliente_id && !idsClientesActivos.has(Number(equipo.cliente_id)));
+  const equiposClienteSinSatbk = equipos.filter((equipo) => equipo.cliente_id && idsClientesSinSatbk.has(Number(equipo.cliente_id)));
   const clienteActual = clienteAbierto === 'sin-asignar'
     ? { nombre: 'Equipos sin asignar' }
+    : clienteAbierto === 'sin-satbk'
+      ? { nombre: 'Equipos de clientes sin SATBK' }
     : clienteAbierto === 'cliente-inactivo'
       ? { nombre: 'Cliente no activo' }
     : clientes.find((cliente) => Number(cliente.id) === Number(clienteAbierto));
@@ -231,6 +235,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   }, [equipoActual?.id, equipoActual?.tiene_monitor, refreshSignal]);
   const equiposCliente = useMemo(() => {
     if (clienteAbierto === 'sin-asignar') return equipos.filter((equipo) => !equipo.cliente_id);
+    if (clienteAbierto === 'sin-satbk') return equipos.filter((equipo) => equipo.cliente_id && idsClientesSinSatbk.has(Number(equipo.cliente_id)));
     if (clienteAbierto === 'cliente-inactivo') return equipos.filter((equipo) => equipo.cliente_id && !idsClientesActivos.has(Number(equipo.cliente_id)));
     if (clienteAbierto === null) return [];
     return equipos.filter((equipo) => Number(equipo.cliente_id) === Number(clienteAbierto));
@@ -399,16 +404,19 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
           {!clienteActual && !equipoActual && <>
-            {clientesFiltrados.length || equiposSinAsignar.length ? <div className="cliente-grid">
+            {clientesFiltrados.length || equiposSinAsignar.length || equiposClienteSinSatbk.length ? <div className="cliente-grid">
               {paginaClientes.items.map((cliente) => {
                 const asignados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
                 const servidores = asignados.filter((equipo) => equipo.tipo === 'servidor').length;
                 return <button type="button" className="cliente-tarjeta" key={cliente.id}
                   onClick={() => { onNavigate(`/clientes/${cliente.id}`); setBusqueda(''); }}>
                   <span className="cliente-tarjeta-flecha">›</span>
-                  <strong>{cliente.nombre}</strong>
-                  <span className={`cliente-satbk${cliente.tiene_satbk ? ' activo' : ''}`}>
-                    {cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}
+                  <span className="cliente-tarjeta-titulo">
+                    <strong>{cliente.nombre}</strong>
+                    <span className={`cliente-satbk${cliente.tiene_satbk ? ' activo' : ''}`}>
+                      <span className="cliente-satbk-punto" aria-hidden="true" />
+                      {cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}
+                    </span>
                   </span>
                   <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>
                 </button>;
@@ -419,6 +427,12 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                 <strong>Sin asignar</strong>
                 <span className="cliente-conteo">{equiposSinAsignar.length} equipos por vincular</span>
               </button>}
+              <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+                onClick={() => { onNavigate('/clientes/sin-satbk'); setBusqueda(''); }}>
+                <span className="cliente-tarjeta-flecha">›</span>
+                <strong>Equipos sin SATBK</strong>
+                <span className="cliente-conteo">{equiposClienteSinSatbk.length} equipos asignados a clientes sin SATBK</span>
+              </button>
               {equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/cliente-inactivo'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
@@ -445,7 +459,9 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   </button>
                 </article>
               ))}
-            </div> : <div className="mapeo-vacio">{busqueda ? 'No hay equipos que coincidan con la búsqueda.' : 'Este cliente todavía no tiene equipos asociados.'}</div>}
+            </div> : <div className="mapeo-vacio">{busqueda ? 'No hay equipos que coincidan con la búsqueda.'
+              : clienteAbierto === 'sin-satbk' ? 'No hay equipos asignados a clientes sin SATBK.'
+                : 'Este cliente todavía no tiene equipos asociados.'}</div>}
             <Paginacion total={equiposFiltrados.length} pagina={paginaEquipos.page} paginas={paginaEquipos.pageCount}
               porPagina={paginaEquipos.pageSize} onCambiar={paginaEquipos.setPage} etiqueta="equipos" />
           </>}

@@ -30,7 +30,7 @@ export function leerRuta() {
     const cliente = partes[1] || null;
     const equipo = partes[2] === 'equipos' && /^\d+$/.test(partes[3] || '') ? Number(partes[3]) : null;
     if (!cliente) return { vista: 'clientes', clienteId: null, equipoId: null, path: '/clientes' };
-    if (['sin-asignar', 'cliente-inactivo'].includes(cliente) || /^\d+$/.test(cliente)) {
+    if (['sin-asignar', 'sin-satbk', 'cliente-inactivo'].includes(cliente) || /^\d+$/.test(cliente)) {
       const clienteId = /^\d+$/.test(cliente) ? Number(cliente) : cliente;
       const pathCliente = `/clientes/${encodeURIComponent(cliente)}`;
       return {
