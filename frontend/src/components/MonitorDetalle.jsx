@@ -104,10 +104,11 @@ export default function MonitorDetalle({ equipo, datos, cargando, error }) {
     <Seccion titulo="Discos">
       <Lista items={monitor.disks} render={(disk) => <>
         <Campo label="Modelo" value={disk.model} />
-        <Campo label="Estado" value={disk.healthStatus} />
+        <Campo label="Vida útil restante" value={disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'} />
+        {disk.lifeLeftPercent == null && <Campo label="Estado reportado" value={disk.healthStatus} />}
         <Campo label="Capacidad / tipo" value={[bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')} />
         <Campo label="Temperatura" value={disk.temperatureC != null ? `${disk.temperatureC} °C` : null} />
-        <Campo label="Vida restante / desgaste" value={[disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}% restante` : null, disk.wearPercent != null ? `${disk.wearPercent}% desgaste` : null].filter(Boolean).join(' · ')} />
+        <Campo label="Desgaste reportado" value={disk.wearPercent != null ? `${disk.wearPercent}%` : null} />
         <Campo label="Horas encendido" value={disk.powerOnHours} />
         <Campo label="Errores lectura / escritura" value={[disk.readErrorsTotal, disk.writeErrorsTotal].filter((v) => v != null).join(' / ')} />
       </>} />
