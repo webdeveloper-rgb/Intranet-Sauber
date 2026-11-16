@@ -94,7 +94,6 @@ function equipos_listado(): array
         $row['tiene_copias'] = (bool) $row['tiene_copias'];
     }
     unset($row);
-    $alertasMonitor = monitor_adjuntar_datos($rows, $pdo);
     $mailRun = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,nuevos,ignorados,mensaje,origen,
         TIMESTAMPDIFF(MINUTE,inicio,NOW()) AS minutos_desde
         FROM correo_sync_log WHERE origen='n8n' ORDER BY id DESC LIMIT 1")->fetch() ?: null;
@@ -120,7 +119,7 @@ function equipos_listado(): array
             'umbral_horas' => $horasAlerta,
         ];
     }
-    return ['equipos' => $rows, 'correo' => $mailRun, 'alertas_monitor' => $alertasMonitor];
+    return ['equipos' => $rows, 'correo' => $mailRun];
 }
 
 function equipos_asignar_cliente(int $equipoId, int $clienteId): int

@@ -628,23 +628,6 @@ function monitor_enviar_alertas_pendientes(PDO $pdo): void
     }
 }
 
-function monitor_alertas_activas(PDO $pdo): array
-{
-    $rows = $pdo->query("SELECT a.id,a.equipo_id,a.alert_key,a.severidad,a.titulo,a.detalle,a.primera_vez,a.ultima_vez,
-            e.nombre AS equipo,e.cliente_id,c.nombre AS cliente
-        FROM monitor_alertas a JOIN equipos e ON e.id=a.equipo_id
-        LEFT JOIN clientes c ON c.id=e.cliente_id
-        WHERE a.activo=1
-        ORDER BY CASE a.severidad WHEN 'critical' THEN 0 ELSE 1 END,a.primera_vez DESC")->fetchAll();
-    foreach ($rows as &$row) {
-        $row['id'] = (int) $row['id'];
-        $row['equipo_id'] = (int) $row['equipo_id'];
-        $row['cliente_id'] = $row['cliente_id'] !== null ? (int) $row['cliente_id'] : null;
-    }
-    unset($row);
-    return $rows;
-}
-
 function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
 {
     $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
@@ -736,18 +719,111 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     ];
 }
 
-function monitor_adjuntar_datos(array &$equipos, PDO $pdo): array
+function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, string $type, string $severity): array
 {
-    $alerts = monitor_alertas_activas($pdo);
-    $byEquipment = [];
-    foreach ($alerts as $alert) {
-        $byEquipment[$alert['equipo_id']][] = $alert;
+    $types = ['all', 'disco', 'espacio', 'bateria', 'salud', 'crash', 'windows', 'copias_repetidas'];
+    $severities = ['all', 'aviso', 'advertencia', 'error', 'critico'];
+    if (!in_array($type, $types, true) || !in_array($severity, $severities, true)) {
+        throw new InvalidArgumentException('Los filtros de notificaciones no son válidos.');
     }
-    foreach ($equipos as &$equipment) {
-        $equipment['tiene_monitor'] = (bool) $equipment['tiene_monitor'];
-        $equipment['monitor_last_seen'] = $equipment['monitor_last_seen'] ?: null;
-        $equipment['alertas'] = $byEquipment[$equipment['id']] ?? [];
+
+    $page = max(1, min($page, 100000));
+    $pageSize = 25;
+    $search = monitor_texto($search, 150) ?? '';
+    $bugCheck = "(ev.log_name='System' AND ev.event_id=1001
+        AND (LOWER(COALESCE(ev.source,'')) LIKE '%bugcheck%'
+            OR LOWER(COALESCE(ev.source,'')) LIKE '%wer-systemerrorreporting%'))";
+    $crash = "({$bugCheck}
+        OR (ev.log_name='Application' AND ev.event_id IN (1000,1002))
+        OR (ev.log_name='Application' AND ev.event_id=1001
+            AND (LOWER(COALESCE(ev.source,'')) LIKE '%error reporting%'
+                OR LOWER(COALESCE(ev.source,'')) LIKE '%wer%'))
+        OR (ev.log_name='System' AND ev.event_id=41))";
+
+    $union = "SELECT CONCAT('salud-',a.id) AS id,
+            DATE_FORMAT(a.ultima_vez,'%Y-%m-%dT%H:%i:%s') AS fecha,
+            CASE WHEN a.alert_key LIKE 'volume-%' THEN 'espacio'
+                WHEN a.alert_key LIKE 'battery-%' THEN 'bateria'
+                WHEN a.alert_key LIKE 'disk-%' OR a.alert_key='smart-predict-failure' THEN 'disco'
+                ELSE 'salud' END AS tipo,
+            CASE a.severidad WHEN 'critical' THEN 'critico' ELSE 'advertencia' END AS nivel,
+            a.titulo,a.detalle,COALESCE(c.nombre,'Sin asignar') AS cliente,e.nombre AS equipo,
+            e.id AS equipo_id,e.cliente_id,NULL AS copia_id
+        FROM monitor_alertas a
+        JOIN equipos e ON e.id=a.equipo_id
+        LEFT JOIN clientes c ON c.id=e.cliente_id
+        WHERE a.activo=1
+        UNION ALL
+        SELECT CONCAT('evento-',ev.id) AS id,
+            DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%s') AS fecha,
+            CASE WHEN {$crash} THEN 'crash' ELSE 'windows' END AS tipo,
+            CASE WHEN ev.level='Critical' OR {$bugCheck} THEN 'critico' ELSE 'error' END AS nivel,
+            CASE
+                WHEN {$bugCheck} THEN 'Fallo crítico de Windows'
+                WHEN ev.log_name='Application' AND ev.event_id=1000 THEN 'Cierre inesperado de aplicación'
+                WHEN ev.log_name='Application' AND ev.event_id=1002 THEN 'Aplicación bloqueada'
+                WHEN ev.log_name='System' AND ev.event_id=41 THEN 'Apagado inesperado'
+                ELSE CONCAT('Evento de Windows: ',COALESCE(NULLIF(ev.source,''),'sin origen'))
+            END AS titulo,
+            COALESCE(ev.message,'') AS detalle,COALESCE(c.nombre,'Sin asignar') AS cliente,e.nombre AS equipo,
+            e.id AS equipo_id,e.cliente_id,NULL AS copia_id
+        FROM monitor_eventos ev
+        JOIN equipos e ON e.id=ev.equipo_id
+        LEFT JOIN clientes c ON c.id=e.cliente_id
+        WHERE ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY
+        UNION ALL
+        SELECT CONCAT('copias-',e.id) AS id,
+            DATE_FORMAT(MAX(cp.fecha),'%Y-%m-%dT%H:%i:%s') AS fecha,
+            'copias_repetidas' AS tipo,
+            CASE WHEN COUNT(*) >= 3 THEN 'error' WHEN COUNT(*) = 2 THEN 'advertencia' ELSE 'aviso' END AS nivel,
+            CASE WHEN COUNT(*) >= 3 THEN 'Fallos de copia repetidos'
+                WHEN COUNT(*) = 2 THEN 'Dos fallos de copia recientes' ELSE 'Fallo de copia' END AS titulo,
+            CONCAT(COUNT(*),' fallos registrados en las últimas 24 horas.') AS detalle,
+            COALESCE(c.nombre,'Sin asignar') AS cliente,e.nombre AS equipo,
+            e.id AS equipo_id,e.cliente_id,MAX(cp.id) AS copia_id
+        FROM copias cp
+        JOIN equipos e ON e.id=cp.equipo_id
+        LEFT JOIN clientes c ON c.id=e.cliente_id
+        WHERE cp.estado='ERROR' AND cp.fecha >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        GROUP BY e.id,e.nombre,e.cliente_id,c.nombre";
+
+    $where = [];
+    $params = [];
+    if ($type !== 'all') {
+        $where[] = 'n.tipo=?';
+        $params[] = $type;
     }
-    unset($equipment);
-    return $alerts;
+    if ($severity !== 'all') {
+        $where[] = 'n.nivel=?';
+        $params[] = $severity;
+    }
+    if ($search !== '') {
+        $where[] = '(n.cliente LIKE ? OR n.equipo LIKE ? OR n.titulo LIKE ? OR n.detalle LIKE ?)';
+        $term = '%' . $search . '%';
+        array_push($params, $term, $term, $term, $term);
+    }
+    $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+    $count = $pdo->prepare("SELECT COUNT(*) FROM ({$union}) n{$whereSql}");
+    $count->execute($params);
+    $total = (int) $count->fetchColumn();
+
+    $offset = ($page - 1) * $pageSize;
+    $rows = $pdo->prepare("SELECT n.* FROM ({$union}) n{$whereSql}
+        ORDER BY n.fecha DESC,n.id DESC LIMIT {$pageSize} OFFSET {$offset}");
+    $rows->execute($params);
+    $notifications = $rows->fetchAll();
+    foreach ($notifications as &$notification) {
+        $notification['equipo_id'] = (int) $notification['equipo_id'];
+        $notification['cliente_id'] = $notification['cliente_id'] !== null ? (int) $notification['cliente_id'] : null;
+        $notification['copia_id'] = $notification['copia_id'] !== null ? (int) $notification['copia_id'] : null;
+    }
+    unset($notification);
+
+    return [
+        'notificaciones' => $notifications,
+        'total' => $total,
+        'pagina' => $page,
+        'por_pagina' => $pageSize,
+    ];
 }

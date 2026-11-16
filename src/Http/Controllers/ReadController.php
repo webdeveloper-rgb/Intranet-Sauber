@@ -142,6 +142,18 @@ final class ReadController
             out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId));
         }
 
+        if ($action === 'notificaciones') {
+            $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
+            $search = $_GET['q'] ?? '';
+            $type = $_GET['tipo'] ?? 'all';
+            $severity = $_GET['nivel'] ?? 'all';
+            if ($page === false || $page < 1 || !is_string($search)
+                || !is_string($type) || !is_string($severity)) {
+                fail('Los filtros de notificaciones no son válidos.');
+            }
+            out(monitor_notificaciones_listar(db(), $page, $search, $type, $severity));
+        }
+
         return false;
     }
 }

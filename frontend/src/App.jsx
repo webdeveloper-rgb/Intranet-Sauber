@@ -13,6 +13,7 @@ import Detalle from './components/Detalle';
 import Clientes from './components/Clientes';
 import Usuarios from './components/Usuarios';
 import Eventos from './components/Eventos';
+import Notificaciones from './components/Notificaciones';
 import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
 import { leerRuta, rutaHref } from './routes';
@@ -33,6 +34,7 @@ export default function App() {
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [actualizacionEquipos, setActualizacionEquipos] = useState(0);
   const vista = ruta.vista;
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
@@ -126,12 +128,25 @@ export default function App() {
     setCopiaSeleccionada(null);
     navegar('/copias');
   }, [navegar]);
+  const abrirNotificacion = useCallback((notificacion) => {
+    setNotificacionesAbiertas(false);
+    if (notificacion.tipo === 'crash' || notificacion.tipo === 'windows') {
+      navegar(`/eventos?equipo_id=${notificacion.equipo_id}`);
+    } else if (notificacion.tipo === 'copias_repetidas' && notificacion.copia_id) {
+      abrir(notificacion.copia_id);
+    } else {
+      const cliente = notificacion.cliente_id || 'sin-asignar';
+      navegar(`/clientes/${encodeURIComponent(cliente)}/equipos/${notificacion.equipo_id}`);
+    }
+  }, [abrir, navegar]);
   const idCopiaAbierta = ruta.copiaId ?? copiaSeleccionada;
   const cur = data.find((c) => Number(c.id) === Number(idCopiaAbierta));
   return (
     <>
       <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}
-        esAdmin={sesion?.rol === 'admin'} onCuenta={() => setCuentaAbierta(true)} />
+        esAdmin={sesion?.rol === 'admin'}
+        onCuenta={() => { setNotificacionesAbiertas(false); setCuentaAbierta(true); }}
+        onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
       <main>
         {vista === 'eventos' ? (
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
@@ -168,6 +183,8 @@ export default function App() {
         <Detalle c={cur} onClose={cerrar} acciones={copias} />
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
+      {sesion && notificacionesAbiertas && <Notificaciones onClose={() => setNotificacionesAbiertas(false)}
+        onAbrir={abrirNotificacion} />}
     </>
   );
 }

@@ -96,7 +96,6 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
-  const [alertasMonitor, setAlertasMonitor] = useState([]);
   const [detalleMonitor, setDetalleMonitor] = useState(null);
   const [cargandoMonitor, setCargandoMonitor] = useState(false);
   const [falloMonitor, setFalloMonitor] = useState('');
@@ -130,14 +129,12 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       const [c, e] = await Promise.all([api('catalogo'), api('equipos')]);
       if (carga !== cargaActual.current) return { error: '', actualizado: false };
       if (!Array.isArray(e.equipos)) throw new Error('La respuesta de equipos no es válida.');
-      if (!Array.isArray(e.alertas_monitor)) throw new Error('La respuesta de alertas de Monitor-Equipos no es válida.');
       if (equiposActuales.current.length && !e.equipos.length) {
         throw new Error('La actualización devolvió una lista vacía. Se mantienen los datos anteriores.');
       }
       setCat(c);
       equiposActuales.current = e.equipos;
       setEquipos(e.equipos);
-      setAlertasMonitor(e.alertas_monitor);
       if (e.correo) setUltimaLectura(e.correo);
       setFallo('');
       return { error: '', actualizado: true };
@@ -394,19 +391,6 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           {u.mensaje && <p>{u.mensaje}</p>}
         </details>}
       </div>}
-      {alertasMonitor.length > 0 && <section className={`monitor-alertas monitor-alertas-global ${alertasMonitor.some((alert) => alert.severidad === 'critical') ? 'critica' : 'aviso'}`}
-        role={alertasMonitor.some((alert) => alert.severidad === 'critical') ? 'alert' : 'status'}>
-        <h3>Alertas de salud de equipos ({alertasMonitor.length})</h3>
-        <ul>{alertasMonitor.map((alert) => <li key={alert.id}>
-          <button type="button" onClick={() => onNavigate(alert.cliente_id
-            ? `/clientes/${alert.cliente_id}/equipos/${alert.equipo_id}`
-            : `/clientes/sin-asignar/equipos/${alert.equipo_id}`)}>
-            <strong>{alert.severidad === 'critical' ? 'Crítica' : 'Advertencia'} · {alert.cliente || 'Sin asignar'} · {alert.equipo}</strong>
-            <span>{alert.titulo}: {alert.detalle}</span>
-          </button>
-        </li>)}</ul>
-      </section>}
-
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
       {sync && <p className="sync-estado" role="status" aria-live="polite">Actualizando los clientes.</p>}

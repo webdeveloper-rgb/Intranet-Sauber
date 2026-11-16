@@ -10,7 +10,7 @@ const TEXTOS = {
 };
 const NAV = [['copias', 'Copias'], ['clientes', 'Clientes'], ['eventos', 'Eventos']];
 
-export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta }) {
+export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones }) {
   const [titulo, subtitulo] = TEXTOS[vista] || TEXTOS.copias;
   const navegar = (event, path) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -30,6 +30,7 @@ export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta }) 
           <a className="linkbtn" key={k} href={rutaHref(`/${k}`)} aria-current={vista === k ? 'page' : undefined}
             onClick={(event) => navegar(event, `/${k}`)}>{t}</a>
         ))}
+        {nombre && <button className="linkbtn" onClick={onNotificaciones}>Notificaciones</button>}
         {nombre && <button className="linkbtn" onClick={onCuenta}>{esAdmin ? 'Tokens' : 'Mi cuenta'}</button>}
         <a href="logout.php">Salir</a>
       </div>
