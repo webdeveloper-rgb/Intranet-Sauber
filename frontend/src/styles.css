@@ -1220,6 +1220,13 @@ tbody tr.sin-copia {
   margin: 2px 0 0;
   font-size: 13px;
 }
+.monitor-campo dd small {
+  display: block;
+  margin-top: 4px;
+  color: var(--mut);
+  font-size: 11px;
+  line-height: 1.4;
+}
 .monitor-lista {
   display: grid;
   gap: 8px;

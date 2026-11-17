@@ -6,20 +6,18 @@ import { api } from '../api';
 function bytes(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return null;
-  if (number >= 1024 ** 3) {
-    const gib = (number / (1024 ** 3)).toFixed(1);
-    const gb = (number / (1000 ** 3)).toFixed(1);
-    return `${gib} GiB (${gb} GB)`;
-  }
   if (number < 1024) return `${number} B`;
-  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
-  let size = number;
+  const binaryUnits = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+  const decimalUnits = ['kB', 'MB', 'GB', 'TB', 'PB'];
+  let binarySize = number;
+  let decimalSize = number;
   let unit = -1;
   do {
-    size /= 1024;
+    binarySize /= 1024;
+    decimalSize /= 1000;
     unit += 1;
-  } while (size >= 1024 && unit < units.length - 1);
-  return `${size.toFixed(1)} ${units[unit]}`;
+  } while (binarySize >= 1024 && unit < binaryUnits.length - 1);
+  return `${binarySize.toFixed(1)} ${binaryUnits[unit]} (${decimalSize.toFixed(1)} ${decimalUnits[unit]})`;
 }
 
 function tiempoEncendido(lastBootUtc, reportTimestampUtc) {
@@ -34,9 +32,19 @@ function tiempoEncendido(lastBootUtc, reportTimestampUtc) {
   return [days ? `${days} d` : null, `${hours} h`, `${remainingMinutes} min`].filter(Boolean).join(' ');
 }
 
-function Campo({ label, value }) {
+function espacioVolumen(volume) {
+  const free = bytes(volume.freeBytes);
+  const total = bytes(volume.sizeBytes);
+  if (!free && !total) return null;
+  const percent = Number(volume.sizeBytes) > 0 && Number.isFinite(Number(volume.freeBytes))
+    ? ` · ${((Number(volume.freeBytes) / Number(volume.sizeBytes)) * 100).toFixed(1)}% libre`
+    : '';
+  return `${free || '—'} libres / ${total || '—'} capacidad${percent}`;
+}
+
+function Campo({ label, value, ayuda }) {
   if (value == null || value === '') return null;
-  return <div className="monitor-campo"><dt>{label}</dt><dd>{value}</dd></div>;
+  return <div className="monitor-campo"><dt>{label}</dt><dd>{value}{ayuda && <small>{ayuda}</small>}</dd></div>;
 }
 
 function Seccion({ titulo, children }) {
@@ -74,25 +82,29 @@ function agregarListaPdf(rows, items, prefix, fields) {
 
 function agregarSeccionPdf(doc, titulo, rows, y) {
   if (!rows.length) return y;
-  if (y > doc.internal.pageSize.getHeight() - 28) {
+  if (y > doc.internal.pageSize.getHeight() - 38) {
     doc.addPage();
-    y = 16;
+    y = 18;
   }
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(35, 50, 70);
-  doc.text(titulo, 14, y);
+  doc.setFontSize(13);
+  doc.setTextColor(28, 50, 74);
+  doc.setFillColor(45, 132, 170);
+  doc.roundRect(14, y - 4.2, 2, 6.2, 1, 1, 'F');
+  doc.text(titulo, 20, y);
   autoTable(doc, {
-    startY: y + 2,
-    head: [['Campo', 'Valor']],
+    startY: y + 3,
+    head: [['DETALLE', 'ESPECIFICACIÓN']],
     body: rows,
     theme: 'grid',
-    margin: { left: 14, right: 14, top: 14, bottom: 17 },
-    styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.2, overflow: 'linebreak' },
-    headStyles: { fillColor: [34, 74, 112], textColor: [255, 255, 255] },
-    columnStyles: { 0: { cellWidth: 48 }, 1: { cellWidth: 'auto' } },
+    margin: { left: 14, right: 14, top: 18, bottom: 20 },
+    styles: { font: 'helvetica', fontSize: 10, cellPadding: 3.2, overflow: 'linebreak', lineColor: [220, 227, 234], textColor: [42, 52, 62], valign: 'middle' },
+    headStyles: { fillColor: [34, 67, 96], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, cellPadding: 3.1 },
+    alternateRowStyles: { fillColor: [245, 248, 251] },
+    columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold', textColor: [65, 79, 94] }, 1: { cellWidth: 'auto' } },
+    rowPageBreak: 'avoid',
   });
-  return doc.lastAutoTable.finalY + 7;
+  return doc.lastAutoTable.finalY + 10;
 }
 
 function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
@@ -101,26 +113,32 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
   const nombreEquipo = String(equipo.nombre || `Equipo ${equipo.id}`);
-  const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
-
+  const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
+  doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
+  doc.setFillColor(27, 48, 70);
+  doc.rect(0, 0, ancho, 51, 'F');
+  doc.setFillColor(46, 145, 180);
+  doc.rect(0, 51, ancho, 2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(17);
-  doc.setTextColor(27, 46, 67);
-  doc.text('Estado y especificaciones', 14, 17);
-  doc.setFontSize(12);
+  doc.setFontSize(10);
+  doc.setTextColor(124, 205, 225);
+  doc.text('SAUBER  /  INFORME TÉCNICO', 14, 14);
+  doc.setFontSize(19);
+  doc.setTextColor(255, 255, 255);
+  const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
   doc.text(lineasNombre, 14, 25);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(90, 100, 110);
-  const generadoY = 25 + lineasNombre.length * 5.5;
-  doc.text(`Generado: ${fecha(generado)}`, 14, generadoY);
+  doc.setFontSize(10);
+  doc.setTextColor(220, 230, 239);
+  doc.text(subtituloEquipo || 'Estado y especificaciones del equipo', 14, 35 + (lineasNombre.length - 1) * 6);
+  doc.setFontSize(9);
+  doc.setTextColor(220, 230, 239);
+  doc.text(`Preparado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
 
-  let y = generadoY + 7;
+  let y = 59 + (lineasNombre.length - 1) * 6;
   const identificacion = [];
-  agregarDatoPdf(identificacion, 'Equipo', equipo.nombre);
   agregarDatoPdf(identificacion, 'Cliente', clienteNombre);
-  agregarDatoPdf(identificacion, 'Tipo', equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null);
-  y = agregarSeccionPdf(doc, 'Identificación y estado', identificacion, y);
+  y = agregarSeccionPdf(doc, 'Resumen del equipo', identificacion, y);
 
   const sistema = [];
   agregarDatoPdf(sistema, 'ID de RustDesk', monitor.rustDeskId);
@@ -129,8 +147,8 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   agregarDatoPdf(sistema, 'Número de serie', monitor.system?.serialNumber);
   agregarDatoPdf(sistema, 'Dominio', monitor.system?.domain);
   agregarDatoPdf(sistema, 'Memoria total', bytes(monitor.system?.totalRamBytes));
-  agregarDatoPdf(sistema, 'Último arranque', fecha(monitor.system?.lastBootUtc));
-  agregarDatoPdf(sistema, 'Tiempo encendido al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
+  agregarDatoPdf(sistema, 'Último arranque de Windows', fecha(monitor.system?.lastBootUtc));
+  agregarDatoPdf(sistema, 'Tiempo encendido del PC al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
   y = agregarSeccionPdf(doc, 'Sistema', sistema, y);
 
   const placa = [];
@@ -167,7 +185,7 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
     ['Modelo', (disk) => disk.model],
     ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
     ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
-    ['Capacidad / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
+    ['Capacidad física / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
     ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
   ]);
   y = agregarSeccionPdf(doc, 'Discos', discos, y);
@@ -175,7 +193,7 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const volumenes = [];
   agregarListaPdf(volumenes, monitor.volumes, 'Volumen', [
     ['Unidad', (volume) => [volume.drive, volume.label].filter(Boolean).join(' · ')],
-    ['Libre / total', (volume) => [bytes(volume.freeBytes), bytes(volume.sizeBytes)].filter(Boolean).join(' / ')],
+    ['Espacio libre / capacidad', espacioVolumen],
     ['Sistema de archivos', (volume) => volume.fileSystem],
   ]);
   y = agregarSeccionPdf(doc, 'Volúmenes', volumenes, y);
@@ -201,10 +219,13 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
     doc.setPage(pagina);
+    doc.setDrawColor(220, 227, 234);
+    doc.setLineWidth(0.25);
+    doc.line(14, alto - 15, ancho - 14, alto - 15);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(100, 110, 120);
-    doc.text('Informe generado desde Intranet-Sauber · Estado y especificaciones', 14, alto - 8);
+    doc.setFontSize(9);
+    doc.setTextColor(105, 117, 129);
+    doc.text('Intranet-Sauber  ·  Informe técnico de equipo', 14, alto - 9);
     doc.text(`Página ${pagina} de ${paginas}`, ancho - 14, alto - 8, { align: 'right' });
   }
 
@@ -293,7 +314,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="Dominio" value={monitor.system?.domain} />
         <Campo label="Memoria total" value={bytes(monitor.system?.totalRamBytes)} />
         <Campo label="Último arranque" value={fecha(monitor.system?.lastBootUtc)} />
-        <Campo label="Tiempo encendido al informe" value={tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc)} />
+        <Campo label="Tiempo encendido del PC al informe" value={tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc)} ayuda="Tiempo desde el último arranque hasta el informe recibido. No son las horas acumuladas del disco." />
         <Campo label="Predicción SMART" value={monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto'} />
       </dl>
     </Seccion>
@@ -360,10 +381,10 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="Modelo" value={disk.model} />
         <Campo label="Vida útil restante" value={disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'} />
         {disk.lifeLeftPercent == null && <Campo label="Estado reportado" value={disk.healthStatus} />}
-        <Campo label="Capacidad / tipo" value={[bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')} />
+        <Campo label="Capacidad del disco físico / tipo" value={[bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')} ayuda="Capacidad del dispositivo físico; puede diferir del espacio utilizable de las particiones." />
         <Campo label="Temperatura" value={disk.temperatureC != null ? `${disk.temperatureC} °C` : null} />
         <Campo label="Desgaste reportado" value={disk.wearPercent != null ? `${disk.wearPercent}%` : null} />
-        <Campo label="Horas de uso acumuladas del disco" value={disk.powerOnHours} />
+        <Campo label="Uso acumulado del disco" value={disk.powerOnHours != null ? `${Number(disk.powerOnHours).toLocaleString('es-ES')} h` : null} ayuda="Contador de horas de funcionamiento del disco durante toda su vida; no se reinicia al apagar el PC." />
         <Campo label="Errores lectura / escritura" value={[disk.readErrorsTotal, disk.writeErrorsTotal].filter((v) => v != null).join(' / ')} />
       </>} />
     </Seccion>
@@ -371,7 +392,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     <Seccion titulo="Volúmenes">
       <Lista items={monitor.volumes} render={(volume) => <>
         <Campo label="Unidad" value={[volume.drive, volume.label].filter(Boolean).join(' · ')} />
-        <Campo label="Libre / total" value={[bytes(volume.freeBytes), bytes(volume.sizeBytes)].filter(Boolean).join(' / ')} />
+        <Campo label="Espacio libre / capacidad del volumen" value={espacioVolumen(volume)} ayuda="Espacio de esta unidad lógica. Se muestra aparte de la capacidad física del disco." />
         <Campo label="Sistema de archivos" value={volume.fileSystem} />
       </>} />
     </Seccion>
