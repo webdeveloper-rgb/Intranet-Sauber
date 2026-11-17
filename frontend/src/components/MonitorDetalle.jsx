@@ -95,14 +95,11 @@ function agregarSeccionPdf(doc, titulo, rows, y) {
   return doc.lastAutoTable.finalY + 7;
 }
 
-function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modoConfigurado, modoAgente }) {
+function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
-  const estado = alertas.some((alerta) => alerta.severidad === 'critical')
-    ? 'Crítico'
-    : alertas.length ? 'Advertencias activas' : 'Sin alertas activas';
   const nombreEquipo = String(equipo.nombre || `Equipo ${equipo.id}`);
   const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
 
@@ -121,13 +118,8 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
   let y = generadoY + 7;
   const identificacion = [];
   agregarDatoPdf(identificacion, 'Equipo', equipo.nombre);
-  agregarDatoPdf(identificacion, 'ID del equipo', equipo.id);
   agregarDatoPdf(identificacion, 'Cliente', clienteNombre);
   agregarDatoPdf(identificacion, 'Tipo', equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null);
-  agregarDatoPdf(identificacion, 'Estado de monitorización', estado);
-  agregarDatoPdf(identificacion, 'Último informe recibido', fecha(datos.monitor_last_seen || monitor.timestampUtc));
-  agregarDatoPdf(identificacion, 'Modo configurado', modoConfigurado === 'full' ? 'Auditoría Completa' : 'Estándar');
-  agregarDatoPdf(identificacion, 'Modo aplicado por el agente', modoAgente === 'full' ? 'Auditoría Completa' : 'Estándar');
   y = agregarSeccionPdf(doc, 'Identificación y estado', identificacion, y);
 
   const sistema = [];
@@ -139,7 +131,6 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
   agregarDatoPdf(sistema, 'Memoria total', bytes(monitor.system?.totalRamBytes));
   agregarDatoPdf(sistema, 'Último arranque', fecha(monitor.system?.lastBootUtc));
   agregarDatoPdf(sistema, 'Tiempo encendido al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
-  agregarDatoPdf(sistema, 'Predicción SMART', monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto');
   y = agregarSeccionPdf(doc, 'Sistema', sistema, y);
 
   const placa = [];
@@ -152,7 +143,6 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
     ['Modelo', (cpu) => cpu.name],
     ['Núcleos / procesadores lógicos', (cpu) => [cpu.cores, cpu.logicalProcessors].filter((value) => value != null).join(' / ')],
     ['Frecuencia máxima', (cpu) => cpu.maxClockMHz != null ? `${cpu.maxClockMHz} MHz` : null],
-    ['Uso', (cpu) => cpu.loadPercent != null ? `${cpu.loadPercent}%` : null],
   ]);
   y = agregarSeccionPdf(doc, 'Procesadores', procesadores, y);
 
@@ -178,9 +168,6 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
     ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
     ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
     ['Capacidad / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
-    ['Temperatura', (disk) => disk.temperatureC != null ? `${disk.temperatureC} °C` : null],
-    ['Desgaste reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
-    ['Horas de uso acumuladas del disco', (disk) => disk.powerOnHours],
     ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
   ]);
   y = agregarSeccionPdf(doc, 'Discos', discos, y);
@@ -202,13 +189,14 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
   ]);
   y = agregarSeccionPdf(doc, 'Baterías', baterias, y);
 
-  const filasAlertas = alertas.length
-    ? alertas.map((alerta) => [
+  const alertasPdf = alertas.filter((alerta) => !(alerta.severidad === 'warning' && alerta.titulo === 'Poco espacio libre'));
+  if (alertasPdf.length) {
+    const filasAlertas = alertasPdf.map((alerta) => [
       `${alerta.severidad === 'critical' ? 'Crítica' : 'Advertencia'} · ${alerta.titulo || 'Alerta'}`,
       alerta.detalle || 'Sin detalle',
-    ])
-    : [['Estado', 'No hay alertas activas.']];
-  agregarSeccionPdf(doc, 'Alertas activas', filasAlertas, y);
+    ]);
+    agregarSeccionPdf(doc, 'Alertas activas', filasAlertas, y);
+  }
 
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
@@ -272,15 +260,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     setErrorPdf('');
     setGenerandoPdf(true);
     try {
-      generarPdfEquipo({
-        equipo,
-        clienteNombre,
-        datos,
-        monitor,
-        alertas: alerts,
-        modoConfigurado: modoGuardado,
-        modoAgente,
-      });
+      generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts });
     } catch (e) {
       setErrorPdf(e.message || 'No se pudo generar el PDF.');
     } finally {
