@@ -90,7 +90,7 @@ function agregarSeccionPdf(doc, titulo, rows, y) {
   doc.setFontSize(13);
   doc.setTextColor(28, 50, 74);
   doc.setFillColor(45, 132, 170);
-  doc.roundRect(14, y - 4.2, 2, 6.2, 1, 1, 'F');
+  doc.rect(14, y - 4.2, 2, 6.2, 'F');
   doc.text(titulo, 20, y);
   autoTable(doc, {
     startY: y + 3,
