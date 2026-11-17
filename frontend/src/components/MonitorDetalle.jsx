@@ -42,6 +42,18 @@ function espacioVolumen(volume) {
   return `${free || '—'} libres / ${total || '—'} capacidad${percent}`;
 }
 
+function graficasFisicas(graficas = []) {
+  const controladoresRemotos = [
+    'anyviewer', 'anydesk', 'rustdesk', 'supremo', 'teamviewer', 'splashtop',
+    'chrome remote desktop', 'connectwise', 'screenconnect', 'ultraviewer',
+    'zoho assist', 'logmein', 'goto resolve', 'meshcentral',
+  ];
+  return graficas.filter((grafica) => {
+    const nombre = String(grafica.name || '').toLocaleLowerCase();
+    return !controladoresRemotos.some((marca) => nombre.includes(marca));
+  });
+}
+
 function Campo({ label, value, ayuda }) {
   if (value == null || value === '') return null;
   return <div className="monitor-campo"><dt>{label}</dt><dd>{value}{ayuda && <small>{ayuda}</small>}</dd></div>;
@@ -174,7 +186,7 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   y = agregarSeccionPdf(doc, 'Memoria RAM', memoria, y);
 
   const graficas = [];
-  agregarListaPdf(graficas, monitor.gpus, 'Gráfica', [
+  agregarListaPdf(graficas, graficasFisicas(monitor.gpus), 'Gráfica', [
     ['Modelo', (gpu) => gpu.name],
     ['Memoria', (gpu) => bytes(gpu.adapterRamBytes)],
   ]);
@@ -370,7 +382,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     </Seccion>
 
     <Seccion titulo="Gráficas">
-      <Lista items={monitor.gpus} render={(gpu) => <>
+      <Lista items={graficasFisicas(monitor.gpus)} render={(gpu) => <>
         <Campo label="Modelo" value={gpu.name} />
         <Campo label="Memoria" value={bytes(gpu.adapterRamBytes)} />
       </>} />
