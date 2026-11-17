@@ -23,15 +23,15 @@ const filtrosIniciales = () => {
   const hoy = new Date();
   const ayer = new Date(hoy);
   ayer.setDate(hoy.getDate() - 1);
-  return { cli: '', tipo: '', desde: fechaLocal(ayer), hasta: fechaLocal(hoy), horas: 24 };
+  return { cli: '', tipo: '', software: '', desde: fechaLocal(ayer), hasta: fechaLocal(hoy), orden: 'fecha-desc', horas: 24 };
 };
 
 export default function App() {
   const [sesion, setSesion] = useState(null);
   const [ruta, setRuta] = useState(leerRuta);
-  const copias = useCopias();
   const [filtro, setFiltro] = useState('todos');
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
+  const copias = useCopias(f.desde, f.hasta);
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
@@ -106,19 +106,30 @@ export default function App() {
   const rep = useMemo(() => repeticiones(data), [data]);
   const rows = useMemo(() => {
     const q = norm(f.cli.trim());
-    return data.filter((c) => {
+    const ordenados = data.filter((c) => {
       const sinCopia = c.codigo === 'SIN_COPIA';
       if (sinCopia !== (filtro === 'sin')) return false;
       return (
         TEST[filtro](c, f.horas, rep) &&
-        (!q || norm(c.cliente).includes(q)) &&
+        (!q || norm([c.cliente, c.equipo, c.software, c.programa, c.destino, c.desc_error, c.codigo].filter(Boolean).join(' ')).includes(q)) &&
         coincideTipo(c, f.tipo) &&
-        (sinCopia || !f.desde || c.fecha.slice(0, 10) >= f.desde) &&
-        (sinCopia || !f.hasta || c.fecha.slice(0, 10) <= f.hasta)
+        (!f.software || c.software === f.software) &&
+        (!f.desde || c.fecha.slice(0, 10) >= f.desde) &&
+        (!f.hasta || c.fecha.slice(0, 10) <= f.hasta)
       );
     });
+    const compararTexto = (a, b, key, direccion = 1) => String(a[key] || '').localeCompare(String(b[key] || ''), 'es', { sensitivity: 'base' }) * direccion;
+    return ordenados.sort((a, b) => {
+      if (f.orden === 'fecha-asc') return String(a.fecha).localeCompare(String(b.fecha)) || Number(a.id) - Number(b.id);
+      if (f.orden === 'cliente-az') return compararTexto(a, b, 'cliente') || compararTexto(a, b, 'equipo');
+      if (f.orden === 'cliente-za') return compararTexto(a, b, 'cliente', -1) || compararTexto(a, b, 'equipo');
+      if (f.orden === 'equipo-az') return compararTexto(a, b, 'equipo') || compararTexto(a, b, 'cliente');
+      if (f.orden === 'equipo-za') return compararTexto(a, b, 'equipo', -1) || compararTexto(a, b, 'cliente');
+      return String(b.fecha).localeCompare(String(a.fecha)) || Number(b.id) - Number(a.id);
+    });
   }, [data, filtro, f, rep]);
-  const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.desde}|${f.hasta}`);
+  const softwaresCopia = useMemo(() => [...new Set(data.map((c) => c.software).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [data]);
+  const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.software}|${f.desde}|${f.hasta}|${f.orden}`);
 
   const abrir = useCallback((id) => {
     setCopiaSeleccionada(Number(id));
@@ -162,7 +173,8 @@ export default function App() {
               </div>
             )}
             <Kpis n={n} total={data.length - n.sc} />
-            <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} />
+            <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} softwares={softwaresCopia} />
+            {copias.truncado && <div className="estado-alertas" role="status">Este intervalo contiene más de 3.000 copias; se muestran las 3.000 más recientes. Reduce el rango de fechas para ver el resto.</div>}
             {filtro === 'sin' && (
               <section className="sin-copia-resumen">
                 <div>

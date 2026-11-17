@@ -80,6 +80,7 @@ function equipos_listado(): array
     $pdo = db();
     asegurar_tablas_equipos($pdo);
     $rows = $pdo->query("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
+        DATE_FORMAT(e.creado,'%Y-%m-%d') AS fecha_creacion,
         (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
         (EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)
             OR EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=e.id)) AS tiene_copias,

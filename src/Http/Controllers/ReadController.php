@@ -46,8 +46,35 @@ final class ReadController
                 $_SESSION['mig_tipos'] = 1;
                 $_SESSION['mig_dias_copia'] = 1;
             }
-            $rows = db()->query(SQL_COPIA . " WHERE fecha >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-                ORDER BY cursor_fecha DESC, id DESC LIMIT 3001")->fetchAll();
+            $dateFrom = $_GET['desde'] ?? '';
+            $dateTo = $_GET['hasta'] ?? '';
+            $dateIsValid = static function (string $value): bool {
+                return $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1
+                    && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4)));
+            };
+            if (!is_string($dateFrom) || !is_string($dateTo)
+                || !$dateIsValid($dateFrom) || !$dateIsValid($dateTo)
+                || ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo)) {
+                fail('El intervalo de fechas no es válido.');
+            }
+            $where = [];
+            $params = [];
+            if ($dateFrom !== '') {
+                $where[] = 'fecha >= ?';
+                $params[] = $dateFrom . ' 00:00:00';
+            }
+            if ($dateTo !== '') {
+                $where[] = 'fecha < DATE_ADD(?, INTERVAL 1 DAY)';
+                $params[] = $dateTo . ' 00:00:00';
+            }
+            if (!$where) {
+                $where[] = 'fecha >= DATE_SUB(NOW(), INTERVAL 1 DAY)';
+            }
+            $query = db()->prepare(SQL_COPIA . ' WHERE ' . implode(' AND ', $where)
+                . ' ORDER BY cursor_fecha DESC, id DESC LIMIT 3001');
+            $query->execute($params);
+            $rows = $query->fetchAll();
+            $truncado = count($rows) > 3000;
             if (count($rows) > 3000) {
                 array_pop($rows);
             }
@@ -64,6 +91,7 @@ final class ReadController
 
             $body = json_encode([
                 'copias' => $rows,
+                'truncado' => $truncado,
                 'usuario' => $user['usuario'],
                 'hay_mas_historial' => false,
             ], JSON_UNESCAPED_UNICODE);
