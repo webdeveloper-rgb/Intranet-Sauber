@@ -20,7 +20,7 @@ function asegurar_tablas_equipos(PDO $pdo): void
         return;
     asegurar_tablas_sync($pdo);
     $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/equipos.sql');
-    $sql = (string) preg_replace('/^--.*$/m', '', $sql);
+    $sql = (string) preg_replace('/^[ \t]*--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
         if (function_exists('migracion_ejecutar_sql'))
             migracion_ejecutar_sql($pdo, $statement, 'database/equipos.sql');

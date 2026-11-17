@@ -364,7 +364,7 @@ function asegurar_tablas_sync(PDO $pdo): void
         return;
     }
     $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/sync.sql');
-    $sql = preg_replace('/^--.*$/m', '', $sql);
+    $sql = preg_replace('/^[ \t]*--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $s) {
         if (function_exists('migracion_ejecutar_sql'))
             migracion_ejecutar_sql($pdo, $s, 'database/sync.sql');
