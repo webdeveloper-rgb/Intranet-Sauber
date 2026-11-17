@@ -1,20 +1,22 @@
 # Panel de Control de Copias · Sauber Ofimática
 
-Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. El directorio público del servidor es `public/`; el código, la configuración y los datos de desarrollo permanecen fuera de esa raíz web.
+Aplicacion web PHP + React. El dominio puede mantener `httpdocs` como document root: `.htaccess` enruta las URL existentes al codigo web guardado en `public/`.
 
 ## Estructura
 
 La documentacion tecnica de responsabilidades, rutas de datos, acciones API y reglas para cambios esta en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
-La carpeta `public/` es la raíz web de Plesk y conserva los nombres de URL que usan el panel, n8n y Monitor-Equipos. Los comandos programados están en `bin/`; la lógica de la aplicación permanece en `src/`:
+Las rutas web y los recursos estaticos estan agrupados en `public/`; `index.php` y `.htaccess` en la raiz conservan el document root actual. Las tareas CLI estan en `bin/` y la implementacion privada en `src/`:
 
 ```
-public/                             Raíz web configurada en Plesk
-  *.php                              Rutas públicas estables del panel e integraciones
+.htaccess                            Reglas de seguridad y rutas para Apache/Plesk
+index.php                           Front controller que conserva el document root actual
+public/                             Rutas HTTP y recursos estaticos servidos por el front controller
+  *.php                              Rutas internas publicas, accesibles con URL estables
   assets/                            Recursos estáticos de inicio de sesión
   build/                             Panel React compilado para producción
 bin/                                 Comandos CLI de Plesk: sync.php, migrate.php, purge.php
-src/                                 Implementación PHP privada, agrupada por módulos
+src/                                 Implementacion PHP privada, agrupada por modulos
   Web/                               Páginas HTML
   Http/                              Endpoints y controladores
   Console/                           Lógica de tareas CLI
@@ -22,13 +24,13 @@ src/                                 Implementación PHP privada, agrupada por m
   Monitoring/                        Informes y alertas de hardware
   Integration/                       Cliente de API de clientes
   Security/                          Tokens de integración
-config/                              Configuración privada; config.php no se versiona
+config/                              Configuracion privada; config.php no se versiona
 database/                            Esquema y SQL de las tablas
-frontend/                            Código fuente React/Vite
-docs/                                Documentación técnica
+frontend/                            Codigo fuente React/Vite
+docs/                                Documentacion tecnica
 ```
 
-Las URL del panel y n8n se conservan porque Plesk sirve desde `public/`. Las tareas CLI usan `bin/`; su lógica reside en `src/Console/`.
+Las URL y el document root actual se conservan: `.htaccess` envia las peticiones al front controller y este delega en `public/`. Las tareas CLI usan `bin/`; su logica reside en `src/Console/`.
 
 ## Primera instalación
 
@@ -59,17 +61,17 @@ Comprueba con `git status` que **`config/config.php` no aparece**: es el fichero
 1. *Sitios web y dominios → tu dominio → **Git** → Añadir repositorio*.
 2. Elige **Repositorio remoto** y pega la URL.
 3. Si es privado, Plesk muestra una **clave SSH pública**: cópiala en GitHub → repositorio → *Settings → Deploy keys → Add* (solo lectura). Usa entonces la URL SSH (`git@github.com:...`).
-4. Rama: `main`. **Ruta del servidor** (deployment path): la carpeta de despliegue del repositorio, por ejemplo `httpdocs`; configura la raíz web del dominio como `httpdocs/public`.
+4. Rama: `main`. **Ruta de despliegue**: la carpeta del repositorio, normalmente `httpdocs`. Mantén el **Document root** de Plesk en `httpdocs`; no hay que cambiarlo.
 5. Modo de despliegue: **Automático**. Plesk te da una **URL de webhook**.
 6. En GitHub → *Settings → Webhooks → Add webhook*: pega esa URL, tipo `application/json`, evento *push*.
 
 **Antes del primer despliegue**, si `httpdocs` ya contiene la aplicación actual: haz copia de `httpdocs/config/config.php`, vacía la carpeta, despliega y vuelve a poner `config/config.php`. Después de eso, los despliegues solo actualizan los ficheros del repositorio y **no tocan `config/config.php`** (no está en Git). Compruébalo tras el primer `push`.
 
-### 3. Activar la nueva raíz web
+### 3. Conservar Plesk y actualizar tareas
 
-En Plesk, abre **Sitios web y dominios → Hosting Settings** y establece **Document root** en `httpdocs/public`. Mantén la ruta de despliegue Git en `httpdocs`; las URL públicas (`/api.php`, `/ingest.php`, `/monitor-ingest.php`, etc.) no cambian porque `public/` pasa a ser la raíz web.
+Mantén **Document root** en `httpdocs`. El `.htaccess` y el `index.php` de la raiz enrutan las URL web existentes hacia `public/`, sin cambiar las direcciones del panel, n8n ni Monitor-Equipos.
 
-Actualiza las tareas programadas para usar `httpdocs/bin/sync.php`, `httpdocs/bin/purge.php` y `httpdocs/bin/migrate.php`. Haz el cambio de raíz web y las tareas durante la misma ventana de mantenimiento que el primer despliegue de esta estructura. No es necesario cambiar n8n ni la URL configurada en Monitor-Equipos.
+Actualiza las rutas fisicas de las tareas programadas a `httpdocs/bin/sync.php`, `httpdocs/bin/purge.php` y `httpdocs/bin/migrate.php`.
 
 ### 4. Día a día
 ```
@@ -89,7 +91,7 @@ npm run build      # regenera ../public/build/app.js y app.css
 ```
 Luego `git add .`, `commit` y `push` (incluye `public/build/`: el servidor no compila nada).
 
-Para ver cambios en vivo: `php -S localhost:8000 -t public` en la raíz del repo, entra en `http://localhost:8000/login.php` y en otra terminal, dentro de `frontend/`, `npm run dev`.
+Para desarrollo: `php -S localhost:8000 index.php` desde la raiz del repositorio; abre `http://localhost:8000/login.php` y, en otra terminal, ejecuta `npm run dev` dentro de `frontend/`.
 
 ```
 frontend/src/
@@ -141,7 +143,7 @@ La sincronización se ejecuta mediante la tarea CLI `sync.php`; no bloquea petic
 
 Si falla (contraseña rechazada, API caída...), no se cae nada: el error queda registrado y el administrador lo ve en **🏢 Clientes**. El botón **🔄 Sincronizar ahora** (solo administradores) sirve para forzarla o para la primera prueba; al acabar muestra **"Campos que devuelve la API"**, útil si algún dato no aparece.
 
-### 3. Refuerzo opcional: tarea programada en Plesk
+### 3. Tareas programadas
 Añade una tarea programada para sincronizar clientes y limpiar logs:
 *Sitios web y dominios → tu dominio → **Tareas programadas** → Añadir tarea*:
 - Tipo: **Ejecutar un script PHP** (o *Ejecutar un comando*).

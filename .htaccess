@@ -1,0 +1,58 @@
+# Apache front controller for the existing Plesk document root (httpdocs).
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Serve static resources from public/ without changing their public URLs.
+  RewriteRule ^(assets|build)/(.*)$ public/$1/$2 [L]
+
+  # Keep implementation files outside the public URL space.
+  RewriteCond %{THE_REQUEST} \s/+public(?:/|[?\s]) [NC]
+  RewriteRule ^public(?:/|$) - [F,L]
+  RewriteRule ^(config|src|database|frontend|bin|tests|docs)(/|$) - [F,L,NC]
+
+  # Preserve the established endpoint URLs through the root front controller.
+  RewriteRule ^(api|clientes|ingest|login|logout|monitor-enroll|monitor-ingest|monitor-token)\.php$ index.php [QSA,L,NC]
+
+  # Friendly React routes.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(copias|clientes|eventos)(/.*)?$ index.php [QSA,L,NC]
+
+  # Block hidden files and development/config artifacts.
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule (^|/)\. - [F,L]
+  RewriteRule \.(sql|md|log|ini|bak|env|dist|json|lock|jsx)$ - [F,L,NC]
+</IfModule>
+
+<FilesMatch "\.(sql|md|log|ini|bak|env|dist)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "same-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType text/javascript "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+</IfModule>

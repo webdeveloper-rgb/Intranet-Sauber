@@ -6,7 +6,9 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 
 | Ruta | Responsabilidad |
 |---|---|
-| `public/index.php`, `public/login.php`, `public/logout.php`, `public/clientes.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
+| `.htaccess` | Reglas de seguridad y enrutamiento para Apache/Plesk; conserva las URL existentes. |
+| `index.php` | Front controller que delega las rutas web en `public/`. |
+| `index.php` y `public/*.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
 | `public/api.php` | Punto unico de entrada de las acciones JSON del panel. |
 | `public/ingest.php` | Punto de entrada de avisos de n8n, protegido con token Bearer. |
 | `public/monitor-ingest.php` | Receptor autenticado de informes de hardware y alertas de Monitor-Equipos. |
@@ -24,7 +26,7 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 | `database/` | Esquema inicial, tablas de equipos y tablas historicas de sincronizacion. |
 | `frontend/src/` | Aplicacion React: rutas, estado, peticiones y componentes de interfaz. |
 | `frontend/src/styles.css` | Interfaz del panel. |
-| `public/` | Raiz web de Plesk: rutas PHP, recursos estaticos y frontend compilado. |
+| `public/` | Rutas HTTP y recursos estaticos delegados desde la raiz web existente. |
 | `bin/` | Entradas CLI para las tareas programadas de Plesk. |
 | `public/assets/` | Estilos y logotipo de la pagina de acceso. |
 | `public/build/` | JavaScript y CSS compilados desde `frontend/`. |
