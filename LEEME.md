@@ -159,7 +159,7 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 
 1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 11).
 2. En **Tokens de integraciones**, crea una sola clave API compartida sin caducidad para Monitor-Equipos. Reutiliza la misma clave en todas las instalaciones; no generes una clave por equipo. Guárdala de forma segura: quien la obtenga podrá dar de alta agentes.
-3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID, generará una contraseña permanente aleatoria distinta por instalación y configurará ambas cosas en RustDesk y MonitorAgent.
+3. El instalador solicita la nota o referencia del cliente y la contraseña permanente que quieras asignar a RustDesk (12-64 caracteres, sin espacios). Configura la contraseña en RustDesk y la guarda en MonitorAgent; también obtiene el ID de RustDesk.
 4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita la clave compartida `sbr_…`. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
    Para instalar MonitorAgent manualmente:
    ```text
