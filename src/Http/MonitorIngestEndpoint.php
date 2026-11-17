@@ -38,7 +38,7 @@ try {
     }
     $rustDeskPassword = $data['rustDeskPassword'] ?? null;
     if ($rustDeskPassword !== null && (!is_string($rustDeskPassword)
-        || preg_match('/\A[A-Za-z0-9!@#$%^&*()_+=.,?-]{12,64}\z/', $rustDeskPassword) !== 1)) {
+        || preg_match('/\A[A-Za-z0-9!@#$%^&*()_+=.,?-]{6,64}\z/', $rustDeskPassword) !== 1)) {
         monitor_responder(['error' => 'La contraseña de RustDesk no tiene un formato válido.'], 422);
     }
     try {
