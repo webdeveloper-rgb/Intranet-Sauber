@@ -34,6 +34,8 @@ function asegurar_tablas_equipos(PDO $pdo): void
         $pdo->exec('ALTER TABLE equipos ADD COLUMN tipo VARCHAR(20) NULL AFTER sugerido, ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
     elseif (!in_array('programa', $columns, true))
         $pdo->exec('ALTER TABLE equipos ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
+    if (!in_array('tipo_manual', $columns, true))
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN tipo_manual VARCHAR(20) NULL AFTER sugerido');
     $vigNuevo = !in_array('vigilar', $columns, true);
     if ($vigNuevo)
         $pdo->exec('ALTER TABLE equipos ADD COLUMN vigilar TINYINT(1) NOT NULL DEFAULT 1');
@@ -79,7 +81,7 @@ function equipos_listado(): array
 {
     $pdo = db();
     asegurar_tablas_equipos($pdo);
-    $rows = $pdo->query("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
+    $rows = $pdo->query("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.tipo_manual,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
         DATE_FORMAT(e.creado,'%Y-%m-%d') AS fecha_creacion,
         (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
         (EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)
@@ -172,6 +174,38 @@ function equipos_vigilar(int $equipoId, bool $vigilar): void
     if (!$st->fetchColumn())
         throw new ApiError('Equipo no encontrado');
     $pdo->prepare('UPDATE equipos SET vigilar=? WHERE id=?')->execute([$vigilar ? 1 : 0, $equipoId]);
+}
+
+function equipos_guardar_tipo(int $equipoId, $tipo): string
+{
+    if (!is_string($tipo) || !in_array($tipo, ['auto', 'usuario', 'servidor', 'programa'], true))
+        throw new ApiError('Selecciona un tipo de equipo válido.');
+
+    $pdo = db();
+    asegurar_tablas_equipos($pdo);
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT id,nombre,software,programa FROM equipos WHERE id=? FOR UPDATE');
+        $st->execute([$equipoId]);
+        $equipo = $st->fetch();
+        if (!$equipo)
+            throw new ApiError('Equipo no encontrado.');
+
+        $clasificacion = ingesta_clasificar_nombre($equipo['nombre']);
+        $tipoFinal = $tipo === 'auto' ? ($clasificacion['tipo'] ?? ($equipo['software'] === 'VMware' ? 'servidor' : null)) : $tipo;
+        $programa = $tipoFinal === 'programa' ? ($clasificacion['programa'] ?? $equipo['programa']) : null;
+        $tipoManual = $tipo === 'auto' ? null : $tipo;
+        $pdo->prepare('UPDATE equipos SET tipo_manual=?,tipo=?,programa=? WHERE id=?')
+            ->execute([$tipoManual, $tipoFinal, $programa, $equipoId]);
+        $pdo->prepare('UPDATE copias SET tipo=?,programa=? WHERE equipo_id=?')
+            ->execute([$tipoFinal, $programa, $equipoId]);
+        $pdo->commit();
+        return $tipoFinal ?? '';
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction())
+            $pdo->rollBack();
+        throw $e;
+    }
 }
 
 function equipos_guardar_dias_copia(int $equipoId, $dias): void

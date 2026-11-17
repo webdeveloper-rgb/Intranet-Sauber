@@ -934,6 +934,28 @@ tbody tr.sin-copia {
   color: var(--tx);
   font: inherit;
 }
+.equipo-tipo-editor {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  max-width: 560px;
+}
+.equipo-tipo-editor > label {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 650;
+}
+.equipo-tipo-editor > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.equipo-tipo-editor select {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--tx);
+  font: inherit;
+}
 .equipo-alias-estado {
   min-height: 1em;
   color: var(--ok);

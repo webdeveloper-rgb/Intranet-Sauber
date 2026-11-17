@@ -67,6 +67,16 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'equipo_tipo') {
+            exigir_admin($user);
+            try {
+                $tipo = equipos_guardar_tipo((int) ($input['id'] ?? 0), $input['tipo'] ?? null);
+                out(['ok' => true, 'tipo' => $tipo ?: null, 'tipo_manual' => ($input['tipo'] ?? null) === 'auto' ? null : $tipo]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_desasignar') {
             exigir_admin($user);
             try {
