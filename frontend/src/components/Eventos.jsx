@@ -228,7 +228,7 @@ export default function Eventos({ equipoId = null }) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(90, 100, 112);
-      doc.text('Vista resumida para lectura rápida. Los mensajes íntegros están en el apéndice.', 14, 22);
+      doc.text('Vista compacta para lectura rápida; los mensajes se limitan a 180 caracteres.', 14, 22);
       autoTable(doc, {
         startY: 27,
         head: [['Fecha y hora', 'Clasificación', 'Nivel Windows', 'Canal', 'Origen', 'ID', 'Resumen del mensaje']],
@@ -240,40 +240,6 @@ export default function Eventos({ equipoId = null }) {
         margin: { left: 14, right: 14, bottom: 17 },
       });
 
-      // Apéndice con mensajes completos; líneas largas pasan a la página siguiente sin inflar filas de tabla.
-      doc.addPage();
-      let y = 16;
-      const tituloApéndice = (continuacion = false) => {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(28, 53, 81);
-        doc.text(continuacion ? 'Mensajes completos · continuación' : 'Mensajes completos', 14, 12);
-        doc.setDrawColor(210, 218, 226);
-        doc.line(14, 16, ancho - 14, 16);
-        y = 22;
-      };
-      tituloApéndice();
-      todos.forEach((evento) => {
-        const cabecera = `${fechaHora(evento.fecha)}  ·  ${evento.nivel}  ·  ${evento.canal || 'Sin canal'}  ·  ${evento.origen || 'Sin origen'}  ·  ID ${evento.event_id}`;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        const lineasCabecera = doc.splitTextToSize(cabecera, ancho - 28);
-        if (y + lineasCabecera.length * 4 + 10 > 194) tituloApéndice(true);
-        doc.text(lineasCabecera, 14, y);
-        y += lineasCabecera.length * 4 + 1;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(50, 60, 72);
-        const mensaje = String(evento.mensaje || 'Sin mensaje');
-        const lineas = doc.splitTextToSize(mensaje, ancho - 28);
-        lineas.forEach((linea) => {
-          if (y > 194) tituloApéndice(true);
-          doc.text(linea, 14, y);
-          y += 3.7;
-        });
-        y += 3;
-      });
-
       const paginasPdf = doc.internal.getNumberOfPages();
       for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) {
         doc.setPage(paginaPdf);
@@ -282,7 +248,7 @@ export default function Eventos({ equipoId = null }) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(110, 120, 130);
-        doc.text(`Registro de eventos · ${todos.length} eventos`, 14, 206);
+        doc.text(`Registro de eventos · ${todos.length} eventos · mensajes resumidos a 180 caracteres`, 14, 206);
         doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 14, 206, { align: 'right' });
       }
       doc.save(`eventos-equipo-${equipoId}.pdf`);
