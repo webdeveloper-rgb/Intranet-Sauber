@@ -92,6 +92,9 @@ try {
         8 => static function (PDO $pdo): void {
             monitor_migrar_esquema($pdo);
         },
+        9 => static function (PDO $pdo): void {
+            monitor_migrar_esquema($pdo);
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

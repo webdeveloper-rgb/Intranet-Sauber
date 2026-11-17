@@ -79,6 +79,18 @@ function fecha(value) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('es-ES');
 }
 
+function productosSoftware(software, field) {
+  if (!software || software.available === false) return 'Pendiente de actualizar el agente';
+  return software[field]?.length ? software[field].join(', ') : 'No detectado';
+}
+
+function licenciaWindows(software) {
+  if (!software || software.available === false) return 'Pendiente de actualizar el agente';
+  if (software.windowsLicenseStatus === 'licensed') return 'Activa';
+  if (software.windowsLicenseStatus === 'not_licensed') return 'No activa';
+  return 'No disponible';
+}
+
 function agregarDatoPdf(rows, label, value) {
   if (value == null || value === '') return;
   rows.push([label, String(value)]);
@@ -124,7 +136,7 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
-  const nombreEquipo = String(equipo.nombre || `Equipo ${equipo.id}`);
+  const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
   const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
   doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
   doc.setFillColor(27, 48, 70);
@@ -155,6 +167,7 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const sistema = [];
   agregarDatoPdf(sistema, 'ID de RustDesk', monitor.rustDeskId);
   agregarDatoPdf(sistema, 'Sistema operativo', [monitor.system?.osName, monitor.system?.osVersion, monitor.system?.osArchitecture].filter(Boolean).join(' · '));
+  agregarDatoPdf(sistema, 'Versión de Windows', monitor.software?.windowsRelease);
   agregarDatoPdf(sistema, 'Fabricante y modelo', [monitor.system?.manufacturer, monitor.system?.model].filter(Boolean).join(' · '));
   agregarDatoPdf(sistema, 'Número de serie', monitor.system?.serialNumber);
   agregarDatoPdf(sistema, 'Dominio', monitor.system?.domain);
@@ -162,6 +175,12 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   agregarDatoPdf(sistema, 'Último arranque de Windows', fecha(monitor.system?.lastBootUtc));
   agregarDatoPdf(sistema, 'Tiempo encendido del PC al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
   y = agregarSeccionPdf(doc, 'Sistema', sistema, y);
+
+  const software = [];
+  agregarDatoPdf(software, 'Antivirus detectado', productosSoftware(monitor.software, 'antivirusProducts'));
+  agregarDatoPdf(software, 'Software de copias detectado', productosSoftware(monitor.software, 'backupProducts'));
+  agregarDatoPdf(software, 'Licencia de Windows', licenciaWindows(monitor.software));
+  y = agregarSeccionPdf(doc, 'Protección, copias y licencia', software, y);
 
   const placa = [];
   agregarDatoPdf(placa, 'Placa base', [monitor.board?.manufacturer, monitor.board?.product].filter(Boolean).join(' · '));
@@ -321,6 +340,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       <dl className="monitor-campos">
         <Campo label="ID de RustDesk" value={monitor.rustDeskId} />
         <Campo label="Sistema operativo" value={[monitor.system?.osName, monitor.system?.osVersion, monitor.system?.osArchitecture].filter(Boolean).join(' · ')} />
+        <Campo label="Versión de Windows" value={monitor.software?.windowsRelease} />
         <Campo label="Fabricante y modelo" value={[monitor.system?.manufacturer, monitor.system?.model].filter(Boolean).join(' · ')} />
         <Campo label="Número de serie" value={monitor.system?.serialNumber} />
         <Campo label="Dominio" value={monitor.system?.domain} />
@@ -328,6 +348,14 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="Último arranque" value={fecha(monitor.system?.lastBootUtc)} />
         <Campo label="Tiempo encendido del PC al informe" value={tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc)} ayuda="Tiempo desde el último arranque hasta el informe recibido. No son las horas acumuladas del disco." />
         <Campo label="Predicción SMART" value={monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto'} />
+      </dl>
+    </Seccion>
+
+    <Seccion titulo="Protección, copias y licencia">
+      <dl className="monitor-campos">
+        <Campo label="Antivirus detectado" value={productosSoftware(monitor.software, 'antivirusProducts')} ayuda="Combina productos registrados en el Centro de seguridad y nombres de aplicaciones conocidas." />
+        <Campo label="Software de copias detectado" value={productosSoftware(monitor.software, 'backupProducts')} />
+        <Campo label="Licencia de Windows" value={licenciaWindows(monitor.software)} />
       </dl>
     </Seccion>
 

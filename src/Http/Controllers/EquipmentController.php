@@ -53,6 +53,20 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'equipo_alias') {
+            exigir_admin($user);
+            try {
+                $alias = monitor_alias_guardar(
+                    db(),
+                    (int) ($input['id'] ?? 0),
+                    $input['alias'] ?? null
+                );
+                out(['ok' => true, 'alias' => $alias]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_desasignar') {
             exigir_admin($user);
             try {

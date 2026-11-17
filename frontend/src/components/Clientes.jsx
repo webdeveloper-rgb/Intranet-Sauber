@@ -17,6 +17,51 @@ const DIAS_SEMANA = [
   ['V', 'Viernes'], ['S', 'Sábado'], ['D', 'Domingo'],
 ];
 
+function AliasEquipo({ equipo, admin, onSaved }) {
+  const [alias, setAlias] = useState(equipo.monitor_alias || '');
+  const [guardandoAlias, setGuardandoAlias] = useState(false);
+  const [estado, setEstado] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setAlias(equipo.monitor_alias || '');
+    setEstado('');
+    setError('');
+  }, [equipo.id, equipo.monitor_alias]);
+
+  const guardar = async (event) => {
+    event.preventDefault();
+    setGuardandoAlias(true);
+    setEstado('');
+    setError('');
+    try {
+      const result = await api('equipo_alias', { id: equipo.id, alias: alias.trim() });
+      const nuevoAlias = result.alias || '';
+      setAlias(nuevoAlias);
+      onSaved(equipo.id, nuevoAlias);
+      setEstado(nuevoAlias ? 'Alias guardado.' : 'Alias eliminado.');
+    } catch (e) {
+      setError(e.message || 'No se pudo guardar el alias.');
+    } finally {
+      setGuardandoAlias(false);
+    }
+  };
+
+  if (!admin) return null;
+  return <form className="equipo-alias-editor" onSubmit={guardar}>
+    <label htmlFor={`alias-equipo-${equipo.id}`}>Alias (se muestra junto al nombre original)</label>
+    <div>
+      <input id={`alias-equipo-${equipo.id}`} value={alias} maxLength={100}
+        placeholder="Ej.: Recepción, Caja 1…" disabled={guardandoAlias}
+        onChange={(event) => { setAlias(event.target.value); setEstado(''); }} />
+      <button className="btn sec" type="submit" disabled={guardandoAlias || alias.trim() === (equipo.monitor_alias || '')}>
+        {guardandoAlias ? 'Guardando…' : 'Guardar alias'}
+      </button>
+    </div>
+    <span className={`equipo-alias-estado${error ? ' error' : ''}`} role={error ? 'alert' : 'status'}>{error || estado}</span>
+  </form>;
+}
+
 function HorarioSemana({ equipo, onSaved }) {
   const horarioActual = /^[01]{7}$/.test(equipo.dias_copia || '') && equipo.dias_copia.includes('1')
     ? equipo.dias_copia : '1111111';
@@ -249,7 +294,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     return !textoBusqueda || norm(datos).includes(textoBusqueda);
   }), [clientesPorSatbk, textoBusqueda]);
   const equiposFiltrados = useMemo(() => equiposCliente
-    .filter((equipo) => !textoBusqueda || norm(unir(equipo.nombre, equipo.software, equipo.sugerido, equipo.origen)).includes(textoBusqueda))
+    .filter((equipo) => !textoBusqueda || norm(unir(equipo.nombre, equipo.monitor_alias, equipo.software, equipo.sugerido, equipo.origen)).includes(textoBusqueda))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
   [equiposCliente, textoBusqueda]);
   const paginaClientes = usePagination(clientesFiltrados, 24, `${textoBusqueda}|${filtroSatbk}`);
@@ -333,6 +378,13 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     setEquipos(actualizar);
   };
 
+  const actualizarAlias = (id, alias) => {
+    const actualizar = (lista) => lista.map((item) => item.id === id ? { ...item, monitor_alias: alias || null } : item);
+    cargaActual.current += 1;
+    equiposActuales.current = actualizar(equiposActuales.current);
+    setEquipos(actualizar);
+  };
+
   const volverAClientes = () => {
     onNavigate('/clientes');
     setBusqueda('');
@@ -350,7 +402,8 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     <section className="mapeo-panel" aria-labelledby="titulo-mapeo">
       <div className="mapeo-heading">
         <div>
-          <h2 id="titulo-mapeo">{equipoActual ? equipoActual.nombre : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
+          <h2 id="titulo-mapeo">{equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</> : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
+          {equipoActual && <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />}
           {clienteActual && !equipoActual && <p>{equiposCliente.length} equipos · {totalServidores} servidores</p>}
           {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
             equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
@@ -463,7 +516,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   <button type="button" className="equipo-navegable-abrir"
                     onClick={() => onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}/equipos/${equipo.id}`)}>
                     <span className="equipo-navegable-info">
-                      <strong>{equipo.nombre}</strong>
+                      <strong>{equipo.nombre}{equipo.monitor_alias && <small className="equipo-alias-lista"> · {equipo.monitor_alias}</small>}</strong>
                       <span>{unir(equipo.software, equipo.programa || TIPOS[equipo.tipo])}</span>
                     </span>
                     <span className="equipo-tipo-pill">{equipo.tipo === 'servidor' ? 'Servidor' : 'Equipo'}</span>

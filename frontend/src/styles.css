@@ -903,6 +903,50 @@ tbody tr.sin-copia {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+.equipo-alias-titulo {
+  color: var(--brand-t);
+  font-size: 0.82em;
+  font-weight: 650;
+}
+.equipo-alias-editor {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  max-width: 560px;
+}
+.equipo-alias-editor > label {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 650;
+}
+.equipo-alias-editor > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.equipo-alias-editor input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--tx);
+  font: inherit;
+}
+.equipo-alias-estado {
+  min-height: 1em;
+  color: var(--ok);
+  font-size: 12px;
+}
+.equipo-alias-estado.error {
+  color: var(--er);
+}
+.equipo-alias-lista {
+  color: var(--brand-t);
+  font-size: 13px;
+  font-weight: 600;
+}
 .equipo-rustdesk-id {
   display: flex;
   flex-wrap: wrap;
@@ -2143,6 +2187,9 @@ header {
 .equipo-navegable-info strong {
   font-size: 15px;
   overflow-wrap: anywhere;
+}
+.equipo-navegable-info .equipo-alias-lista {
+  display: inline;
 }
 .equipo-navegable-info span {
   color: var(--mut);

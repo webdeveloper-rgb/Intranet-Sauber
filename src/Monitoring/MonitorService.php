@@ -21,6 +21,9 @@ function monitor_migrar_esquema(PDO $pdo): void
     if (!in_array('monitor_event_mode', $columns, true)) {
         $pdo->exec("ALTER TABLE equipos ADD COLUMN monitor_event_mode VARCHAR(20) NOT NULL DEFAULT 'standard'");
     }
+    if (!in_array('monitor_alias', $columns, true)) {
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN monitor_alias VARCHAR(100) NULL');
+    }
     $index = $pdo->query("SELECT COUNT(*) FROM information_schema.statistics
         WHERE table_schema=DATABASE() AND table_name='equipos' AND index_name='uq_equipos_monitor_machine_id'")->fetchColumn();
     if (!(int) $index) {
@@ -99,6 +102,21 @@ function monitor_lista($source, array $fields, int $maxItems): array
         $normalized = monitor_campos($item, $fields);
         if ($normalized !== null) {
             $result[] = $normalized;
+        }
+    }
+    return $result;
+}
+
+function monitor_lista_textos($source, int $maxItems, int $maxLength): array
+{
+    if (!is_array($source)) {
+        return [];
+    }
+    $result = [];
+    foreach (array_slice($source, 0, $maxItems) as $item) {
+        $text = monitor_texto($item, $maxLength);
+        if ($text !== null && !in_array($text, $result, true)) {
+            $result[] = $text;
         }
     }
     return $result;
@@ -222,6 +240,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'name' => 'text', 'chargePercent' => 'number', 'designCapacity' => 'number',
         'fullChargeCapacity' => 'number', 'healthPercent' => 'number',
     ];
+    $software = is_array($data['software'] ?? null) ? $data['software'] : [];
 
     return [
         'agentVersion' => monitor_texto($data['agentVersion'] ?? null, 40),
@@ -231,6 +250,14 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'rustDeskId' => monitor_texto($data['rustDeskId'] ?? null, 128),
         'eventExtractionMode' => $eventMode,
         'system' => monitor_campos($data['system'] ?? null, $systemFields),
+        'software' => [
+            'available' => is_array($data['software'] ?? null),
+            'windowsRelease' => monitor_texto($software['windowsRelease'] ?? null, 40),
+            'windowsLicenseStatus' => in_array($software['windowsLicenseStatus'] ?? null, ['licensed', 'not_licensed', 'unknown'], true)
+                ? $software['windowsLicenseStatus'] : 'unknown',
+            'antivirusProducts' => monitor_lista_textos($software['antivirusProducts'] ?? null, 20, 160),
+            'backupProducts' => monitor_lista_textos($software['backupProducts'] ?? null, 30, 160),
+        ],
         'board' => monitor_campos($data['board'] ?? null, $boardFields),
         'cpus' => monitor_lista($data['cpus'] ?? null, $cpuFields, 32),
         'ram' => monitor_lista($data['ram'] ?? null, $ramFields, 64),
@@ -666,9 +693,27 @@ function monitor_event_mode_guardar(PDO $pdo, int $equipmentId, string $mode): v
     }
 }
 
+function monitor_alias_guardar(PDO $pdo, int $equipmentId, $alias): ?string
+{
+    if ($equipmentId < 1 || (!is_string($alias) && $alias !== null)) {
+        throw new ApiError('El equipo o el alias no es válido.');
+    }
+    $normalized = monitor_texto($alias, 100);
+    $st = $pdo->prepare('UPDATE equipos SET monitor_alias=? WHERE id=?');
+    $st->execute([$normalized, $equipmentId]);
+    if (!$st->rowCount()) {
+        $st = $pdo->prepare('SELECT id FROM equipos WHERE id=?');
+        $st->execute([$equipmentId]);
+        if (!$st->fetchColumn()) {
+            throw new ApiError('Equipo no encontrado.');
+        }
+    }
+    return $normalized;
+}
+
 function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
 {
-    $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen,monitor_event_mode FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
+    $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen,monitor_event_mode,monitor_alias FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
     $st->execute([$equipmentId]);
     $row = $st->fetch();
     if (!$row) {
@@ -690,6 +735,7 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     unset($alert);
     return [
         'monitor' => $report,
+        'monitor_alias' => $row['monitor_alias'],
         'monitor_last_seen' => $row['monitor_last_seen'],
         'event_extraction_mode' => $row['monitor_event_mode'],
         'alertas' => $alerts,
