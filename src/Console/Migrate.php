@@ -17,6 +17,17 @@ require __DIR__ . '/../Backup/EquipmentService.php';
 require_once __DIR__ . '/../Monitoring/MonitorService.php';
 require __DIR__ . '/../Security/ApiTokens.php';
 
+$activeMigration = 0;
+
+function migracion_ejecutar_sql(PDO $pdo, string $sql, string $origen): void
+{
+    try {
+        $pdo->exec($sql);
+    } catch (Throwable $e) {
+        throw new RuntimeException('Error en ' . $origen . ' [' . $sql . ']: ' . $e->getMessage(), 0, $e);
+    }
+}
+
 try {
     $pdo = db();
     $pdo->exec("CREATE TABLE IF NOT EXISTS schema_version (
@@ -107,6 +118,7 @@ try {
         if ($version <= $current) {
             continue;
         }
+        $activeMigration = $version;
         $migration($pdo);
         $stmt = $pdo->prepare("INSERT INTO schema_version (id,version,updated_at) VALUES (1,?,NOW())
             ON DUPLICATE KEY UPDATE version=?,updated_at=NOW()");
@@ -116,6 +128,7 @@ try {
 
     echo "Esquema actualizado.\n";
 } catch (Throwable $e) {
-    fwrite(STDERR, 'Error de migración: ' . $e->getMessage() . "\n");
+    $fase = $activeMigration > 0 ? ' (migración ' . $activeMigration . ')' : '';
+    fwrite(STDERR, 'Error de migración' . $fase . ': ' . $e->getMessage() . "\n");
     exit(1);
 }

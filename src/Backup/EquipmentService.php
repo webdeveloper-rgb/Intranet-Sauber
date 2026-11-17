@@ -21,8 +21,12 @@ function asegurar_tablas_equipos(PDO $pdo): void
     asegurar_tablas_sync($pdo);
     $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/equipos.sql');
     $sql = (string) preg_replace('/^--.*$/m', '', $sql);
-    foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement)
-        $pdo->exec($statement);
+    foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $statement, 'database/equipos.sql');
+        else
+            $pdo->exec($statement);
+    }
 
     $columns = $pdo->query("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='equipos'")->fetchAll(PDO::FETCH_COLUMN);
     if (!in_array('origen', $columns, true))
@@ -30,12 +34,30 @@ function asegurar_tablas_equipos(PDO $pdo): void
     if (!in_array('sugerido', $columns, true))
         $pdo->exec('ALTER TABLE equipos ADD COLUMN sugerido VARCHAR(200) NULL AFTER origen');
     $tipoNuevo = !in_array('tipo', $columns, true);
-    if ($tipoNuevo)
-        $pdo->exec('ALTER TABLE equipos ADD COLUMN tipo VARCHAR(20) NULL AFTER sugerido, ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
-    elseif (!in_array('programa', $columns, true))
-        $pdo->exec('ALTER TABLE equipos ADD COLUMN programa VARCHAR(50) NULL AFTER tipo');
-    if (!in_array('tipo_manual', $columns, true))
-        $pdo->exec('ALTER TABLE equipos ADD COLUMN tipo_manual VARCHAR(20) NULL AFTER sugerido');
+    if ($tipoNuevo) {
+        $sqlTipo = 'ALTER TABLE equipos ADD COLUMN tipo VARCHAR(20) NULL AFTER sugerido';
+        $sqlPrograma = 'ALTER TABLE equipos ADD COLUMN programa VARCHAR(50) NULL AFTER tipo';
+        if (function_exists('migracion_ejecutar_sql')) {
+            migracion_ejecutar_sql($pdo, $sqlTipo, 'columna tipo de equipos');
+            migracion_ejecutar_sql($pdo, $sqlPrograma, 'columna programa de equipos');
+        } else {
+            $pdo->exec($sqlTipo);
+            $pdo->exec($sqlPrograma);
+        }
+    } elseif (!in_array('programa', $columns, true)) {
+        $sqlPrograma = 'ALTER TABLE equipos ADD COLUMN programa VARCHAR(50) NULL AFTER tipo';
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $sqlPrograma, 'columna programa de equipos');
+        else
+            $pdo->exec($sqlPrograma);
+    }
+    if (!in_array('tipo_manual', $columns, true)) {
+        $sqlTipoManual = 'ALTER TABLE equipos ADD COLUMN tipo_manual VARCHAR(20) NULL AFTER sugerido';
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $sqlTipoManual, 'columna tipo_manual de equipos');
+        else
+            $pdo->exec($sqlTipoManual);
+    }
     $vigNuevo = !in_array('vigilar', $columns, true);
     if ($vigNuevo)
         $pdo->exec('ALTER TABLE equipos ADD COLUMN vigilar TINYINT(1) NOT NULL DEFAULT 1');

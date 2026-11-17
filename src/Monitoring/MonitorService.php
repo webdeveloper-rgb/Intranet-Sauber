@@ -25,7 +25,11 @@ function monitor_migrar_esquema(PDO $pdo): void
         $pdo->exec('ALTER TABLE equipos ADD COLUMN monitor_alias VARCHAR(100) NULL');
     }
     if (!in_array('rustdesk_password_enc', $columns, true)) {
-        $pdo->exec('ALTER TABLE equipos ADD COLUMN rustdesk_password_enc TEXT NULL');
+        $sqlPassword = 'ALTER TABLE equipos ADD COLUMN rustdesk_password_enc TEXT NULL';
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $sqlPassword, 'columna cifrada de contraseña RustDesk');
+        else
+            $pdo->exec($sqlPassword);
     }
     $index = $pdo->query("SELECT COUNT(*) FROM information_schema.statistics
         WHERE table_schema=DATABASE() AND table_name='equipos' AND index_name='uq_equipos_monitor_machine_id'")->fetchColumn();
@@ -35,7 +39,10 @@ function monitor_migrar_esquema(PDO $pdo): void
 
     $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/monitor.sql');
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
-        $pdo->exec($statement);
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $statement, 'database/monitor.sql');
+        else
+            $pdo->exec($statement);
     }
 }
 

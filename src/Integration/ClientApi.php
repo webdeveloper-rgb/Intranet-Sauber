@@ -366,7 +366,10 @@ function asegurar_tablas_sync(PDO $pdo): void
     $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/sync.sql');
     $sql = preg_replace('/^--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $s) {
-        $pdo->exec($s);
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $s, 'database/sync.sql');
+        else
+            $pdo->exec($s);
     }
     $cols = $pdo->query("SELECT column_name, character_maximum_length FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='copias'")->fetchAll(PDO::FETCH_KEY_PAIR);
     if ($cols && !array_key_exists('equipo_id', $cols)) {
