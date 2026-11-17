@@ -145,26 +145,146 @@ export default function Eventos({ equipoId = null }) {
         todos.push(...(siguiente.eventos || []));
       }
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('Registro de eventos de Windows', 14, 16);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 14, 23);
-      doc.text(`Periodo: ${desde || 'sin inicio'} a ${hasta || 'sin fin'}  ·  ${todos.length} eventos  ·  Generado: ${new Date().toLocaleString('es-ES')}`, 14, 29);
-      autoTable(doc, {
-        startY: 34,
-        head: [['Fecha y hora', 'Clasificación', 'Nivel original', 'Canal', 'Origen', 'Event ID', 'Mensaje']],
-        body: todos.map((e) => [fechaHora(e.fecha), e.nivel, e.nivel_original || e.nivel, e.canal, e.origen, e.event_id, e.mensaje]),
-        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
-        headStyles: { fillColor: [28, 53, 81] },
-        columnStyles: { 0: { cellWidth: 33 }, 1: { cellWidth: 25 }, 2: { cellWidth: 25 }, 3: { cellWidth: 22 }, 4: { cellWidth: 35 }, 5: { cellWidth: 15 }, 6: { cellWidth: 'auto' } },
-        didDrawPage: () => {
-          doc.setFontSize(8);
-          doc.setTextColor(100);
-          doc.text(`Página ${doc.internal.getNumberOfPages()}`, 282, 203, { align: 'right' });
-        },
+      const ancho = doc.internal.pageSize.getWidth();
+      const clasificaciones = [
+        ['Critical', 'Críticos', [150, 42, 52]],
+        ['Error', 'Errores', [184, 76, 62]],
+        ['Warning', 'Advertencias', [224, 157, 51]],
+        ['Information', 'Informativos', [68, 126, 168]],
+      ];
+      const conteoNivel = new Map(clasificaciones.map(([clave]) => [clave, 0]));
+      const tipos = new Map();
+      todos.forEach((evento) => {
+        const nivelEvento = conteoNivel.has(evento.nivel) ? evento.nivel : 'Error';
+        conteoNivel.set(nivelEvento, conteoNivel.get(nivelEvento) + 1);
+        const origen = evento.origen || 'Sin origen';
+        const canal = evento.canal || 'Sin canal';
+        const clave = JSON.stringify([nivelEvento, canal, origen, evento.event_id]);
+        const tipo = tipos.get(clave) || { nivel: nivelEvento, canal, origen, eventId: evento.event_id, cantidad: 0 };
+        tipo.cantidad += 1;
+        tipos.set(clave, tipo);
       });
+      const ordenarTipos = [...tipos.values()].sort((a, b) => b.cantidad - a.cantidad || String(a.origen).localeCompare(String(b.origen)));
+
+      // Portada y resumen ejecutivo.
+      doc.setFillColor(28, 53, 81);
+      doc.rect(14, 12, ancho - 28, 32, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(19);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Informe de eventos de Windows', 21, 25);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(225, 234, 242);
+      doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 21, 34);
+      doc.setTextColor(40, 51, 64);
+      doc.setFontSize(9);
+      doc.text(`Periodo: ${desde || 'todo el historial'}${hasta ? ` a ${hasta}` : ''}`, 14, 52);
+      doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, ancho - 14, 52, { align: 'right' });
+
+      const tarjetaY = 58;
+      const tarjetaGap = 4;
+      const tarjetaAncho = (ancho - 28 - tarjetaGap * 3) / 4;
+      clasificaciones.forEach(([clave, titulo, color], indice) => {
+        const x = 14 + indice * (tarjetaAncho + tarjetaGap);
+        doc.setFillColor(245, 247, 250);
+        doc.rect(x, tarjetaY, tarjetaAncho, 20, 'F');
+        doc.setFillColor(...color);
+        doc.rect(x, tarjetaY, 2, 20, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(86, 99, 112);
+        doc.text(titulo, x + 6, tarjetaY + 7);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor(28, 42, 57);
+        doc.text(String(conteoNivel.get(clave)), x + 6, tarjetaY + 15);
+      });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(28, 53, 81);
+      doc.text('Conteo por tipo de evento', 14, 87);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(90, 100, 112);
+      doc.text(`${todos.length.toLocaleString('es-ES')} registros · tipo definido por clasificación, canal, origen y Event ID`, 14, 92);
+      autoTable(doc, {
+        startY: 96,
+        head: [['Clasificación', 'Canal', 'Origen', 'Event ID', 'Cantidad']],
+        body: ordenarTipos.map((tipo) => [tipo.nivel, tipo.canal, tipo.origen, tipo.eventId, tipo.cantidad]),
+        styles: { fontSize: 8, cellPadding: 2.2, overflow: 'linebreak' },
+        headStyles: { fillColor: [28, 53, 81], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 25 }, 4: { cellWidth: 25, halign: 'right' } },
+        margin: { left: 14, right: 14, bottom: 17 },
+      });
+
+      doc.addPage();
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(28, 53, 81);
+      doc.text('Registro de eventos', 14, 16);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(90, 100, 112);
+      doc.text('Vista resumida para lectura rápida. Los mensajes íntegros están en el apéndice.', 14, 22);
+      autoTable(doc, {
+        startY: 27,
+        head: [['Fecha y hora', 'Clasificación', 'Nivel Windows', 'Canal', 'Origen', 'ID', 'Resumen del mensaje']],
+        body: todos.map((e) => [fechaHora(e.fecha), e.nivel, e.nivel_original || e.nivel, e.canal, e.origen, e.event_id, String(e.mensaje || 'Sin mensaje').replace(/\s+/g, ' ').slice(0, 180) + (String(e.mensaje || '').length > 180 ? '…' : '')]),
+        styles: { fontSize: 7.5, cellPadding: 1.8, overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: [28, 53, 81], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: { 0: { cellWidth: 31 }, 1: { cellWidth: 23 }, 2: { cellWidth: 23 }, 3: { cellWidth: 23 }, 4: { cellWidth: 36 }, 5: { cellWidth: 14 }, 6: { cellWidth: 'auto' } },
+        margin: { left: 14, right: 14, bottom: 17 },
+      });
+
+      // Apéndice con mensajes completos; líneas largas pasan a la página siguiente sin inflar filas de tabla.
+      doc.addPage();
+      let y = 16;
+      const tituloApéndice = (continuacion = false) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(28, 53, 81);
+        doc.text(continuacion ? 'Mensajes completos · continuación' : 'Mensajes completos', 14, 12);
+        doc.setDrawColor(210, 218, 226);
+        doc.line(14, 16, ancho - 14, 16);
+        y = 22;
+      };
+      tituloApéndice();
+      todos.forEach((evento) => {
+        const cabecera = `${fechaHora(evento.fecha)}  ·  ${evento.nivel}  ·  ${evento.canal || 'Sin canal'}  ·  ${evento.origen || 'Sin origen'}  ·  ID ${evento.event_id}`;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        const lineasCabecera = doc.splitTextToSize(cabecera, ancho - 28);
+        if (y + lineasCabecera.length * 4 + 10 > 194) tituloApéndice(true);
+        doc.text(lineasCabecera, 14, y);
+        y += lineasCabecera.length * 4 + 1;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(50, 60, 72);
+        const mensaje = String(evento.mensaje || 'Sin mensaje');
+        const lineas = doc.splitTextToSize(mensaje, ancho - 28);
+        lineas.forEach((linea) => {
+          if (y > 194) tituloApéndice(true);
+          doc.text(linea, 14, y);
+          y += 3.7;
+        });
+        y += 3;
+      });
+
+      const paginasPdf = doc.internal.getNumberOfPages();
+      for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) {
+        doc.setPage(paginaPdf);
+        doc.setDrawColor(220, 225, 231);
+        doc.line(14, 201, ancho - 14, 201);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(110, 120, 130);
+        doc.text(`Registro de eventos · ${todos.length} eventos`, 14, 206);
+        doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 14, 206, { align: 'right' });
+      }
       doc.save(`eventos-equipo-${equipoId}.pdf`);
     } catch (e) {
       setErrorPdf(e.message || 'No se pudo generar el PDF del registro.');

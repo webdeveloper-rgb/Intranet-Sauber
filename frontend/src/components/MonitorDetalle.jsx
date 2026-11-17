@@ -361,7 +361,34 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
 
     <Seccion titulo="Eventos del Visor de Windows">
       <div className="monitor-modo-eventos">
-        <p>Estándar recoge errores y críticos de System y Application; al activarlo, carga inicialmente los últimos 30 días y después continúa desde el cursor del agente. Auditoría Completa recoge todos los niveles de los registros disponibles. El visor muestra todo el historial que ya se haya almacenado.</p>
+        <p>El modo determina qué eventos nuevos envía el agente. El visor conserva y muestra todo el historial que ya está almacenado, aunque cambies el modo.</p>
+        <div className="monitor-modo-aplicado" aria-live="polite">
+          <span>Configurado: <strong>{modoGuardado === 'full' ? 'Auditoría Completa' : 'Estándar'}</strong></span>
+          <span>Aplicado por el agente: <strong>{modoAgente === 'full' ? 'Auditoría Completa' : 'Estándar'}</strong></span>
+          <span className={modoAgente === modoGuardado ? 'correcto' : 'pendiente'}>
+            {modoAgente === modoGuardado ? 'Sincronizado' : 'Pendiente del próximo informe'}
+          </span>
+        </div>
+        <div className="monitor-modo-comparativa">
+          <article className={modoAgente === 'standard' ? 'activo' : ''}>
+            <h4>Estándar</h4>
+            <ul>
+              <li><strong>Canales:</strong> System y Application.</li>
+              <li><strong>Niveles:</strong> Error y Crítico.</li>
+              <li><strong>Histórico inicial:</strong> últimos 30 días; después recoge eventos nuevos con el cursor del agente.</li>
+              <li><strong>Uso:</strong> incidencias relevantes con menos volumen.</li>
+            </ul>
+          </article>
+          <article className={modoAgente === 'full' ? 'activo' : ''}>
+            <h4>Auditoría Completa</h4>
+            <ul>
+              <li><strong>Canales:</strong> todos los registros de Windows disponibles para el agente.</li>
+              <li><strong>Niveles:</strong> Crítico, Error, Advertencia, Información y Detallado.</li>
+              <li><strong>Histórico:</strong> eventos retenidos en el equipo y, después, nuevos eventos.</li>
+              <li><strong>Volumen:</strong> máximo 500 eventos por informe; si hay mucho histórico, el agente lo recorre en varios informes.</li>
+            </ul>
+          </article>
+        </div>
         <label>
           Modo de extracción
           <select value={modoEventos} disabled={!esAdmin || guardandoModo}
