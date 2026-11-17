@@ -36,7 +36,7 @@ function Nivel({ nivel }) {
   return <span className={`evento-nivel ${estilo}`}>{etiqueta}</span>;
 }
 
-export default function Eventos({ equipoId = null }) {
+export default function Eventos({ equipoId = null, onVolver }) {
   const [buscar, setBuscar] = useState('');
   const [q, setQ] = useState('');
   const [nivel, setNivel] = useState('all');
@@ -263,6 +263,7 @@ export default function Eventos({ equipoId = null }) {
     <section className="eventos-page" aria-labelledby="eventos-title">
       <div className="eventos-heading">
         <div>
+          {equipoId && <button type="button" className="btn sec eventos-volver" onClick={onVolver}>← Volver</button>}
           <span className="eyebrow">Monitor de equipos</span>
           <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
           <p>{equipoId

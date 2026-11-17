@@ -181,13 +181,13 @@ export default function App() {
   const cur = data.find((c) => Number(c.id) === Number(idCopiaAbierta));
   return (
     <>
-      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar} onVolver={volver}
+      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}
         esAdmin={sesion?.rol === 'admin'}
         onCuenta={() => { setNotificacionesAbiertas(false); setCuentaAbierta(true); }}
         onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
       <main>
         {vista === 'eventos' ? (
-          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
+          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} acciones={copias} />

@@ -452,7 +452,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
 
       <div className="mapeo-toolbar">
         {clienteActual ? <button className="btn sec" onClick={equipoActual ? volverAEquipos : volverAClientes}>
-          ← {equipoActual ? clienteActual.nombre : 'Clientes'}
+          ← Volver
         </button> : (
           <label className="mapeo-busqueda">
             <span className="sr-only">Buscar cliente</span>

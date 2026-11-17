@@ -10,7 +10,7 @@ const TEXTOS = {
 };
 const NAV = [['copias', 'Copias'], ['clientes', 'Clientes'], ['eventos', 'Eventos']];
 
-export default function Header({ nombre, vista, onNavegar, onVolver, esAdmin, onCuenta, onNotificaciones }) {
+export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones }) {
   const [titulo, subtitulo] = TEXTOS[vista] || TEXTOS.copias;
   const navegar = (event, path) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -26,7 +26,6 @@ export default function Header({ nombre, vista, onNavegar, onVolver, esAdmin, on
       </div>
       <div className="top">
         <span>{nombre}</span>
-        {nombre && <button type="button" className="linkbtn" onClick={onVolver} aria-label="Volver a la pantalla anterior">← Volver</button>}
         {nombre && NAV.map(([k, t]) => (
           <a className="linkbtn" key={k} href={rutaHref(`/${k}`)} aria-current={vista === k ? 'page' : undefined}
             onClick={(event) => navegar(event, `/${k}`)}>{t}</a>
