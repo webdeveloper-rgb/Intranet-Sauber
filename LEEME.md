@@ -13,6 +13,7 @@ api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
 monitor-enroll.php, monitor-ingest.php, monitor-token.php Alta y recepción de informes de Monitor-Equipos
 sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
 index.php, login.php, clientes.php Páginas del panel
+src/Web/                          Implementaciones de páginas; los PHP de raíz conservan sus URL como delegadores
 src/Http/                          Implementaciones de endpoints y respuesta JSON común
 src/Http/Controllers/              Acciones de lectura, historial, clientes, usuarios, equipos y revisión
 src/Console/                       Comandos de sincronización, migración y limpieza

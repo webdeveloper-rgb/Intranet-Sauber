@@ -13,6 +13,7 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 | `monitor-enroll.php` | Canjea códigos de alta de un solo uso por credenciales de agente individuales. |
 | `monitor-token.php` | Intercambia la credencial individual de un agente por un token temporal de un solo uso. |
 | `src/bootstrap.php` | Configuracion, PDO, sesion, CSRF, escape HTML y utilidades comunes. |
+| `src/Web/` | Implementaciones de páginas HTML; los PHP de la raíz conservan las URL públicas como delegadores. |
 | `src/Http/ApiEndpoint.php` | Autorizacion, validacion de sesion/CSRF y despacho hacia controladores. |
 | `src/Http/Controllers/` | Acciones de lectura, historial, clientes, equipos, tokens y revision de copias. |
 | `src/Backup/` | Ingesta de avisos, gestion de equipos y lectura de copias. |
