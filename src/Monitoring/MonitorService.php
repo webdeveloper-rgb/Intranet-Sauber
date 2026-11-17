@@ -500,12 +500,27 @@ function monitor_evaluar_alertas(array $report): array
 function monitor_cliente_texto_normalizar(string $value): string
 {
     $value = mb_strtolower(trim($value), 'UTF-8');
+    $value = strtr($value, [
+        'á' => 'a', 'à' => 'a', 'ä' => 'a', 'â' => 'a',
+        'é' => 'e', 'è' => 'e', 'ë' => 'e', 'ê' => 'e',
+        'í' => 'i', 'ì' => 'i', 'ï' => 'i', 'î' => 'i',
+        'ó' => 'o', 'ò' => 'o', 'ö' => 'o', 'ô' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'ü' => 'u', 'û' => 'u',
+        'ñ' => 'n', 'ç' => 'c',
+    ]);
     if (function_exists('iconv')) {
         $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
         if (is_string($ascii)) {
             $value = strtolower($ascii);
         }
     }
+    // Normaliza las variantes legales habituales: "S.L.", "S. L." y "Sociedad Limitada"
+    // deben equivaler a "SL", para que una referencia breve coincida con la razón social.
+    $value = preg_replace(
+        '/\b(?:s\.?\s*l\.?u?\.?|s\.?\s*a\.?u?\.?|s\.?\s*r\.?\s*l\.?|sociedad\s+(?:limitada|anonima)|responsabilidad\s+limitada)\b/u',
+        ' ',
+        $value
+    ) ?? $value;
     $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? '';
     $stop = ['cliente', 'client', 'empresa', 'equipo', 'pc', 'ordenador', 'portatil', 'sede', 'oficina', 'sucursal', 'nota', 'referencia', 'para', 'de', 'del', 'la', 'el', 'los', 'las', 'sl', 'sa', 'srl', 'slu', 'inc', 'ltd'];
     $tokens = array_filter(explode(' ', trim($value)), static fn($token) => $token !== '' && !in_array($token, $stop, true));
