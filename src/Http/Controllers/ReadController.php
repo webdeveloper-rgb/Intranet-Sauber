@@ -67,11 +67,11 @@ final class ReadController
                 $where[] = 'fecha < DATE_ADD(?, INTERVAL 1 DAY)';
                 $params[] = $dateTo . ' 00:00:00';
             }
-            if (!$where) {
-                $where[] = 'fecha >= DATE_SUB(NOW(), INTERVAL 1 DAY)';
+            $sql = SQL_COPIA;
+            if ($where) {
+                $sql .= ' WHERE ' . implode(' AND ', $where);
             }
-            $query = db()->prepare(SQL_COPIA . ' WHERE ' . implode(' AND ', $where)
-                . ' ORDER BY cursor_fecha DESC, id DESC LIMIT 3001');
+            $query = db()->prepare($sql . ' ORDER BY cursor_fecha DESC, id DESC LIMIT 3001');
             $query->execute($params);
             $rows = $query->fetchAll();
             $truncado = count($rows) > 3000;
