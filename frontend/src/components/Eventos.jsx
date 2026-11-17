@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { api } from '../api';
 import Paginacion from './Paginacion';
 
-const POR_PAGINA = 50;
+const POR_PAGINA = 10;
 const niveles = [
   ['all', 'Todos los niveles'],
   ['Critical', 'Crítico'],
@@ -136,7 +136,7 @@ export default function Eventos({ equipoId = null }) {
     setErrorPdf('');
     try {
       const tamano = resultado?.porPagina || POR_PAGINA;
-      const query = (page) => `monitor_eventos&page=${page}&q=&nivel=all&equipo_id=${equipoId}&todo=1${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
+      const query = (page) => `monitor_eventos&page=${page}&q=&nivel=all&equipo_id=${equipoId}${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
       const primera = await api(query(1));
       const todos = [...(primera.eventos || [])];
       const totalRegistros = Number(primera.total) || todos.length;
@@ -180,8 +180,8 @@ export default function Eventos({ equipoId = null }) {
           <span className="eyebrow">Monitor de equipos</span>
           <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
           <p>{equipoId
-            ? 'En Estándar se muestran errores y críticos de System y Application de los últimos 30 días; Auditoría Completa incluye los niveles y canales disponibles.'
-            : 'Estándar recoge errores y críticos de System y Application de los últimos 30 días. Auditoría Completa incluye todos los niveles y canales disponibles.'}</p>
+            ? 'Se muestra todo el historial almacenado para este equipo. Estándar recoge errores y críticos; Auditoría Completa incluye los niveles y canales habilitados.'
+            : 'Se muestra todo el historial almacenado. Estándar recoge errores y críticos; Auditoría Completa incluye todos los niveles y canales habilitados.'}</p>
         </div>
         <div className="eventos-actualizacion" aria-live="polite">
           <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />

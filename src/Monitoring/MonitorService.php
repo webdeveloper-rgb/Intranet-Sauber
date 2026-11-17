@@ -835,7 +835,7 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     ];
 }
 
-function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null, bool $includeHistory = false): array
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
 {
     if (!in_array($level, [
         'all', 'Critical', 'Error', 'Warning', 'Information',
@@ -844,7 +844,7 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     }
 
     $page = max(1, min($page, 100000));
-    $pageSize = 50;
+    $pageSize = 10;
     $search = monitor_texto($search, 150) ?? '';
     // Ciertos errores de Windows son ruido conocido o tienen impacto de advertencia.
     // Se conserva el nivel original en la respuesta para que el visor sea transparente.
@@ -868,9 +868,9 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
             OR (ev.log_name='System' AND ev.event_id=6008)
         ) THEN 'Warning'
         ELSE 'Error' END";
-    $where = $includeHistory
-        ? ['1=1']
-        : ["(e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)"];
+    // El visor recorre todo el historial almacenado. El modo de extracción solo controla
+    // qué eventos nuevos recoge el agente; no debe ocultar registros antiguos ya guardados.
+    $where = ['1=1'];
     $params = [];
     if ($equipoId !== null) {
         $where[] = 'ev.equipo_id = ?';

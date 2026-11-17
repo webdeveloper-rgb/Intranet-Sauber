@@ -361,7 +361,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
 
     <Seccion titulo="Eventos del Visor de Windows">
       <div className="monitor-modo-eventos">
-        <p>Estándar envía errores y críticos de los últimos 30 días. Auditoría Completa envía todos los registros Error/Crítico retenidos en System y Application.</p>
+        <p>Estándar recoge errores y críticos de System y Application; al activarlo, carga inicialmente los últimos 30 días y después continúa desde el cursor del agente. Auditoría Completa recoge todos los niveles de los registros disponibles. El visor muestra todo el historial que ya se haya almacenado.</p>
         <label>
           Modo de extracción
           <select value={modoEventos} disabled={!esAdmin || guardandoModo}

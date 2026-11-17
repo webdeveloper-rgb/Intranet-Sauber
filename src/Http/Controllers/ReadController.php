@@ -133,7 +133,6 @@ final class ReadController
             $level = $_GET['nivel'] ?? 'all';
             $dateFrom = $_GET['desde'] ?? '';
             $dateTo = $_GET['hasta'] ?? '';
-            $includeHistory = $_GET['todo'] ?? '0';
             $equipoId = array_key_exists('equipo_id', $_GET)
                 ? filter_var($_GET['equipo_id'], FILTER_VALIDATE_INT)
                 : null;
@@ -144,13 +143,12 @@ final class ReadController
             if ($page === false || $page < 1 || !is_string($search)
                 || !is_string($level) || !in_array($level, ['all', 'Critical', 'Error', 'Warning', 'Information'], true)
                 || !is_string($dateFrom) || !is_string($dateTo)
-                || !is_string($includeHistory) || !in_array($includeHistory, ['0', '1'], true)
                 || !$fechaValida($dateFrom) || !$fechaValida($dateTo)
                 || ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo)
                 || ($equipoId !== null && ($equipoId === false || $equipoId < 1))) {
                 fail('Los filtros de eventos no son válidos.');
             }
-            out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId, $dateFrom ?: null, $dateTo ?: null, $includeHistory === '1'));
+            out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId, $dateFrom ?: null, $dateTo ?: null));
         }
 
         if ($action === 'notificaciones') {
