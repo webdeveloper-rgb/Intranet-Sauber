@@ -835,10 +835,10 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     ];
 }
 
-function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null): array
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null, bool $includeHistory = false): array
 {
     if (!in_array($level, [
-        'all', 'LogAlways', 'Critical', 'Error', 'Warning', 'Information', 'Verbose', 'Unknown',
+        'all', 'Critical', 'Error', 'Warning', 'Information',
     ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
         throw new InvalidArgumentException('El nivel de evento no es válido.');
     }
@@ -846,14 +846,46 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     $page = max(1, min($page, 100000));
     $pageSize = 50;
     $search = monitor_texto($search, 150) ?? '';
-    $where = ["(e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)"];
+    // Ciertos errores de Windows son ruido conocido o tienen impacto de advertencia.
+    // Se conserva el nivel original en la respuesta para que el visor sea transparente.
+    $classifiedLevel = "CASE
+        WHEN ev.level='Critical' OR ev.level='Level 1' THEN 'Critical'
+        WHEN ev.level='Warning' OR ev.level='Level 3' THEN 'Warning'
+        WHEN ev.level IN ('Information','Verbose','LogAlways','Level 4','Level 5') THEN 'Information'
+        WHEN ev.level='Unknown' THEN 'Warning'
+        WHEN ev.level='Level 2' THEN 'Error'
+        WHEN ev.level='Error' AND (
+            (LOWER(COALESCE(ev.source,'')) LIKE '%distributedcom%' AND ev.event_id=10016)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%kernel-eventtracing%' AND ev.event_id IN (2,3,4,5,6,15,28))
+        ) THEN 'Information'
+        WHEN ev.level='Error' AND (
+            (LOWER(COALESCE(ev.source,'')) LIKE '%windowsupdateclient%' AND ev.event_id IN (20,21,31,34))
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%distributedcom%' AND ev.event_id=10010)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%devicesetupmanager%' AND ev.event_id=131)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%kernel-pnp%' AND ev.event_id=219)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%appmodel-runtime%' AND ev.event_id IN (65,69))
+            OR (ev.log_name='Application' AND ev.event_id=1002)
+            OR (ev.log_name='System' AND ev.event_id=6008)
+        ) THEN 'Warning'
+        ELSE 'Error' END";
+    $where = $includeHistory
+        ? ['1=1']
+        : ["(e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)"];
     $params = [];
     if ($equipoId !== null) {
         $where[] = 'ev.equipo_id = ?';
         $params[] = $equipoId;
     }
+    if ($dateFrom !== null && $dateFrom !== '') {
+        $where[] = 'ev.event_time >= ?';
+        $params[] = $dateFrom . ' 00:00:00';
+    }
+    if ($dateTo !== null && $dateTo !== '') {
+        $where[] = 'ev.event_time < DATE_ADD(?, INTERVAL 1 DAY)';
+        $params[] = $dateTo . ' 00:00:00';
+    }
     if ($level !== 'all') {
-        $where[] = 'ev.level = ?';
+        $where[] = "({$classifiedLevel}) = ?";
         $params[] = $level;
     }
     if ($search !== '') {
@@ -874,7 +906,7 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     $rows = $pdo->prepare("SELECT ev.id,
             DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%sZ') AS fecha,
             COALESCE(c.nombre,'Sin asignar') AS cliente,e.nombre AS equipo,
-            ev.level AS nivel,ev.log_name AS canal,ev.record_id AS registro,
+            {$classifiedLevel} AS nivel,ev.level AS nivel_original,ev.log_name AS canal,ev.record_id AS registro,
             ev.event_id,ev.source AS origen,ev.message AS mensaje
         FROM monitor_eventos ev
         JOIN equipos e ON e.id=ev.equipo_id

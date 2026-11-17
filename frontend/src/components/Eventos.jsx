@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { api } from '../api';
 import Paginacion from './Paginacion';
 
@@ -8,10 +10,7 @@ const niveles = [
   ['Critical', 'Crítico'],
   ['Error', 'Error'],
   ['Warning', 'Advertencia'],
-  ['Information', 'Información'],
-  ['Verbose', 'Detallado'],
-  ['LogAlways', 'Siempre registrado'],
-  ['Unknown', 'Desconocido'],
+  ['Information', 'Informativo'],
 ];
 
 function fechaHora(value) {
@@ -33,8 +32,6 @@ function Nivel({ nivel }) {
     Error: 'Error',
     Warning: 'Advertencia',
     Information: 'Información',
-    Verbose: 'Detallado',
-    LogAlways: 'Siempre registrado',
   }[nivel] || nivel || '—';
   return <span className={`evento-nivel ${estilo}`}>{etiqueta}</span>;
 }
@@ -43,12 +40,16 @@ export default function Eventos({ equipoId = null }) {
   const [buscar, setBuscar] = useState('');
   const [q, setQ] = useState('');
   const [nivel, setNivel] = useState('all');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [exportando, setExportando] = useState(false);
+  const [errorPdf, setErrorPdf] = useState('');
   const [pagina, setPagina] = useState(1);
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const parametrosRef = useRef({ page: pagina, q, nivel, equipoId });
-  parametrosRef.current = { page: pagina, q, nivel, equipoId };
+  const parametrosRef = useRef({ page: pagina, q, nivel, equipoId, desde, hasta });
+  parametrosRef.current = { page: pagina, q, nivel, equipoId, desde, hasta };
   const enCursoRef = useRef(false);
   const pendienteRef = useRef(false);
   const activaRef = useRef(true);
@@ -75,7 +76,7 @@ export default function Eventos({ equipoId = null }) {
     setCargando(true);
     try {
       const data = await api(
-        `monitor_eventos&page=${parametros.page}&q=${encodeURIComponent(parametros.q)}&nivel=${encodeURIComponent(parametros.nivel)}${parametros.equipoId ? `&equipo_id=${parametros.equipoId}` : ''}`,
+        `monitor_eventos&page=${parametros.page}&q=${encodeURIComponent(parametros.q)}&nivel=${encodeURIComponent(parametros.nivel)}${parametros.equipoId ? `&equipo_id=${parametros.equipoId}` : ''}${parametros.desde ? `&desde=${parametros.desde}` : ''}${parametros.hasta ? `&hasta=${parametros.hasta}` : ''}`,
       );
       if (!activaRef.current) return;
       if (clave === JSON.stringify(parametrosRef.current)) {
@@ -117,7 +118,7 @@ export default function Eventos({ equipoId = null }) {
 
   useEffect(() => {
     cargar();
-  }, [cargar, pagina, q, nivel]);
+  }, [cargar, pagina, q, nivel, desde, hasta]);
 
   useEffect(() => {
     const timer = setInterval(() => cargarRef.current?.(), 60_000);
@@ -128,6 +129,49 @@ export default function Eventos({ equipoId = null }) {
   const total = resultado?.total || 0;
   const paginas = Math.max(1, Math.ceil(total / (resultado?.porPagina || POR_PAGINA)));
   const equipoNombre = eventos[0]?.equipo || `equipo #${equipoId}`;
+
+  const imprimirRegistro = async () => {
+    if (!equipoId || exportando) return;
+    setExportando(true);
+    setErrorPdf('');
+    try {
+      const tamano = resultado?.porPagina || POR_PAGINA;
+      const query = (page) => `monitor_eventos&page=${page}&q=&nivel=all&equipo_id=${equipoId}&todo=1${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
+      const primera = await api(query(1));
+      const todos = [...(primera.eventos || [])];
+      const totalRegistros = Number(primera.total) || todos.length;
+      for (let page = 2; page <= Math.ceil(totalRegistros / tamano); page += 1) {
+        const siguiente = await api(query(page));
+        todos.push(...(siguiente.eventos || []));
+      }
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text('Registro de eventos de Windows', 14, 16);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 14, 23);
+      doc.text(`Periodo: ${desde || 'sin inicio'} a ${hasta || 'sin fin'}  ·  ${todos.length} eventos  ·  Generado: ${new Date().toLocaleString('es-ES')}`, 14, 29);
+      autoTable(doc, {
+        startY: 34,
+        head: [['Fecha y hora', 'Clasificación', 'Nivel original', 'Canal', 'Origen', 'Event ID', 'Mensaje']],
+        body: todos.map((e) => [fechaHora(e.fecha), e.nivel, e.nivel_original || e.nivel, e.canal, e.origen, e.event_id, e.mensaje]),
+        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+        headStyles: { fillColor: [28, 53, 81] },
+        columnStyles: { 0: { cellWidth: 33 }, 1: { cellWidth: 25 }, 2: { cellWidth: 25 }, 3: { cellWidth: 22 }, 4: { cellWidth: 35 }, 5: { cellWidth: 15 }, 6: { cellWidth: 'auto' } },
+        didDrawPage: () => {
+          doc.setFontSize(8);
+          doc.setTextColor(100);
+          doc.text(`Página ${doc.internal.getNumberOfPages()}`, 282, 203, { align: 'right' });
+        },
+      });
+      doc.save(`eventos-equipo-${equipoId}.pdf`);
+    } catch (e) {
+      setErrorPdf(e.message || 'No se pudo generar el PDF del registro.');
+    } finally {
+      setExportando(false);
+    }
+  };
 
   return (
     <section className="eventos-page" aria-labelledby="eventos-title">
@@ -156,6 +200,9 @@ export default function Eventos({ equipoId = null }) {
             placeholder="Cliente, equipo, origen o mensaje"
           />
         </label>
+        <label className="eventos-fecha" htmlFor="eventos-desde"><span>Desde</span><input id="eventos-desde" type="date" value={desde} max={hasta || undefined} onChange={(event) => { setDesde(event.target.value); setPagina(1); }} /></label>
+        <label className="eventos-fecha" htmlFor="eventos-hasta"><span>Hasta</span><input id="eventos-hasta" type="date" value={hasta} min={desde || undefined} onChange={(event) => { setHasta(event.target.value); setPagina(1); }} /></label>
+        {equipoId && <button className="btn sec eventos-pdf" onClick={imprimirRegistro} disabled={exportando}>{exportando ? 'Preparando PDF…' : 'Imprimir registro PDF'}</button>}
         <label className="eventos-nivel" htmlFor="eventos-nivel">
           <span>Nivel</span>
           <select
@@ -173,6 +220,8 @@ export default function Eventos({ equipoId = null }) {
           {resultado === null && cargando ? 'Cargando resultados…' : `${total.toLocaleString('es-ES')} evento${total === 1 ? '' : 's'}`}
         </p>
       </div>
+
+      {errorPdf && <div className="errbox eventos-error" role="alert">{errorPdf}</div>}
 
       {error && (
         <div className="errbox eventos-error" role="alert">
@@ -197,7 +246,7 @@ export default function Eventos({ equipoId = null }) {
                 <th scope="col">Fecha y hora</th>
                 <th scope="col">Cliente</th>
                 <th scope="col">Equipo</th>
-                <th scope="col">Nivel</th>
+                <th scope="col">Clasificación</th>
                 <th scope="col">Canal</th>
                 <th scope="col">Origen</th>
                 <th scope="col">Event ID</th>
@@ -210,7 +259,7 @@ export default function Eventos({ equipoId = null }) {
                   <td className="evento-fecha">{fechaHora(evento.fecha)}</td>
                   <td className="evento-cliente">{evento.cliente || '—'}</td>
                   <td className="evento-equipo">{evento.equipo || '—'}</td>
-                  <td><Nivel nivel={evento.nivel} /></td>
+                  <td><Nivel nivel={evento.nivel} />{evento.nivel_original && evento.nivel_original !== evento.nivel && <small className="evento-nivel-original">Windows: {evento.nivel_original}</small>}</td>
                   <td className="evento-canal">{evento.canal || '—'}</td>
                   <td className="evento-origen">{evento.origen || '—'}</td>
                   <td className="evento-id">{evento.event_id || '—'}</td>

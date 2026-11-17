@@ -1040,6 +1040,20 @@ tbody tr.sin-copia {
   flex: 0 1 190px;
   min-width: 150px;
 }
+.eventos-fecha {
+  flex: 0 1 155px;
+  min-width: 145px;
+}
+.eventos-pdf {
+  min-height: 42px;
+  white-space: nowrap;
+}
+.evento-nivel-original {
+  display: block;
+  margin-top: 3px;
+  color: var(--mut);
+  font-size: 11px;
+}
 .eventos-controles input,
 .eventos-controles select {
   min-width: 0;
