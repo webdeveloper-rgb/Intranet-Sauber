@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { api } from '../api';
 import Paginacion from './Paginacion';
+import FiltrosActivos from './FiltrosActivos';
 
 const POR_PAGINA = 10;
 const niveles = [
@@ -129,6 +130,27 @@ export default function Eventos({ equipoId = null, onVolver }) {
   const total = resultado?.total || 0;
   const paginas = Math.max(1, Math.ceil(total / (resultado?.porPagina || POR_PAGINA)));
   const equipoNombre = eventos[0]?.equipo || `equipo #${equipoId}`;
+  const filtrosActivos = [
+    ...(buscar.trim() ? [{ clave: 'q', etiqueta: `Búsqueda: ${buscar.trim()}` }] : []),
+    ...(nivel !== 'all' ? [{ clave: 'nivel', etiqueta: `Nivel: ${niveles.find(([key]) => key === nivel)?.[1] || nivel}` }] : []),
+    ...(desde ? [{ clave: 'desde', etiqueta: `Desde: ${desde}` }] : []),
+    ...(hasta ? [{ clave: 'hasta', etiqueta: `Hasta: ${hasta}` }] : []),
+  ];
+  const quitarFiltro = (clave) => {
+    if (clave === 'q') { setBuscar(''); setQ(''); }
+    else if (clave === 'nivel') setNivel('all');
+    else if (clave === 'desde') setDesde('');
+    else if (clave === 'hasta') setHasta('');
+    setPagina(1);
+  };
+  const limpiarFiltros = () => {
+    setBuscar('');
+    setQ('');
+    setNivel('all');
+    setDesde('');
+    setHasta('');
+    setPagina(1);
+  };
 
   const imprimirRegistro = async () => {
     if (!equipoId || exportando) return;
@@ -306,6 +328,7 @@ export default function Eventos({ equipoId = null, onVolver }) {
         <p className="eventos-recuento" aria-live="polite">
           {resultado === null && cargando ? 'Cargando resultados…' : `${total.toLocaleString('es-ES')} evento${total === 1 ? '' : 's'}`}
         </p>
+        <FiltrosActivos filtros={filtrosActivos} onQuitar={quitarFiltro} onLimpiar={limpiarFiltros} />
       </div>
 
       {errorPdf && <div className="errbox eventos-error" role="alert">{errorPdf}</div>}

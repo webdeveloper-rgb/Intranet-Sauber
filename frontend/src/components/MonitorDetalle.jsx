@@ -79,6 +79,18 @@ function fecha(value) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('es-ES');
 }
 
+function tiempoDesde(value, ahora) {
+  const timestamp = Date.parse(value || '');
+  if (!Number.isFinite(timestamp)) return null;
+  const minutos = Math.max(0, Math.floor((ahora - timestamp) / 60000));
+  if (minutos < 1) return 'hace menos de un minuto';
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  const dias = Math.floor(horas / 24);
+  return `hace ${dias} día${dias === 1 ? '' : 's'}`;
+}
+
 function productosSoftware(software, field) {
   if (!software || software.available === false) return 'Pendiente de actualizar el agente';
   return software[field]?.length ? software[field].join(', ') : 'No detectado';
@@ -278,6 +290,12 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
   const [modoActualizado, setModoActualizado] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [errorPdf, setErrorPdf] = useState('');
+  const [horaActual, setHoraActual] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setHoraActual(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setModoGuardado(modoConfigurado);
@@ -325,6 +343,17 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
 
   const alerts = datos.alertas || equipo.alertas || [];
   const modoAgente = monitor.eventExtractionMode || 'standard';
+  const ultimoInforme = monitor.timestampUtc || datos.monitor_last_seen;
+  const minutosDesdeInforme = Number.isFinite(Date.parse(ultimoInforme || ''))
+    ? Math.max(0, Math.floor((horaActual - Date.parse(ultimoInforme)) / 60000)) : null;
+  const estadoAgente = minutosDesdeInforme == null
+    ? { texto: 'Sin fecha de informe', clase: 'desconocido' }
+    : minutosDesdeInforme <= 45
+      ? { texto: 'Informe reciente', clase: 'reciente' }
+      : minutosDesdeInforme <= 1440
+        ? { texto: 'Informe demorado', clase: 'demorado' }
+        : { texto: 'Sin informes en las últimas 24 h', clase: 'atrasado' };
+  const erroresColeccion = Array.isArray(monitor.collectionErrors) ? monitor.collectionErrors : null;
   const descargarPdf = () => {
     setErrorPdf('');
     setGenerandoPdf(true);
@@ -344,6 +373,22 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       </button>
     </div>
     {errorPdf && <div className="errbox" role="alert">{errorPdf}</div>}
+    <section className={`monitor-agent-status monitor-agent-${estadoAgente.clase}`} aria-label="Estado del agente">
+      <div className="monitor-agent-status-titulo">
+        <span className="monitor-agent-punto" aria-hidden="true" />
+        <div><strong>{estadoAgente.texto}</strong>
+          <span>{ultimoInforme ? `Último informe: ${fecha(ultimoInforme)} (${tiempoDesde(ultimoInforme, horaActual)})` : 'Este equipo todavía no ha enviado un informe con fecha.'}</span>
+        </div>
+      </div>
+      <div className="monitor-agent-version"><span>Versión del agente</span><strong>{monitor.agentVersion || 'No informada'}</strong></div>
+      {erroresColeccion === null
+        ? <p className="monitor-agent-errores-vacios">Este informe no incluía el detalle de errores de lectura; se mostrará al recibir un informe actualizado.</p>
+        : erroresColeccion.length > 0
+          ? <details className="monitor-agent-errores"><summary>Problemas al recoger datos ({erroresColeccion.length})</summary>
+            <ul>{erroresColeccion.map((detalle, indice) => <li key={`${indice}-${detalle}`}>{detalle}</li>)}</ul>
+          </details>
+          : <span className="monitor-agent-sin-errores">Sin errores de lectura reportados</span>}
+    </section>
     {alerts.length > 0 && <div className={`monitor-alertas ${alerts.some((alert) => alert.severidad === 'critical') ? 'critica' : 'aviso'}`}
       role={alerts.some((alert) => alert.severidad === 'critical') ? 'alert' : 'status'}>
       <h4>Alertas activas ({alerts.length})</h4>

@@ -200,7 +200,7 @@ export default function App() {
               </div>
             )}
             <Kpis n={n} total={data.length - n.sc} />
-            <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} softwares={softwaresCopia} />
+            <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} total={data.length} softwares={softwaresCopia} />
             {copias.truncado && <div className="estado-alertas" role="status">Este intervalo contiene más de 3.000 copias; se muestran las 3.000 más recientes. Reduce el rango de fechas para ver el resto.</div>}
             {filtro === 'sin' && (
               <section className="sin-copia-resumen">
@@ -211,7 +211,7 @@ export default function App() {
                 <strong>{rows.length}<span> equipo{rows.length === 1 ? '' : 's'}</span></strong>
               </section>
             )}
-            <Tabla sinCopia={filtro === 'sin'} rows={paginaCopias.items} cargando={copias.cargando}
+            <Tabla sinCopia={filtro === 'sin'} rows={paginaCopias.items} cargando={copias.cargando} error={copias.fallo}
               onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
             <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
               porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />

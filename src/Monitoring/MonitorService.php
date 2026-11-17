@@ -249,6 +249,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'clientNote' => monitor_texto($data['clientNote'] ?? null, 160),
         'timestampUtc' => gmdate('c', $timestamp),
         'rustDeskId' => monitor_texto($data['rustDeskId'] ?? null, 128),
+        'collectionErrors' => monitor_lista_textos($data['collectionErrors'] ?? null, 40, 500),
         'eventExtractionMode' => $eventMode,
         'system' => monitor_campos($data['system'] ?? null, $systemFields),
         'software' => [

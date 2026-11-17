@@ -2,10 +2,27 @@
  * Controles de filtro y rango temporal de la lista de copias.
  */
 import { FILTROS, EXTRA, ALERTA, PROGRAMAS } from '../logic';
+import FiltrosActivos from './FiltrosActivos';
 
-export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, softwares = [] }) {
+export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, total, softwares = [] }) {
   const { cli, tipo, software, desde, hasta, orden, horas } = f;
-  const hayFiltros = cli || tipo || software || desde || hasta;
+  const filtroEstado = FILTROS.find(([clave]) => clave === filtro)?.[1] || filtro;
+  const filtrosActivos = [
+    ...(filtro !== 'todos' ? [{ clave: 'estado', etiqueta: `Estado: ${filtroEstado}` }] : []),
+    ...(cli ? [{ clave: 'cli', etiqueta: `Búsqueda: ${cli}` }] : []),
+    ...(tipo ? [{ clave: 'tipo', etiqueta: `Tipo: ${tipo.startsWith('programa:') ? tipo.slice(9) : tipo}` }] : []),
+    ...(software ? [{ clave: 'software', etiqueta: `Software: ${software}` }] : []),
+    ...(desde ? [{ clave: 'desde', etiqueta: `Desde: ${desde}` }] : []),
+    ...(hasta ? [{ clave: 'hasta', etiqueta: `Hasta: ${hasta}` }] : []),
+  ];
+  const quitarFiltro = (clave) => {
+    if (clave === 'estado') setFiltro('todos');
+    else setF({ [clave]: '' });
+  };
+  const limpiarFiltros = () => {
+    setFiltro('todos');
+    setF({ cli: '', tipo: '', software: '', desde: '', hasta: '' });
+  };
   const filtroAlerta = ALERTA[filtro] && n[EXTRA[filtro]] > 0;
   const alertas = (n.sc || 0) + (n.v || 0) + (n.a || 0);
   return (
@@ -48,10 +65,7 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, sof
           onChange={(e) => setF({ desde: e.target.value })} /></label>
         <label>Fecha hasta <input type="date" value={hasta} min={desde || undefined}
           onChange={(e) => setF({ hasta: e.target.value })} /></label>
-        {hayFiltros && (
-          <button className="btn sec" onClick={() => setF({ cli: '', tipo: '', software: '', desde: '', hasta: '' })}>Limpiar</button>
-        )}
-        <span className="cnt">{resultados} resultado{resultados === 1 ? '' : 's'}</span>
+        <span className="cnt">{resultados}{Number.isFinite(total) ? ` de ${total}` : ''} resultado${resultados === 1 ? '' : 's'}</span>
         <label>Ordenar{' '}
           <select value={orden} onChange={(e) => setF({ orden: e.target.value })}>
             <option value="fecha-desc">Fecha: recientes primero</option>
@@ -67,6 +81,7 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, sof
             {[12, 24, 48, 72].map((h) => <option key={h} value={h}>{h} h</option>)}
           </select>
         </label>
+        <FiltrosActivos filtros={filtrosActivos} onQuitar={quitarFiltro} onLimpiar={limpiarFiltros} />
       </div>
   );
 }

@@ -9,9 +9,15 @@ import Detalle from './Detalle';
 import MonitorDetalle from './MonitorDetalle';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
+import FiltrosActivos from './FiltrosActivos';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
+const fechaLocal = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('es-ES');
+};
 const DIAS_SEMANA = [
   ['L', 'Lunes'], ['M', 'Martes'], ['X', 'Miércoles'], ['J', 'Jueves'],
   ['V', 'Viernes'], ['S', 'Sábado'], ['D', 'Domingo'],
@@ -327,11 +333,28 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     if (filtrosEquipo.orden === 'informe-reciente') return String(b.monitor_last_seen || '').localeCompare(String(a.monitor_last_seen || '')) || String(a.nombre).localeCompare(String(b.nombre), 'es');
     return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
   }), [equiposCliente, textoBusqueda, filtrosEquipo]);
+  const filtrosActivosClientes = [
+    ...(busqueda.trim() ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${busqueda.trim()}` }] : []),
+    ...(filtroSatbk !== 'todos' ? [{ clave: 'satbk', etiqueta: filtroSatbk === 'con' ? 'Con SATBK' : 'Sin SATBK' }] : []),
+    ...(filtroAgenteCliente !== 'todos' ? [{ clave: 'agente', etiqueta: filtroAgenteCliente === 'con' ? 'Con agente' : 'Sin agente' }] : []),
+    ...(softwareCliente ? [{ clave: 'software', etiqueta: `Programa: ${softwareCliente}` }] : []),
+  ];
+  const filtrosActivosEquipos = [
+    ...(busqueda.trim() ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${busqueda.trim()}` }] : []),
+    ...(filtrosEquipo.agente !== 'todos' ? [{ clave: 'agente', etiqueta: filtrosEquipo.agente === 'con' ? 'Con agente' : 'Sin agente' }] : []),
+    ...(filtrosEquipo.copias !== 'todos' ? [{ clave: 'copias', etiqueta: filtrosEquipo.copias === 'con' ? 'Con copias' : 'Sin copias' }] : []),
+    ...(filtrosEquipo.tipo ? [{ clave: 'tipo', etiqueta: `Tipo: ${filtrosEquipo.tipo}` }] : []),
+    ...(filtrosEquipo.software ? [{ clave: 'software', etiqueta: `Programa: ${filtrosEquipo.software}` }] : []),
+    ...(filtrosEquipo.desde ? [{ clave: 'desde', etiqueta: `Alta desde: ${filtrosEquipo.desde}` }] : []),
+    ...(filtrosEquipo.hasta ? [{ clave: 'hasta', etiqueta: `Alta hasta: ${filtrosEquipo.hasta}` }] : []),
+  ];
   const paginaClientes = usePagination(clientesFiltrados, 24, `${textoBusqueda}|${filtroSatbk}|${ordenClientes}|${filtroAgenteCliente}|${softwareCliente}`);
   const paginaEquipos = usePagination(equiposFiltrados, 24, `${clienteAbierto}|${textoBusqueda}|${JSON.stringify(filtrosEquipo)}`);
   const equiposSinAsignar = equipos.filter((equipo) => !equipo.cliente_id);
   const totalServidores = equiposCliente.filter((equipo) => equipo.tipo === 'servidor').length;
   const equipoSugerencia = equipoActual?.sugerido ? sugerirCliente(clientesAsignables, equipoActual.sugerido) : undefined;
+  const otrosMismoNombre = equipoActual ? equipos.filter((otro) => Number(otro.id) !== Number(equipoActual.id)
+    && norm(String(otro.nombre || '')) === norm(String(equipoActual.nombre || ''))) : [];
   const seleccionGuardada = asignaciones[equipoActual?.id];
   const seleccionGuardadaValida = clientesAsignables.some((cliente) => Number(cliente.id) === Number(seleccionGuardada));
   const clienteActualElegible = clientesAsignables.some((cliente) => Number(cliente.id) === Number(equipoActual?.cliente_id));
@@ -427,6 +450,30 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     setFallo('');
     setMensaje('');
   };
+  const quitarFiltroCliente = (clave) => {
+    if (clave === 'busqueda') setBusqueda('');
+    else if (clave === 'satbk') setFiltroSatbk('todos');
+    else if (clave === 'agente') setFiltroAgenteCliente('todos');
+    else if (clave === 'software') setSoftwareCliente('');
+  };
+  const limpiarFiltrosClientes = () => {
+    setBusqueda('');
+    setFiltroSatbk('todos');
+    setFiltroAgenteCliente('todos');
+    setSoftwareCliente('');
+  };
+  const quitarFiltroEquipo = (clave) => {
+    if (clave === 'busqueda') setBusqueda('');
+    else setFiltrosEquipo((actual) => ({ ...actual, [clave]: clave === 'agente' || clave === 'copias' ? 'todos' : '' }));
+  };
+  const limpiarFiltrosEquipo = () => {
+    setBusqueda('');
+    setFiltrosEquipo({ orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: '', software: '', desde: '', hasta: '' });
+  };
+  const abrirEquipoRelacionado = (otro) => {
+    const grupo = otro.cliente_id ? `/clientes/${encodeURIComponent(String(otro.cliente_id))}` : '/clientes/sin-asignar';
+    onNavigate(`${grupo}/equipos/${otro.id}`);
+  };
 
   return <div className="clientes-page">
     <section className="mapeo-panel" aria-labelledby="titulo-mapeo">
@@ -444,10 +491,10 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
               || (cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Aún no recibido')}</code>
           </div>}
         </div>
-        <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
+        {!equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
           <strong>{equiposSinAsignar.length}</strong>
           <span>sin asignar</span>
-        </div>
+        </div>}
       </div>
 
       <div className="mapeo-toolbar">
@@ -488,6 +535,9 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
         {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
       </div>
 
+      {!clienteActual && !equipoActual && <FiltrosActivos filtros={filtrosActivosClientes}
+        onQuitar={quitarFiltroCliente} onLimpiar={limpiarFiltrosClientes} />}
+
       {clienteActual && !equipoActual && <div className="equipo-filtros" role="group" aria-label="Filtros de equipos">
         <label><span>Ordenar</span><select value={filtrosEquipo.orden} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, orden: e.target.value }))}>
           <option value="nombre-az">Nombre: A a Z</option><option value="nombre-za">Nombre: Z a A</option>
@@ -511,9 +561,9 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
         <label><span>Alta hasta</span><input type="date" value={filtrosEquipo.hasta} min={filtrosEquipo.desde || undefined}
           onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, hasta: e.target.value }))} /></label>
         <span className="cnt">{equiposFiltrados.length} equipo{equiposFiltrados.length === 1 ? '' : 's'}</span>
-        {Object.values(filtrosEquipo).some((valor, indice) => indice > 0 && valor !== '' && valor !== 'todos') &&
-          <button className="btn sec" onClick={() => setFiltrosEquipo({ orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: '', software: '', desde: '', hasta: '' })}>Limpiar filtros</button>}
       </div>}
+      {clienteActual && !equipoActual && <FiltrosActivos filtros={filtrosActivosEquipos}
+        onQuitar={quitarFiltroEquipo} onLimpiar={limpiarFiltrosEquipo} />}
 
       {(ultimaLectura?.alerta || ultimaLectura?.ok === 0 || u?.ok === 0) && <div className="estado-alertas" role="status">
         {ultimaLectura?.alerta && <p>No se reciben avisos de copias desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
@@ -543,7 +593,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
           {!clienteActual && !equipoActual && <>
-            {clientesFiltrados.length || equiposSinAsignar.length || equiposClienteSinSatbk.length ? <div className="cliente-grid">
+            {clientesFiltrados.length || (!filtrosActivosClientes.length && (equiposSinAsignar.length || equiposClienteSinSatbk.length || equiposClienteInactivo.length)) ? <div className="cliente-grid">
               {paginaClientes.items.map((cliente) => {
                 const asignados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
                 const servidores = asignados.filter((equipo) => equipo.tipo === 'servidor').length;
@@ -560,25 +610,25 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>
                 </button>;
               })}
-              {equiposSinAsignar.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+              {!filtrosActivosClientes.length && equiposSinAsignar.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/sin-asignar'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
                 <strong>Sin asignar</strong>
                 <span className="cliente-conteo">{equiposSinAsignar.length} equipos por vincular</span>
               </button>}
-              <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+              {!filtrosActivosClientes.length && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/sin-satbk'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
                 <strong>Equipos sin SATBK</strong>
                 <span className="cliente-conteo">{equiposClienteSinSatbk.length} equipos asignados a clientes sin SATBK</span>
-              </button>
-              {equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+              </button>}
+              {!filtrosActivosClientes.length && equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/cliente-inactivo'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
                 <strong>Cliente no activo</strong>
                 <span className="cliente-conteo">{equiposClienteInactivo.length} equipos conservados</span>
               </button>}
-            </div> : <div className="mapeo-vacio">No hay clientes ni equipos para mostrar.</div>}
+            </div> : <div className="mapeo-vacio">{cargando ? 'Cargando clientes y equipos…' : fallo ? 'No se pudieron cargar los clientes y equipos.' : filtrosActivosClientes.length ? 'Ningún cliente coincide con los filtros seleccionados.' : 'No hay clientes ni equipos para mostrar.'}</div>}
             <Paginacion total={clientesFiltrados.length} pagina={paginaClientes.page} paginas={paginaClientes.pageCount}
               porPagina={paginaClientes.pageSize} onCambiar={paginaClientes.setPage} etiqueta="clientes" />
           </>}
@@ -598,15 +648,48 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   </button>
                 </article>
               ))}
-            </div> : <div className="mapeo-vacio">{busqueda || filtrosEquipo.agente !== 'todos' || filtrosEquipo.copias !== 'todos' || filtrosEquipo.tipo || filtrosEquipo.software || filtrosEquipo.desde || filtrosEquipo.hasta
+            </div> : <div className="mapeo-vacio">{cargando ? 'Cargando equipos…' : fallo ? 'No se pudieron cargar los equipos.' : filtrosActivosEquipos.length
               ? 'Ningún equipo coincide con los filtros seleccionados.'
               : clienteAbierto === 'sin-satbk' ? 'No hay equipos asignados a clientes sin SATBK.'
-                : 'Este cliente todavía no tiene equipos asociados.'}</div>}
+                : clienteAbierto === 'sin-asignar' ? 'No hay equipos sin asignar.'
+                  : 'Este cliente todavía no tiene equipos asociados.'}</div>}
             <Paginacion total={equiposFiltrados.length} pagina={paginaEquipos.page} paginas={paginaEquipos.pageCount}
               porPagina={paginaEquipos.pageSize} onCambiar={paginaEquipos.setPage} etiqueta="equipos" />
           </>}
 
           {equipoActual && <div className="equipo-historial-vista">
+            <section className="equipo-resumen" aria-labelledby="titulo-resumen-equipo">
+              <h3 id="titulo-resumen-equipo">Resumen del equipo</h3>
+              <div className="equipo-resumen-grid">
+                <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
+                <div><span>Datos recibidos</span><strong className="equipo-fuentes">
+                  {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
+                  {equipoActual.tiene_monitor && <span className="equipo-fuente">Monitor-Equipos</span>}
+                  {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos recibidos</span>}
+                </strong></div>
+                <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
+                <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias registradas')}</strong></div>
+                {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
+                  ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
+              </div>
+            </section>
+
+            {!equipoActual.cliente_id && equipoSugerencia && <div className="equipo-vinculacion-sugerida" role="status">
+              <div><strong>Posible cliente: {equipoSugerencia.nombre}</strong>
+                <span>La referencia recibida «{equipoActual.sugerido}» coincide con este cliente. Revisa la sugerencia antes de vincular.</span>
+              </div>
+              <button className="btn" disabled={guardando === equipoActual.id || !hayCambioAsignacion} onClick={asignar}>
+                {guardando === equipoActual.id ? 'Vinculando…' : 'Vincular con este cliente'}
+              </button>
+            </div>}
+
+            {otrosMismoNombre.length > 0 && <details className="equipo-coincidencias">
+              <summary>{otrosMismoNombre.length} posible{otrosMismoNombre.length === 1 ? '' : 's'} duplicado{otrosMismoNombre.length === 1 ? '' : 's'} por nombre; comprobar antes de combinar</summary>
+              <div>{otrosMismoNombre.map((otro) => <button type="button" key={otro.id} onClick={() => abrirEquipoRelacionado(otro)}>
+                <strong>{otro.nombre}</strong><span>{otro.cliente || 'Sin asignar'} · {unir(otro.software, otro.programa, otro.tipo ? TIPOS[otro.tipo] : null) || 'Sin tipo'}</span>
+              </button>)}</div>
+            </details>}
+
             <details className="equipo-gestion">
               <summary>Asignación y avisos</summary>
               <div className="equipo-accion">

@@ -42,7 +42,7 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
   );
 });
 
-export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo, sinCopia = false }) {
+export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, claveEquipo, sinCopia = false }) {
   return (
     <div className="wrap">
       {sinCopia ? (
@@ -66,7 +66,7 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo,
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : 'No hay equipos sin copia recibida.'}</td></tr>
+              <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : error ? 'No se pudo comprobar si hay equipos sin copia.' : 'No hay equipos sin copia recibida.'}</td></tr>
             )}
           </tbody>
         </table>
@@ -85,7 +85,7 @@ export default function Tabla({ rows, cargando, onOpen, rep, horas, claveEquipo,
             <Fila key={c.id} c={c} onOpen={onOpen} r={rep[claveEquipo(c)] || 0} h={horas} />
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : 'Sin resultados'}</td></tr>
+            <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : error ? 'No se pudo comprobar si hay resultados.' : 'No hay resultados para estos filtros.'}</td></tr>
           )}
         </tbody>
       </table>
