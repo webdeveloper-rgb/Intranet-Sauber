@@ -2640,22 +2640,40 @@ dd,
   gap: 12px;
   width: 100%;
 }
-.monitor-modo-comparativa article {
+.monitor-modo-opcion {
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--bd);
   border-radius: 10px;
   background: var(--bg);
+  color: var(--tx);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.monitor-modo-comparativa article.activo {
+.monitor-modo-opcion:hover:not([aria-disabled="true"]) {
+  border-color: var(--brand);
+}
+.monitor-modo-opcion:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.monitor-modo-opcion.seleccionado {
   border-color: var(--brand);
   box-shadow: inset 3px 0 var(--brand);
 }
-.monitor-modo-comparativa h4 {
+.monitor-modo-opcion.aplicado:not(.seleccionado) {
+  border-color: var(--ok);
+}
+.monitor-modo-opcion[aria-disabled="true"] {
+  cursor: default;
+}
+.monitor-modo-opcion h4 {
   margin: 0 0 7px;
   color: var(--tx);
   font-size: 14px;
 }
-.monitor-modo-comparativa ul {
+.monitor-modo-opcion ul {
   display: grid;
   gap: 5px;
   margin: 0;
@@ -2664,22 +2682,7 @@ dd,
   font-size: 12px;
   line-height: 1.45;
 }
-.monitor-modo-comparativa strong { color: var(--tx); }
-.monitor-modo-eventos label {
-  display: grid;
-  gap: 5px;
-  width: min(100%, 340px);
-  font-size: 13px;
-  font-weight: 650;
-}
-.monitor-modo-eventos select {
-  width: 100%;
-  min-height: 40px;
-  padding: 7px 10px;
-  border: 1px solid var(--bd);
-  border-radius: 8px;
-  background: var(--card);
-}
+.monitor-modo-opcion strong { color: var(--tx); }
 .monitor-modo-estado {
   color: var(--mut);
   font-size: 12px;

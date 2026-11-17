@@ -302,6 +302,23 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     }
   };
 
+  const elegirModoEventos = (modo) => {
+    if (!esAdmin || guardandoModo) return;
+    setModoEventos(modo);
+    setModoActualizado(false);
+    setErrorModo('');
+  };
+
+  const navegarModosEventos = (event, modoActual) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter'].includes(event.key)) return;
+    event.preventDefault();
+    const modoSiguiente = [' ', 'Enter'].includes(event.key)
+      ? modoActual
+      : modoActual === 'standard' ? 'full' : 'standard';
+    elegirModoEventos(modoSiguiente);
+    document.querySelector(`[data-modo-eventos="${modoSiguiente}"]`)?.focus();
+  };
+
   if (!monitor && cargando) return <div className="monitor-panel" role="status">Cargando especificaciones de Monitor-Equipos…</div>;
   if (!monitor && error) return <div className="errbox" role="alert">No se pudieron cargar las especificaciones: {error}</div>;
   if (!monitor) return null;
@@ -361,7 +378,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
 
     <Seccion titulo="Eventos del Visor de Windows">
       <div className="monitor-modo-eventos">
-        <p>El modo determina qué eventos nuevos envía el agente. El visor conserva y muestra todo el historial que ya está almacenado, aunque cambies el modo.</p>
+        <p>El modo determina qué eventos nuevos envía el agente. El visor conserva y muestra todo el historial que ya está almacenado, aunque cambies el modo. Selecciona una tarjeta y pulsa «Guardar modo» para aplicar el cambio.</p>
         <div className="monitor-modo-aplicado" aria-live="polite">
           <span>Configurado: <strong>{modoGuardado === 'full' ? 'Auditoría Completa' : 'Estándar'}</strong></span>
           <span>Aplicado por el agente: <strong>{modoAgente === 'full' ? 'Auditoría Completa' : 'Estándar'}</strong></span>
@@ -369,8 +386,12 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
             {modoAgente === modoGuardado ? 'Sincronizado' : 'Pendiente del próximo informe'}
           </span>
         </div>
-        <div className="monitor-modo-comparativa">
-          <article className={modoAgente === 'standard' ? 'activo' : ''}>
+        <div className="monitor-modo-comparativa" role="radiogroup" aria-label="Modo de extracción de eventos">
+          <article className={`monitor-modo-opcion${modoEventos === 'standard' ? ' seleccionado' : ''}${modoAgente === 'standard' ? ' aplicado' : ''}`}
+            role="radio" aria-checked={modoEventos === 'standard'} aria-disabled={!esAdmin || guardandoModo}
+            tabIndex={esAdmin && !guardandoModo && modoEventos === 'standard' ? 0 : -1}
+            data-modo-eventos="standard" onClick={() => elegirModoEventos('standard')}
+            onKeyDown={(event) => navegarModosEventos(event, 'standard')}>
             <h4>Estándar</h4>
             <ul>
               <li><strong>Canales:</strong> System y Application.</li>
@@ -379,7 +400,11 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
               <li><strong>Uso:</strong> incidencias relevantes con menos volumen.</li>
             </ul>
           </article>
-          <article className={modoAgente === 'full' ? 'activo' : ''}>
+          <article className={`monitor-modo-opcion${modoEventos === 'full' ? ' seleccionado' : ''}${modoAgente === 'full' ? ' aplicado' : ''}`}
+            role="radio" aria-checked={modoEventos === 'full'} aria-disabled={!esAdmin || guardandoModo}
+            tabIndex={esAdmin && !guardandoModo && modoEventos === 'full' ? 0 : -1}
+            data-modo-eventos="full" onClick={() => elegirModoEventos('full')}
+            onKeyDown={(event) => navegarModosEventos(event, 'full')}>
             <h4>Auditoría Completa</h4>
             <ul>
               <li><strong>Canales:</strong> todos los registros de Windows disponibles para el agente.</li>
@@ -389,14 +414,6 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
             </ul>
           </article>
         </div>
-        <label>
-          Modo de extracción
-          <select value={modoEventos} disabled={!esAdmin || guardandoModo}
-            onChange={(event) => { setModoEventos(event.target.value); setModoActualizado(false); }}>
-            <option value="standard">Estándar</option>
-            <option value="full">Auditoría Completa</option>
-          </select>
-        </label>
         {esAdmin && <button className="btn sec" disabled={guardandoModo || modoEventos === modoGuardado}
           onClick={guardarModoEventos}>
           {guardandoModo ? 'Guardando…' : 'Guardar modo'}
