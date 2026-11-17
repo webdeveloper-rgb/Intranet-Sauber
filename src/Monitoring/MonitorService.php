@@ -246,6 +246,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'agentVersion' => monitor_texto($data['agentVersion'] ?? null, 40),
         'machineId' => $machineId,
         'hostname' => $hostname,
+        'clientNote' => monitor_texto($data['clientNote'] ?? null, 160),
         'timestampUtc' => gmdate('c', $timestamp),
         'rustDeskId' => monitor_texto($data['rustDeskId'] ?? null, 128),
         'eventExtractionMode' => $eventMode,
@@ -496,6 +497,73 @@ function monitor_evaluar_alertas(array $report): array
     return $alerts;
 }
 
+function monitor_cliente_texto_normalizar(string $value): string
+{
+    $value = mb_strtolower(trim($value), 'UTF-8');
+    if (function_exists('iconv')) {
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (is_string($ascii)) {
+            $value = strtolower($ascii);
+        }
+    }
+    $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? '';
+    $stop = ['cliente', 'client', 'empresa', 'equipo', 'pc', 'ordenador', 'portatil', 'sede', 'oficina', 'sucursal', 'nota', 'referencia', 'para', 'de', 'del', 'la', 'el', 'los', 'las', 'sl', 'sa', 'srl', 'slu', 'inc', 'ltd'];
+    $tokens = array_filter(explode(' ', trim($value)), static fn($token) => $token !== '' && !in_array($token, $stop, true));
+    return implode(' ', $tokens);
+}
+
+/** Returns one active client only when the note identifies it clearly and uniquely. */
+function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSatbk): ?array
+{
+    $needle = monitor_cliente_texto_normalizar($note);
+    if ($needle === '') {
+        return null;
+    }
+    $sql = 'SELECT id,nombre,codigo FROM clientes WHERE activo=1' . ($requiresSatbk ? ' AND tiene_satbk=1' : '');
+    $clients = $pdo->query($sql)->fetchAll();
+    $exact = [];
+    foreach ($clients as $client) {
+        foreach ([$client['nombre'] ?? '', $client['codigo'] ?? ''] as $candidate) {
+            $normalized = monitor_cliente_texto_normalizar((string) $candidate);
+            if ($normalized !== '' && $normalized === $needle) {
+                $exact[(int) $client['id']] = $client;
+                break;
+            }
+        }
+    }
+    if (count($exact) === 1) {
+        return array_values($exact)[0];
+    }
+    if (count($exact) > 1) {
+        return null;
+    }
+
+    $scores = [];
+    foreach ($clients as $client) {
+        $name = monitor_cliente_texto_normalizar((string) ($client['nombre'] ?? ''));
+        if (strlen($name) < 5) {
+            continue;
+        }
+        similar_text($needle, $name, $percent);
+        $score = $percent / 100;
+        if (strpos($needle, $name) !== false || strpos($name, $needle) !== false) {
+            $score = max($score, 0.94);
+        }
+        if ($score >= 0.90) {
+            $scores[(int) $client['id']] = ['client' => $client, 'score' => $score];
+        }
+    }
+    if (!$scores) {
+        return null;
+    }
+    usort($scores, static fn($a, $b) => $b['score'] <=> $a['score']);
+    if ($scores[0]['score'] < 0.92
+        || (isset($scores[1]) && $scores[0]['score'] - $scores[1]['score'] < 0.08)) {
+        return null;
+    }
+    return $scores[0]['client'];
+}
+
 function monitor_guardar_informe(PDO $pdo, array $report): int
 {
     $events = $report['events'] ?? [];
@@ -524,6 +592,31 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
                 $pdo->prepare("INSERT INTO equipos (nombre,software,origen,monitor_machine_id,vigilar) VALUES (?,'MonitorAgent','Monitor-Equipos',?,0)")
                     ->execute([$name, $report['machineId']]);
                 $equipmentId = (int) $pdo->lastInsertId();
+            }
+        }
+
+        if (!empty($report['clientNote'])) {
+            $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(sugerido,?) WHERE id=?')
+                ->execute([$report['clientNote'], $equipmentId]);
+            $st = $pdo->prepare('SELECT cliente_id,
+                (EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=e.id)
+                    OR EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)) AS tiene_copias
+                FROM equipos e WHERE e.id=? FOR UPDATE');
+            $st->execute([$equipmentId]);
+            $assignment = $st->fetch();
+            if ($assignment && $assignment['cliente_id'] === null) {
+                $client = monitor_cliente_coincidir_nota($pdo, $report['clientNote'], (bool) $assignment['tiene_copias']);
+                if ($client) {
+                    $link = $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=? AND cliente_id IS NULL');
+                    $link->execute([(int) $client['id'], $equipmentId]);
+                    if ($link->rowCount() === 1) {
+                        $pdo->prepare('UPDATE copias SET cliente=? WHERE equipo_id=?')
+                            ->execute([$client['nombre'], $equipmentId]);
+                        if (function_exists('correo_importar_equipo')) {
+                            correo_importar_equipo($equipmentId, (int) $client['id'], $pdo);
+                        }
+                    }
+                }
             }
         }
 

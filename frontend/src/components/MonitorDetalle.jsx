@@ -168,6 +168,7 @@ function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   agregarDatoPdf(sistema, 'ID de RustDesk', monitor.rustDeskId);
   agregarDatoPdf(sistema, 'Sistema operativo', [monitor.system?.osName, monitor.system?.osVersion, monitor.system?.osArchitecture].filter(Boolean).join(' · '));
   agregarDatoPdf(sistema, 'Versión de Windows', monitor.software?.windowsRelease);
+  agregarDatoPdf(sistema, 'Referencia para vincular cliente', monitor.clientNote);
   agregarDatoPdf(sistema, 'Fabricante y modelo', [monitor.system?.manufacturer, monitor.system?.model].filter(Boolean).join(' · '));
   agregarDatoPdf(sistema, 'Número de serie', monitor.system?.serialNumber);
   agregarDatoPdf(sistema, 'Dominio', monitor.system?.domain);
@@ -341,6 +342,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="ID de RustDesk" value={monitor.rustDeskId} />
         <Campo label="Sistema operativo" value={[monitor.system?.osName, monitor.system?.osVersion, monitor.system?.osArchitecture].filter(Boolean).join(' · ')} />
         <Campo label="Versión de Windows" value={monitor.software?.windowsRelease} />
+        <Campo label="Referencia para vincular cliente" value={monitor.clientNote} />
         <Campo label="Fabricante y modelo" value={[monitor.system?.manufacturer, monitor.system?.model].filter(Boolean).join(' · ')} />
         <Campo label="Número de serie" value={monitor.system?.serialNumber} />
         <Campo label="Dominio" value={monitor.system?.domain} />

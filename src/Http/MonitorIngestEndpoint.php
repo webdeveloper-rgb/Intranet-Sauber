@@ -5,6 +5,7 @@ define('SIN_SESION', true);
 require __DIR__ . '/../bootstrap.php';
 require __DIR__ . '/../Security/ApiTokens.php';
 require __DIR__ . '/../Monitoring/MonitorService.php';
+require_once __DIR__ . '/../Backup/EquipmentService.php';
 require __DIR__ . '/JsonResponse.php';
 
 header('Content-Type: application/json; charset=utf-8');
