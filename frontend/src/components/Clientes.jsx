@@ -116,6 +116,60 @@ function TipoEquipoEditor({ equipo, admin, onSaved }) {
   </div>;
 }
 
+function RustDeskAcceso({ equipo, monitor, admin }) {
+  const [password, setPassword] = useState('');
+  const [mostrar, setMostrar] = useState(false);
+  const [cargandoPassword, setCargandoPassword] = useState(false);
+  const [error, setError] = useState('');
+  const rustDeskId = monitor?.rustDeskId || '';
+
+  useEffect(() => {
+    setPassword('');
+    setMostrar(false);
+    setError('');
+  }, [equipo.id, rustDeskId]);
+
+  const alternarPassword = async () => {
+    if (mostrar) {
+      setMostrar(false);
+      return;
+    }
+    if (password) {
+      setMostrar(true);
+      return;
+    }
+    setCargandoPassword(true);
+    setError('');
+    try {
+      const result = await api('equipo_rustdesk_password', { id: equipo.id });
+      if (!result.password) throw new Error('Este equipo aún no ha enviado una contraseña. Vuelve a ejecutar el instalador actualizado en ese equipo.');
+      setPassword(result.password);
+      setMostrar(true);
+    } catch (e) {
+      setError(e.message || 'No se pudo consultar la contraseña.');
+    } finally {
+      setCargandoPassword(false);
+    }
+  };
+
+  return <div className="equipo-rustdesk-acceso">
+    <div className="equipo-rustdesk-id">
+      <span>ID de RustDesk</span>
+      <code>{rustDeskId || 'Aún no recibido'}</code>
+    </div>
+    {rustDeskId && <a className="btn rustdesk-conectar" href={`rustdesk://connection/new/${encodeURIComponent(rustDeskId)}`}>
+      Conectar con RustDesk
+    </a>}
+    {admin && <div className="rustdesk-password">
+      <button type="button" className="btn sec" onClick={alternarPassword} disabled={cargandoPassword}>
+        {cargandoPassword ? 'Consultando…' : mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña permanente'}
+      </button>
+      {mostrar && <code>{password}</code>}
+      {error && <span role="alert">{error}</span>}
+    </div>}
+  </div>;
+}
+
 function HorarioSemana({ equipo, onSaved }) {
   const horarioActual = /^[01]{7}$/.test(equipo.dias_copia || '') && equipo.dias_copia.includes('1')
     ? equipo.dias_copia : '1111111';
@@ -541,11 +595,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
             equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
             equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
-          {equipoActual?.tiene_monitor && <div className="equipo-rustdesk-id">
-            <span>ID de RustDesk</span>
-            <code>{detalleMonitor?.monitor?.rustDeskId
-              || (cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Aún no recibido')}</code>
-          </div>}
+          {equipoActual?.tiene_monitor && <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />}
         </div>
         {!equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
           <strong>{equiposSinAsignar.length}</strong>

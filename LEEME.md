@@ -157,20 +157,20 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 
 ## Conectar Monitor-Equipos
 
-1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 10).
+1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 11).
 2. En **Tokens de integraciones**, crea una sola clave API compartida sin caducidad para Monitor-Equipos. Reutiliza la misma clave en todas las instalaciones; no generes una clave por equipo. Guárdala de forma segura: quien la obtenga podrá dar de alta agentes.
-3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID y lo incluirá en los informes del agente.
+3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID, generará una contraseña permanente aleatoria distinta por instalación y configurará ambas cosas en RustDesk y MonitorAgent.
 4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita la clave compartida `sbr_…`. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
    Para instalar MonitorAgent manualmente:
    ```text
    MonitorAgent.exe --install --url https://TU_DOMINIO/monitor-ingest.php --token CLAVE_COMPARTIDA
    ```
-5. El agente guarda la clave compartida en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores. Antes de cada informe, la usa para solicitar un token temporal ligado al `MachineId`, válido durante cinco minutos y para un solo informe.
+5. El agente guarda la clave compartida y la contraseña de RustDesk en `%ProgramData%\MonitorAgent\config.json`, protegida para SYSTEM y Administradores. Antes de cada informe, usa la clave compartida para solicitar un token temporal ligado al `MachineId`, válido durante cinco minutos y para un solo informe.
 6. En el detalle de cada equipo, un administrador puede seleccionar:
    - **Estándar**: errores y críticos de los canales `System` y `Application` de los últimos 30 días.
    - **Auditoría Completa**: todos los niveles y canales del Visor de eventos que Windows aún conserve, sin límite temporal. El agente los recupera por lotes; el backfill puede tardar según el volumen.
    El cambio se aplica en el siguiente ciclo del agente. Auditoría Completa no puede recuperar registros borrados o sobrescritos. Las notificaciones se reservan para niveles críticos, errores y advertencias; los registros informativos siguen visibles en **Eventos**.
-7. El ID de RustDesk aparece destacado en la cabecera de la ficha del equipo tras recibirse el primer informe del agente.
+7. El ID de RustDesk aparece destacado en la cabecera de la ficha del equipo tras recibirse el primer informe del agente. **Conectar con RustDesk** abre la aplicación local con ese ID. Los administradores pueden revelar la contraseña permanente desde la misma ficha. Los equipos ya instalados necesitan ejecutar el instalador actualizado para establecer y comunicar su contraseña.
    Desde **Estado y especificaciones**, el botón **Descargar PDF** genera un informe con la identificación del equipo, el estado de monitorización, las alertas y las especificaciones del último informe recibido.
 8. En `config/config.php`, configura `monitor_alert_recipients` con las direcciones que recibirán alertas y, si el servidor lo requiere, `monitor_alert_sender`. El hosting debe tener configurado `mail()` de PHP. Sin destinatarios, las alertas siguen apareciendo dentro del panel pero no se envía correo.
 9. En **Clientes** aparecen todos los clientes sincronizados, con una marca que indica si tienen SATBK. Los equipos recibidos solo por Monitor-Equipos se pueden asignar a cualquier cliente; si ya han llegado copias, solo se pueden asignar a clientes con SATBK. Si llegan copias después de haber asignado el equipo a un cliente sin SATBK, se conserva la asignación y el detalle avisa para corregirla.
@@ -179,6 +179,8 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); disco `Warning`, menos del 15 % de espacio libre o salud de batería inferior al 50 % (advertencia). Los eventos guardan su mensaje y se deduplican por equipo, canal y `RecordId`. Las alertas se deduplican mientras sigan activas y vuelven a avisar por email si reaparecen tras resolverse.
 
 ## Seguridad incluida
+
+Las contraseñas permanentes de RustDesk se cifran en la base de datos y solo se devuelven a administradores mediante una petición autenticada y protegida contra CSRF. El cifrado deriva su clave de `monitor_password_secret` si se define en `config/config.php`, o de la contraseña de base de datos si no se define. Si configuras una clave propia, consérvala estable: cambiarla impide descifrar las contraseñas guardadas.
 
 - Contraseñas verificadas contra la API, sesión HttpOnly/SameSite y límites persistentes de intentos por IP/usuario, no por cookie.
 - Consultas preparadas (PDO), salida escapada, token CSRF en acciones que modifican datos.

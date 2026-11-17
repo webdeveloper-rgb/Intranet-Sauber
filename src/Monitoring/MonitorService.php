@@ -24,6 +24,9 @@ function monitor_migrar_esquema(PDO $pdo): void
     if (!in_array('monitor_alias', $columns, true)) {
         $pdo->exec('ALTER TABLE equipos ADD COLUMN monitor_alias VARCHAR(100) NULL');
     }
+    if (!in_array('rustdesk_password_enc', $columns, true)) {
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN rustdesk_password_enc TEXT NULL');
+    }
     $index = $pdo->query("SELECT COUNT(*) FROM information_schema.statistics
         WHERE table_schema=DATABASE() AND table_name='equipos' AND index_name='uq_equipos_monitor_machine_id'")->fetchColumn();
     if (!(int) $index) {
@@ -580,7 +583,7 @@ function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSa
     return $scores[0]['client'];
 }
 
-function monitor_guardar_informe(PDO $pdo, array $report): int
+function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null): int
 {
     $events = $report['events'] ?? [];
     unset($report['events']);
@@ -637,8 +640,14 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
         }
 
         $json = json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
-            ->execute([$report['machineId'], $json, $equipmentId]);
+        if ($rustDeskPassword !== null) {
+            $encrypted = monitor_password_cifrar($rustDeskPassword);
+            $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,rustdesk_password_enc=?,monitor_last_seen=NOW() WHERE id=?')
+                ->execute([$report['machineId'], $json, $encrypted, $equipmentId]);
+        } else {
+            $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
+                ->execute([$report['machineId'], $json, $equipmentId]);
+        }
 
         $saveEvent = $pdo->prepare('INSERT INTO monitor_eventos
             (event_key,machine_id,equipo_id,record_id,event_time,log_name,source,event_id,level,message)
@@ -702,6 +711,61 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
 
     monitor_enviar_alertas_pendientes($pdo);
     return (int) $equipmentId;
+}
+
+function monitor_password_clave(): string
+{
+    $secret = trim((string) cfg('monitor_password_secret', ''));
+    if ($secret === '') {
+        $database = cfg('db', []);
+        $secret = (string) ($database['pass'] ?? '');
+    }
+    if (strlen($secret) < 16) {
+        throw new RuntimeException('Configura monitor_password_secret (mínimo 16 caracteres) o una contraseña de base de datos segura.');
+    }
+    return hash_hmac('sha256', 'sauber-rustdesk-passwords-v1', $secret, true);
+}
+
+function monitor_password_cifrar(string $password): string
+{
+    if (!function_exists('openssl_encrypt')) {
+        throw new RuntimeException('OpenSSL debe estar habilitado para cifrar contraseñas de RustDesk.');
+    }
+    $nonce = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($password, 'aes-256-gcm', monitor_password_clave(), OPENSSL_RAW_DATA, $nonce, $tag);
+    if (!is_string($ciphertext)) {
+        throw new RuntimeException('No se pudo cifrar la contraseña de RustDesk.');
+    }
+    return 'v1:' . base64_encode($nonce . $tag . $ciphertext);
+}
+
+function monitor_password_descifrar(string $encoded): string
+{
+    if (!function_exists('openssl_decrypt') || substr($encoded, 0, 3) !== 'v1:') {
+        throw new RuntimeException('Formato de contraseña cifrada no compatible.');
+    }
+    $payload = base64_decode(substr($encoded, 3), true);
+    if (!is_string($payload) || strlen($payload) < 29) {
+        throw new RuntimeException('La contraseña cifrada está dañada.');
+    }
+    $plain = openssl_decrypt(substr($payload, 28), 'aes-256-gcm', monitor_password_clave(), OPENSSL_RAW_DATA,
+        substr($payload, 0, 12), substr($payload, 12, 16));
+    if (!is_string($plain)) {
+        throw new RuntimeException('No se pudo descifrar la contraseña de RustDesk. Revisa la clave del servidor.');
+    }
+    return $plain;
+}
+
+function monitor_password_equipo(PDO $pdo, int $equipmentId): ?string
+{
+    $st = $pdo->prepare('SELECT rustdesk_password_enc FROM equipos WHERE id=? AND monitor_machine_id IS NOT NULL');
+    $st->execute([$equipmentId]);
+    $value = $st->fetchColumn();
+    if (!is_string($value) || $value === '') {
+        return null;
+    }
+    return monitor_password_descifrar($value);
 }
 
 function monitor_enviar_alertas_pendientes(PDO $pdo): void

@@ -77,6 +77,16 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'equipo_rustdesk_password') {
+            exigir_admin($user);
+            try {
+                $password = monitor_password_equipo(db(), (int) ($input['id'] ?? 0));
+                out(['ok' => true, 'password' => $password]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_desasignar') {
             exigir_admin($user);
             try {

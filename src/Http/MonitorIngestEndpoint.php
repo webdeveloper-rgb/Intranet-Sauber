@@ -36,6 +36,11 @@ try {
     if (!is_array($data)) {
         monitor_responder(['error' => 'JSON no válido'], 400);
     }
+    $rustDeskPassword = $data['rustDeskPassword'] ?? null;
+    if ($rustDeskPassword !== null && (!is_string($rustDeskPassword)
+        || preg_match('/\A[A-Za-z0-9_-]{16,128}\z/', $rustDeskPassword) !== 1)) {
+        monitor_responder(['error' => 'La contraseña de RustDesk no tiene un formato válido.'], 422);
+    }
     try {
         $machineId = (string) ($_SERVER['HTTP_X_MACHINE_ID'] ?? '');
         $report = monitor_normalizar_informe($data, $machineId);
@@ -52,7 +57,7 @@ try {
     }
     rate_limit_clear([$rateKey]);
 
-    $equipmentId = monitor_guardar_informe($pdo, $report);
+    $equipmentId = monitor_guardar_informe($pdo, $report, $rustDeskPassword);
     monitor_responder([
         'ok' => true,
         'equipo_id' => $equipmentId,

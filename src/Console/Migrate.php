@@ -98,6 +98,9 @@ try {
         10 => static function (PDO $pdo): void {
             asegurar_tablas_equipos($pdo);
         },
+        11 => static function (PDO $pdo): void {
+            monitor_migrar_esquema($pdo);
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

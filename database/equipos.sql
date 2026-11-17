@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS equipos (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(200) NOT NULL,
   monitor_alias VARCHAR(100) NULL,
+  rustdesk_password_enc TEXT NULL,
   software VARCHAR(80) NOT NULL DEFAULT '',
   origen VARCHAR(200) NULL,
   sugerido VARCHAR(200) NULL,
