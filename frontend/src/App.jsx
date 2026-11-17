@@ -18,12 +18,8 @@ import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
 import { leerRuta, rutaHref } from './routes';
 
-const fechaLocal = (fecha) => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, '0'), String(fecha.getDate()).padStart(2, '0')].join('-');
 const filtrosIniciales = () => {
-  const hoy = new Date();
-  const ayer = new Date(hoy);
-  ayer.setDate(hoy.getDate() - 1);
-  return { cli: '', tipo: '', software: '', desde: fechaLocal(ayer), hasta: fechaLocal(hoy), orden: 'fecha-desc', horas: 24 };
+  return { cli: '', tipo: '', software: '', desde: '', hasta: '', orden: 'fecha-desc', horas: 24 };
 };
 
 export default function App() {
