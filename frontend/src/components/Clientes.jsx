@@ -152,7 +152,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   const [filtroAgenteCliente, setFiltroAgenteCliente] = useState('todos');
   const [softwareCliente, setSoftwareCliente] = useState('');
   const [filtrosEquipo, setFiltrosEquipo] = useState({
-    orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: 'todos', software: '', desde: '', hasta: '',
+    orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: '', software: '', desde: '', hasta: '',
   });
   const [asignaciones, setAsignaciones] = useState({});
   const [cargando, setCargando] = useState(true);
@@ -315,7 +315,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     if (filtrosEquipo.agente === 'sin' && equipo.tiene_monitor) return false;
     if (filtrosEquipo.copias === 'con' && !equipo.tiene_copias) return false;
     if (filtrosEquipo.copias === 'sin' && equipo.tiene_copias) return false;
-    if (filtrosEquipo.tipo && equipo.tipo !== filtrosEquipo.tipo) return false;
+    if (filtrosEquipo.tipo && filtrosEquipo.tipo !== 'todos' && equipo.tipo !== filtrosEquipo.tipo) return false;
     if (filtrosEquipo.software && equipo.software !== filtrosEquipo.software) return false;
     if (filtrosEquipo.desde && (!equipo.fecha_creacion || equipo.fecha_creacion < filtrosEquipo.desde)) return false;
     if (filtrosEquipo.hasta && (!equipo.fecha_creacion || equipo.fecha_creacion > filtrosEquipo.hasta)) return false;
@@ -512,7 +512,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
           onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, hasta: e.target.value }))} /></label>
         <span className="cnt">{equiposFiltrados.length} equipo{equiposFiltrados.length === 1 ? '' : 's'}</span>
         {Object.values(filtrosEquipo).some((valor, indice) => indice > 0 && valor !== '' && valor !== 'todos') &&
-          <button className="btn sec" onClick={() => setFiltrosEquipo({ orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: 'todos', software: '', desde: '', hasta: '' })}>Limpiar filtros</button>}
+          <button className="btn sec" onClick={() => setFiltrosEquipo({ orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: '', software: '', desde: '', hasta: '' })}>Limpiar filtros</button>}
       </div>}
 
       {(ultimaLectura?.alerta || ultimaLectura?.ok === 0 || u?.ok === 0) && <div className="estado-alertas" role="status">
