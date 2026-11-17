@@ -37,18 +37,49 @@ export default function App() {
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [actualizacionEquipos, setActualizacionEquipos] = useState(0);
   const vista = ruta.vista;
+  const historialInterno = useRef([]);
+  const hrefActual = useRef(`${window.location.pathname}${window.location.search}`);
   useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
 
   const navegar = useCallback((path) => {
     const href = rutaHref(path);
-    if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState({}, '', href);
+    const actual = `${window.location.pathname}${window.location.search}`;
+    if (actual !== href) {
+      historialInterno.current.push(actual);
+      window.history.pushState({ panelSauber: true }, '', href);
+      hrefActual.current = href;
+    }
     setRuta(leerRuta());
     if (!/^\/copias\/\d+$/.test(path)) setCopiaSeleccionada(null);
     window.scrollTo(0, 0);
   }, []);
 
+  const volver = useCallback(() => {
+    if (historialInterno.current.length > 0) {
+      window.history.back();
+      return;
+    }
+    const actual = leerRuta();
+    let destino = '/copias';
+    if (actual.vista === 'clientes') {
+      if (actual.equipoId) destino = actual.clienteId
+        ? `/clientes/${encodeURIComponent(String(actual.clienteId))}`
+        : '/clientes';
+      else if (actual.clienteId) destino = '/clientes';
+    } else if (actual.vista === 'eventos' && actual.equipoId) {
+      destino = '/clientes';
+    }
+    navegar(destino);
+  }, [navegar]);
+
   useEffect(() => {
     const sincronizarRuta = () => {
+      const actual = `${window.location.pathname}${window.location.search}`;
+      const anterior = hrefActual.current;
+      const indiceAnterior = historialInterno.current.lastIndexOf(actual);
+      if (indiceAnterior >= 0) historialInterno.current.length = indiceAnterior;
+      else if (actual !== anterior) historialInterno.current.push(anterior);
+      hrefActual.current = actual;
       setRuta(leerRuta());
       if (!leerRuta().copiaId) setCopiaSeleccionada(null);
     };
@@ -154,7 +185,7 @@ export default function App() {
   const cur = data.find((c) => Number(c.id) === Number(idCopiaAbierta));
   return (
     <>
-      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}
+      <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar} onVolver={volver}
         esAdmin={sesion?.rol === 'admin'}
         onCuenta={() => { setNotificacionesAbiertas(false); setCuentaAbierta(true); }}
         onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
