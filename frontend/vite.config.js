@@ -4,7 +4,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Para desarrollar: arranca PHP (php -S localhost:8000 en la raíz del repo),
+// Development server: start PHP with `php -S localhost:8000 -t public`.
 // inicia sesión en http://localhost:8000/login.php y luego `npm run dev`.
 const PHP = process.env.PHP_URL || 'http://localhost:8000';
 
@@ -18,8 +18,8 @@ export default defineConfig({
     },
   },
   build: {
-    // El resultado se genera en build/, que SÍ se guarda en Git (el servidor no compila)
-    outDir: '../build',
+    // The production bundle is deployed from public/build/.
+    outDir: '../public/build',
     emptyOutDir: true,
     cssCodeSplit: false,
     rollupOptions: {

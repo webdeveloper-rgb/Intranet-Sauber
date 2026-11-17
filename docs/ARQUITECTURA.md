@@ -6,14 +6,14 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 
 | Ruta | Responsabilidad |
 |---|---|
-| `index.php`, `login.php`, `logout.php`, `clientes.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
-| `api.php` | Punto unico de entrada de las acciones JSON del panel. |
-| `ingest.php` | Punto de entrada de avisos de n8n, protegido con token Bearer. |
-| `monitor-ingest.php` | Receptor autenticado de informes de hardware y alertas de Monitor-Equipos. |
-| `monitor-enroll.php` | Canjea códigos de alta de un solo uso por credenciales de agente individuales. |
-| `monitor-token.php` | Intercambia la credencial individual de un agente por un token temporal de un solo uso. |
+| `public/index.php`, `public/login.php`, `public/logout.php`, `public/clientes.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
+| `public/api.php` | Punto unico de entrada de las acciones JSON del panel. |
+| `public/ingest.php` | Punto de entrada de avisos de n8n, protegido con token Bearer. |
+| `public/monitor-ingest.php` | Receptor autenticado de informes de hardware y alertas de Monitor-Equipos. |
+| `public/monitor-enroll.php` | Canjea códigos de alta de un solo uso por credenciales de agente individuales. |
+| `public/monitor-token.php` | Intercambia la credencial individual de un agente por un token temporal de un solo uso. |
 | `src/bootstrap.php` | Configuracion, PDO, sesion, CSRF, escape HTML y utilidades comunes. |
-| `src/Web/` | Implementaciones de páginas HTML; los PHP de la raíz conservan las URL públicas como delegadores. |
+| `src/Web/` | Implementacion privada de las paginas HTML servidas desde `public/`. |
 | `src/Http/ApiEndpoint.php` | Autorizacion, validacion de sesion/CSRF y despacho hacia controladores. |
 | `src/Http/Controllers/` | Acciones de lectura, historial, clientes, equipos, tokens y revision de copias. |
 | `src/Backup/` | Ingesta de avisos, gestion de equipos y lectura de copias. |
@@ -23,11 +23,14 @@ Este documento explica las responsabilidades del codigo, el recorrido de las pet
 | `src/Console/` | Migraciones y tareas CLI de sincronizacion y retencion. |
 | `database/` | Esquema inicial, tablas de equipos y tablas historicas de sincronizacion. |
 | `frontend/src/` | Aplicacion React: rutas, estado, peticiones y componentes de interfaz. |
-| `frontend/src/styles.css` | Estilos de la interfaz. |
-| `build/` | JavaScript y CSS compilados para produccion. Se generan desde `frontend/`. |
+| `frontend/src/styles.css` | Interfaz del panel. |
+| `public/` | Raiz web de Plesk: rutas PHP, recursos estaticos y frontend compilado. |
+| `bin/` | Entradas CLI para las tareas programadas de Plesk. |
+| `public/assets/` | Estilos y logotipo de la pagina de acceso. |
+| `public/build/` | JavaScript y CSS compilados desde `frontend/`. |
 | `revisar_copias (panel).json` | Workflow local de n8n: clasifica correo y llama a `ingest.php`. |
 
-Los archivos PHP de la raiz son puntos de entrada de compatibilidad. La logica nueva debe ir en el modulo que corresponda, no crecer dentro de esos delegadores.
+Las rutas PHP desplegadas están en `public/`; la implementación privada se organiza por módulos en `src/` y las tareas CLI se ejecutan desde `bin/`.
 
 ## Flujo de autenticacion del panel
 
@@ -65,7 +68,7 @@ El envío de correo usa `mail()` de PHP, por lo que también debe estar configur
 
 ## API del panel
 
-`api.php` delega en `src/Http/ApiEndpoint.php`. `ReadController` atiende lecturas. Los controladores de historial, cliente, administracion, equipo y revision se ejecutan solo para POST despues de validar CSRF. Las acciones administrativas comprueban el rol `admin` en servidor.
+`public/api.php` delega en `src/Http/ApiEndpoint.php`. `ReadController` atiende lecturas. Los controladores de historial, cliente, administracion, equipo y revision se ejecutan solo para POST despues de validar CSRF. Las acciones administrativas comprueban el rol `admin` en servidor.
 
 | Accion | Uso |
 |---|---|
@@ -88,7 +91,7 @@ El envío de correo usa `mail()` de PHP, por lo que también debe estar configur
 - `clientes`, `maquinas`, `sync_log`: tablas historicas de sincronizacion descritas por `database/sync.sql`; revisar su uso antes de retirarlas.
 - `api_tokens`: tokens de integracion; la tabla se asegura desde el modulo de seguridad.
 
-Los cambios de esquema deben hacerse mediante migracion versionada en `src/Console/Migrate.php` y ejecutarse con `php migrate.php`. No se deben hacer migraciones en cada peticion web.
+Los cambios de esquema deben hacerse mediante migracion versionada en `src/Console/Migrate.php` y ejecutarse con `php bin/migrate.php`. No se deben hacer migraciones en cada peticion web.
 
 ## Interfaz y rutas
 
@@ -103,7 +106,7 @@ La lista diaria consulta las ultimas 24 horas. Los historiales se cargan con cur
 - Usar consultas PDO preparadas para datos variables y escapar HTML con `e()`.
 - Mantener los limites de campos de `IngestionService.php` alineados con las columnas SQL.
 - Si cambia una accion, sincronizar cliente frontend, controlador PHP y workflow n8n cuando aplique.
-- No editar `build/` manualmente. Regenerarlo desde `frontend/` con `npm run build`.
+- No editar `public/build/` manualmente. Regenerarlo desde `frontend/` con `npm run build`.
 - Las pruebas puras se ejecutan con `php tests/ingesta_test.php` y `php tests/monitor_ingesta_test.php`.
 
 ## Convenciones de comentarios

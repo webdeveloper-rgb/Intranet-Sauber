@@ -1,6 +1,6 @@
 # ==========================================================
 #  Panel de Control de Copias · Sauber Ofimática
-#  .htaccess para Apache (Plesk). Colócalo en la raíz pública del proyecto.
+#  Apache rules for the public document root configured in Plesk.
 # ==========================================================
 
 Options -Indexes
@@ -14,9 +14,6 @@ DirectoryIndex index.php
   # RewriteCond %{HTTPS} !=on
   # RewriteCond %{HTTP:X-Forwarded-Proto} !=https
   # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-  # Carpetas privadas: nadie puede abrirlas desde el navegador (403)
-  RewriteRule ^(config|src|database|frontend)(/|$) - [F,L]
 
   # Rutas del panel: conserva la URL amigable y sirve la aplicación React.
   RewriteCond %{REQUEST_FILENAME} !-f

@@ -79,10 +79,10 @@ function schema_exigir_migraciones(PDO $pdo): void
     try {
         $version = $pdo->query('SELECT version FROM schema_version WHERE id=1')->fetchColumn();
     } catch (PDOException $e) {
-        throw new RuntimeException('Falta ejecutar `php migrate.php` para preparar la base de datos.', 0, $e);
+        throw new RuntimeException('Falta ejecutar `php bin/migrate.php` para preparar la base de datos.', 0, $e);
     }
     if ((int) $version < SCHEMA_VERSION_REQUERIDA) {
-        throw new RuntimeException('La base de datos tiene migraciones pendientes. Ejecuta `php migrate.php`.');
+        throw new RuntimeException('La base de datos tiene migraciones pendientes. Ejecuta `php bin/migrate.php`.');
     }
     $comprobado = true;
 }

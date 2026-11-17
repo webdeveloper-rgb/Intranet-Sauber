@@ -7,8 +7,8 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 exigir_login();
 
-$js = dirname(__DIR__, 2) . '/build/app.js';
-$css = dirname(__DIR__, 2) . '/build/app.css';
+$js = dirname(__DIR__, 2) . '/public/build/app.js';
+$css = dirname(__DIR__, 2) . '/public/build/app.css';
 $basePath = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
 $baseHref = ($basePath === '' || $basePath === '.') ? '/' : $basePath . '/';
 $compilado = is_file($js) && is_file($css);

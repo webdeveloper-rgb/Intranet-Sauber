@@ -1,40 +1,41 @@
 # Panel de Control de Copias · Sauber Ofimática
 
-Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La raíz de este repositorio es la web: lo que ves aquí es lo que hay en el servidor.
+Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. El directorio público del servidor es `public/`; el código, la configuración y los datos de desarrollo permanecen fuera de esa raíz web.
 
 ## Estructura
 
 La documentacion tecnica de responsabilidades, rutas de datos, acciones API y reglas para cambios esta en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
-Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL del panel, n8n ni las tareas de Plesk. Su implementación está agrupada por responsabilidad dentro de `src/`:
+La carpeta `public/` es la raíz web de Plesk y conserva los nombres de URL que usan el panel, n8n y Monitor-Equipos. Los comandos programados están en `bin/`; la lógica de la aplicación permanece en `src/`:
 
 ```
-api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
-monitor-enroll.php, monitor-ingest.php, monitor-token.php Alta y recepción de informes de Monitor-Equipos
-sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
-index.php, login.php, clientes.php Páginas del panel
-src/Web/                          Implementaciones de páginas; los PHP de raíz conservan sus URL como delegadores
-src/Http/                          Implementaciones de endpoints y respuesta JSON común
-src/Http/Controllers/              Acciones de lectura, historial, clientes, usuarios, equipos y revisión
-src/Console/                       Comandos de sincronización, migración y limpieza
-src/Backup/                        Ingesta de avisos, equipos y copias
-src/Monitoring/                    Informes de hardware y alertas de salud
-src/Integration/ClientApi.php      Sincronización e inicio de sesión con la API de clientes
-src/Security/ApiTokens.php          Creación y validación de tokens de integración
-src/bootstrap.php                  Configuración, sesión, PDO y seguridad común
-database/                           Esquema y SQL de las tablas
-frontend/                           Código fuente React
-build/                              Panel compilado que se despliega
+public/                             Raíz web configurada en Plesk
+  *.php                              Rutas públicas estables del panel e integraciones
+  assets/                            Recursos estáticos de inicio de sesión
+  build/                             Panel React compilado para producción
+bin/                                 Comandos CLI de Plesk: sync.php, migrate.php, purge.php
+src/                                 Implementación PHP privada, agrupada por módulos
+  Web/                               Páginas HTML
+  Http/                              Endpoints y controladores
+  Console/                           Lógica de tareas CLI
+  Backup/                            Ingesta y gestión de copias/equipos
+  Monitoring/                        Informes y alertas de hardware
+  Integration/                       Cliente de API de clientes
+  Security/                          Tokens de integración
+config/                              Configuración privada; config.php no se versiona
+database/                            Esquema y SQL de las tablas
+frontend/                            Código fuente React/Vite
+docs/                                Documentación técnica
 ```
 
-Las rutas activas del panel y n8n, y los comandos de Plesk, se conservan. Para añadir lógica nueva, coloca el código en el módulo de su área y deja las entradas de la raíz como delegadores pequeños.
+Las URL del panel y n8n se conservan porque Plesk sirve desde `public/`. Las tareas CLI usan `bin/`; su lógica reside en `src/Console/`.
 
 ## Primera instalación
 
 1. Crea una base de datos MySQL y su usuario en Plesk.
 2. Copia `config/config.example.php` como `config/config.php` y pon los datos de la BD/API.
 3. Importa `database/schema.sql` en la base de datos desde phpMyAdmin.
-4. Ejecuta `php migrate.php` desde la raíz del proyecto y con el mismo PHP/configuración que usa la web.
+4. Ejecuta `php bin/migrate.php` desde la raíz del proyecto y con el mismo PHP/configuración que usa la web.
 5. Comprueba que puedes iniciar sesión con un usuario permitido de la API.
 
 Requisitos: PHP 8.0+ con PDO MySQL y mbstring, MySQL 5.7+ / MariaDB 10.3+.
@@ -58,13 +59,19 @@ Comprueba con `git status` que **`config/config.php` no aparece**: es el fichero
 1. *Sitios web y dominios → tu dominio → **Git** → Añadir repositorio*.
 2. Elige **Repositorio remoto** y pega la URL.
 3. Si es privado, Plesk muestra una **clave SSH pública**: cópiala en GitHub → repositorio → *Settings → Deploy keys → Add* (solo lectura). Usa entonces la URL SSH (`git@github.com:...`).
-4. Rama: `main`. **Ruta del servidor** (deployment path): la carpeta de la web, por ejemplo `httpdocs`.
+4. Rama: `main`. **Ruta del servidor** (deployment path): la carpeta de despliegue del repositorio, por ejemplo `httpdocs`; configura la raíz web del dominio como `httpdocs/public`.
 5. Modo de despliegue: **Automático**. Plesk te da una **URL de webhook**.
 6. En GitHub → *Settings → Webhooks → Add webhook*: pega esa URL, tipo `application/json`, evento *push*.
 
-**Antes del primer despliegue**, si `httpdocs` ya contiene la web actual: haz copia de `config/config.php`, vacía la carpeta, despliega y vuelve a poner `config/config.php`. Después de eso, los despliegues solo actualizan los ficheros del repositorio y **no tocan `config/config.php`** (no está en Git). Compruébalo tras el primer `push`.
+**Antes del primer despliegue**, si `httpdocs` ya contiene la aplicación actual: haz copia de `httpdocs/config/config.php`, vacía la carpeta, despliega y vuelve a poner `config/config.php`. Después de eso, los despliegues solo actualizan los ficheros del repositorio y **no tocan `config/config.php`** (no está en Git). Compruébalo tras el primer `push`.
 
-### 3. Día a día
+### 3. Activar la nueva raíz web
+
+En Plesk, abre **Sitios web y dominios → Hosting Settings** y establece **Document root** en `httpdocs/public`. Mantén la ruta de despliegue Git en `httpdocs`; las URL públicas (`/api.php`, `/ingest.php`, `/monitor-ingest.php`, etc.) no cambian porque `public/` pasa a ser la raíz web.
+
+Actualiza las tareas programadas para usar `httpdocs/bin/sync.php`, `httpdocs/bin/purge.php` y `httpdocs/bin/migrate.php`. Haz el cambio de raíz web y las tareas durante la misma ventana de mantenimiento que el primer despliegue de esta estructura. No es necesario cambiar n8n ni la URL configurada en Monitor-Equipos.
+
+### 4. Día a día
 ```
 git add .
 git commit -m "Descripción del cambio"
@@ -78,11 +85,11 @@ El código está en `frontend/src/`. Necesitas **Node.js 18+** en tu ordenador:
 ```
 cd frontend
 npm install
-npm run build      # regenera ../build/app.js y app.css
+npm run build      # regenera ../public/build/app.js y app.css
 ```
-Luego `git add .`, `commit` y `push` (incluye la carpeta `build/`: el servidor no compila nada).
+Luego `git add .`, `commit` y `push` (incluye `public/build/`: el servidor no compila nada).
 
-Para ver cambios en vivo: `php -S localhost:8000` en la raíz del repo, entra en `http://localhost:8000/login.php` y en otra terminal, dentro de `frontend/`, `npm run dev`.
+Para ver cambios en vivo: `php -S localhost:8000 -t public` en la raíz del repo, entra en `http://localhost:8000/login.php` y en otra terminal, dentro de `frontend/`, `npm run dev`.
 
 ```
 frontend/src/
@@ -99,7 +106,7 @@ El acceso se valida con las credenciales personales en la API y los usuarios con
 
 ## Cambios en la base de datos
 
-Las peticiones web no alteran el esquema. Cada cambio de base de datos debe añadirse como una migración versionada en `migrate.php` y ejecutarse después del despliegue con `php migrate.php`. El comando es seguro al repetirse; la web muestra un error explícito si falta aplicarlo.
+Las peticiones web no alteran el esquema. Cada cambio de base de datos debe añadirse como una migración versionada en `src/Console/Migrate.php` y ejecutarse después del despliegue con `php bin/migrate.php`. El comando es seguro al repetirse; la web muestra un error explícito si falta aplicarlo.
 Las pruebas puras se ejecutan con `php tests/ingesta_test.php` y `php tests/monitor_ingesta_test.php`.
 
 ## Clientes desde la API
@@ -138,11 +145,11 @@ Si falla (contraseña rechazada, API caída...), no se cae nada: el error queda 
 Añade una tarea programada para sincronizar clientes y limpiar logs:
 *Sitios web y dominios → tu dominio → **Tareas programadas** → Añadir tarea*:
 - Tipo: **Ejecutar un script PHP** (o *Ejecutar un comando*).
-- Ruta del script: `httpdocs/sync.php`. Con *Ejecutar un comando*: `/opt/plesk/php/8.3/bin/php /var/www/vhosts/TU_DOMINIO/httpdocs/sync.php` (ajusta versión de PHP y ruta).
+- Ruta del script: `httpdocs/bin/sync.php`. Con *Ejecutar un comando*: `/opt/plesk/php/8.3/bin/php /var/www/vhosts/TU_DOMINIO/httpdocs/bin/sync.php` (ajusta versión de PHP y ruta).
 - Frecuencia: la que prefieras, por ejemplo cada hora (`0 * * * *`).
 - Notificación: solo si hay errores.
 
-`sync.php`, `migrate.php` y `purge.php` solo funcionan por línea de comandos. Ejecuta `php migrate.php` después de cada despliegue que incluya cambios de esquema. Programa también `purge.php` (por ejemplo, una vez al día) para eliminar logs y staging importado de más de `'maintenance_retention_days'` días; conserva las copias finales y los avisos pendientes de asignar.
+`bin/sync.php`, `bin/migrate.php` y `bin/purge.php` solo funcionan por línea de comandos. Ejecuta `php bin/migrate.php` después de cada despliegue que incluya cambios de esquema. Programa también `bin/purge.php` (por ejemplo, una vez al día) para eliminar logs y staging importado de más de `'maintenance_retention_days'` días; conserva las copias finales y los avisos pendientes de asignar.
 
 ### Cómo se guardan los datos
 - Cada registro se identifica por su `Clave` de la API: si ya existe se actualiza, si es nuevo se crea.
@@ -158,7 +165,7 @@ Cada aviso debe incluir un identificador estable (message_id) para que la ingest
 
 ## Conectar Monitor-Equipos
 
-1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 8).
+1. Despliega Intranet-Sauber y ejecuta `php bin/migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 8).
 2. En **Tokens de integraciones**, crea una sola clave API compartida sin caducidad para Monitor-Equipos. Reutiliza la misma clave en todas las instalaciones; no generes una clave por equipo. Guárdala de forma segura: quien la obtenga podrá dar de alta agentes.
 3. Antes de ejecutar el instalador combinado, instala RustDesk en `C:\Program Files\RustDesk\rustdesk.exe`. El instalador consultará su ID y lo incluirá en los informes del agente.
 4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita la clave compartida `sbr_…`. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.
@@ -184,7 +191,7 @@ Las alertas iniciales son: fallo SMART previsto o disco `Unhealthy` (crítica); 
 - Contraseñas verificadas contra la API, sesión HttpOnly/SameSite y límites persistentes de intentos por IP/usuario, no por cookie.
 - Consultas preparadas (PDO), salida escapada, token CSRF en acciones que modifican datos.
 - Reglas de negocio validadas también en el servidor.
-- Las credenciales de la API nunca salen del servidor; `sync.php` no es accesible desde la web.
+- Las credenciales de la API nunca salen del servidor; `bin/sync.php` no es accesible desde la web.
 - Cabeceras CSP, HSTS cuando se detecta HTTPS y cookie segura; si Plesk termina HTTPS en un proxy confiable, configura `'trust_proxy_https' => true`.
 - Los secretos (`config/config.php`) nunca van al repositorio.
 
