@@ -6,6 +6,11 @@ import { api } from '../api';
 function bytes(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return null;
+  if (number >= 1024 ** 3) {
+    const gib = (number / (1024 ** 3)).toFixed(1);
+    const gb = (number / (1000 ** 3)).toFixed(1);
+    return `${gib} GiB (${gb} GB)`;
+  }
   if (number < 1024) return `${number} B`;
   const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
   let size = number;
@@ -15,6 +20,18 @@ function bytes(value) {
     unit += 1;
   } while (size >= 1024 && unit < units.length - 1);
   return `${size.toFixed(1)} ${units[unit]}`;
+}
+
+function tiempoEncendido(lastBootUtc, reportTimestampUtc) {
+  if (!lastBootUtc || !reportTimestampUtc) return null;
+  const lastBoot = new Date(lastBootUtc).getTime();
+  const reportedAt = new Date(reportTimestampUtc).getTime();
+  if (!Number.isFinite(lastBoot) || !Number.isFinite(reportedAt) || reportedAt < lastBoot) return null;
+  const minutes = Math.floor((reportedAt - lastBoot) / 60000);
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const remainingMinutes = minutes % 60;
+  return [days ? `${days} d` : null, `${hours} h`, `${remainingMinutes} min`].filter(Boolean).join(' ');
 }
 
 function Campo({ label, value }) {
@@ -121,6 +138,7 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
   agregarDatoPdf(sistema, 'Dominio', monitor.system?.domain);
   agregarDatoPdf(sistema, 'Memoria total', bytes(monitor.system?.totalRamBytes));
   agregarDatoPdf(sistema, 'Último arranque', fecha(monitor.system?.lastBootUtc));
+  agregarDatoPdf(sistema, 'Tiempo encendido al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
   agregarDatoPdf(sistema, 'Predicción SMART', monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto');
   y = agregarSeccionPdf(doc, 'Sistema', sistema, y);
 
@@ -162,7 +180,7 @@ function generarPdfEquipo({ equipo, clienteNombre, datos, monitor, alertas, modo
     ['Capacidad / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
     ['Temperatura', (disk) => disk.temperatureC != null ? `${disk.temperatureC} °C` : null],
     ['Desgaste reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
-    ['Horas encendido', (disk) => disk.powerOnHours],
+    ['Horas de uso acumuladas del disco', (disk) => disk.powerOnHours],
     ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
   ]);
   y = agregarSeccionPdf(doc, 'Discos', discos, y);
@@ -295,6 +313,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="Dominio" value={monitor.system?.domain} />
         <Campo label="Memoria total" value={bytes(monitor.system?.totalRamBytes)} />
         <Campo label="Último arranque" value={fecha(monitor.system?.lastBootUtc)} />
+        <Campo label="Tiempo encendido al informe" value={tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc)} />
         <Campo label="Predicción SMART" value={monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto'} />
       </dl>
     </Seccion>
@@ -364,7 +383,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="Capacidad / tipo" value={[bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')} />
         <Campo label="Temperatura" value={disk.temperatureC != null ? `${disk.temperatureC} °C` : null} />
         <Campo label="Desgaste reportado" value={disk.wearPercent != null ? `${disk.wearPercent}%` : null} />
-        <Campo label="Horas encendido" value={disk.powerOnHours} />
+        <Campo label="Horas de uso acumuladas del disco" value={disk.powerOnHours} />
         <Campo label="Errores lectura / escritura" value={[disk.readErrorsTotal, disk.writeErrorsTotal].filter((v) => v != null).join(' / ')} />
       </>} />
     </Seccion>
