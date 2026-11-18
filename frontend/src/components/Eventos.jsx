@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { api } from '../api';
 import Paginacion from './Paginacion';
+import FiltrosActivos from './FiltrosActivos';
 
-const POR_PAGINA = 50;
+const POR_PAGINA = 10;
 const niveles = [
   ['all', 'Todos los niveles'],
   ['Critical', 'Crítico'],
   ['Error', 'Error'],
   ['Warning', 'Advertencia'],
-  ['Information', 'Información'],
-  ['Verbose', 'Detallado'],
-  ['LogAlways', 'Siempre registrado'],
-  ['Unknown', 'Desconocido'],
+  ['Information', 'Informativo'],
 ];
 
 function fechaHora(value) {
@@ -33,22 +33,24 @@ function Nivel({ nivel }) {
     Error: 'Error',
     Warning: 'Advertencia',
     Information: 'Información',
-    Verbose: 'Detallado',
-    LogAlways: 'Siempre registrado',
   }[nivel] || nivel || '—';
   return <span className={`evento-nivel ${estilo}`}>{etiqueta}</span>;
 }
 
-export default function Eventos({ equipoId = null }) {
+export default function Eventos({ equipoId = null, onVolver }) {
   const [buscar, setBuscar] = useState('');
   const [q, setQ] = useState('');
   const [nivel, setNivel] = useState('all');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [exportando, setExportando] = useState(false);
+  const [errorPdf, setErrorPdf] = useState('');
   const [pagina, setPagina] = useState(1);
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const parametrosRef = useRef({ page: pagina, q, nivel, equipoId });
-  parametrosRef.current = { page: pagina, q, nivel, equipoId };
+  const parametrosRef = useRef({ page: pagina, q, nivel, equipoId, desde, hasta });
+  parametrosRef.current = { page: pagina, q, nivel, equipoId, desde, hasta };
   const enCursoRef = useRef(false);
   const pendienteRef = useRef(false);
   const activaRef = useRef(true);
@@ -75,7 +77,7 @@ export default function Eventos({ equipoId = null }) {
     setCargando(true);
     try {
       const data = await api(
-        `monitor_eventos&page=${parametros.page}&q=${encodeURIComponent(parametros.q)}&nivel=${encodeURIComponent(parametros.nivel)}${parametros.equipoId ? `&equipo_id=${parametros.equipoId}` : ''}`,
+        `monitor_eventos&page=${parametros.page}&q=${encodeURIComponent(parametros.q)}&nivel=${encodeURIComponent(parametros.nivel)}${parametros.equipoId ? `&equipo_id=${parametros.equipoId}` : ''}${parametros.desde ? `&desde=${parametros.desde}` : ''}${parametros.hasta ? `&hasta=${parametros.hasta}` : ''}`,
       );
       if (!activaRef.current) return;
       if (clave === JSON.stringify(parametrosRef.current)) {
@@ -117,7 +119,7 @@ export default function Eventos({ equipoId = null }) {
 
   useEffect(() => {
     cargar();
-  }, [cargar, pagina, q, nivel]);
+  }, [cargar, pagina, q, nivel, desde, hasta]);
 
   useEffect(() => {
     const timer = setInterval(() => cargarRef.current?.(), 60_000);
@@ -128,16 +130,167 @@ export default function Eventos({ equipoId = null }) {
   const total = resultado?.total || 0;
   const paginas = Math.max(1, Math.ceil(total / (resultado?.porPagina || POR_PAGINA)));
   const equipoNombre = eventos[0]?.equipo || `equipo #${equipoId}`;
+  const filtrosActivos = [
+    ...(buscar.trim() ? [{ clave: 'q', etiqueta: `Búsqueda: ${buscar.trim()}` }] : []),
+    ...(nivel !== 'all' ? [{ clave: 'nivel', etiqueta: `Nivel: ${niveles.find(([key]) => key === nivel)?.[1] || nivel}` }] : []),
+    ...(desde ? [{ clave: 'desde', etiqueta: `Desde: ${desde}` }] : []),
+    ...(hasta ? [{ clave: 'hasta', etiqueta: `Hasta: ${hasta}` }] : []),
+  ];
+  const quitarFiltro = (clave) => {
+    if (clave === 'q') { setBuscar(''); setQ(''); }
+    else if (clave === 'nivel') setNivel('all');
+    else if (clave === 'desde') setDesde('');
+    else if (clave === 'hasta') setHasta('');
+    setPagina(1);
+  };
+  const limpiarFiltros = () => {
+    setBuscar('');
+    setQ('');
+    setNivel('all');
+    setDesde('');
+    setHasta('');
+    setPagina(1);
+  };
+
+  const imprimirRegistro = async () => {
+    if (!equipoId || exportando) return;
+    setExportando(true);
+    setErrorPdf('');
+    try {
+      const tamano = resultado?.porPagina || POR_PAGINA;
+      const query = (page) => `monitor_eventos&page=${page}&q=&nivel=all&equipo_id=${equipoId}${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
+      const primera = await api(query(1));
+      const todos = [...(primera.eventos || [])];
+      const totalRegistros = Number(primera.total) || todos.length;
+      for (let page = 2; page <= Math.ceil(totalRegistros / tamano); page += 1) {
+        const siguiente = await api(query(page));
+        todos.push(...(siguiente.eventos || []));
+      }
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const ancho = doc.internal.pageSize.getWidth();
+      const clasificaciones = [
+        ['Critical', 'Críticos', [150, 42, 52]],
+        ['Error', 'Errores', [184, 76, 62]],
+        ['Warning', 'Advertencias', [224, 157, 51]],
+        ['Information', 'Informativos', [68, 126, 168]],
+      ];
+      const conteoNivel = new Map(clasificaciones.map(([clave]) => [clave, 0]));
+      const tipos = new Map();
+      todos.forEach((evento) => {
+        const nivelEvento = conteoNivel.has(evento.nivel) ? evento.nivel : 'Error';
+        conteoNivel.set(nivelEvento, conteoNivel.get(nivelEvento) + 1);
+        const origen = evento.origen || 'Sin origen';
+        const canal = evento.canal || 'Sin canal';
+        const clave = JSON.stringify([nivelEvento, canal, origen, evento.event_id]);
+        const tipo = tipos.get(clave) || { nivel: nivelEvento, canal, origen, eventId: evento.event_id, cantidad: 0 };
+        tipo.cantidad += 1;
+        tipos.set(clave, tipo);
+      });
+      const ordenarTipos = [...tipos.values()].sort((a, b) => b.cantidad - a.cantidad || String(a.origen).localeCompare(String(b.origen)));
+
+      // Portada y resumen ejecutivo.
+      doc.setFillColor(28, 53, 81);
+      doc.rect(9, 9, ancho - 18, 36, 'F');
+      doc.setFont('times', 'bold');
+      doc.setFontSize(23);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Informe de eventos de Windows', 16, 25);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(225, 234, 242);
+      doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 16, 37);
+      doc.setTextColor(40, 51, 64);
+      doc.setFontSize(11);
+      doc.text(`Periodo: ${desde || 'todo el historial'}${hasta ? ` a ${hasta}` : ''}`, 9, 53);
+      doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, ancho - 9, 53, { align: 'right' });
+
+      const tarjetaY = 60;
+      const tarjetaGap = 5;
+      const tarjetaAncho = (ancho - 18 - tarjetaGap * 3) / 4;
+      clasificaciones.forEach(([clave, titulo, color], indice) => {
+        const x = 9 + indice * (tarjetaAncho + tarjetaGap);
+        doc.setFillColor(245, 247, 250);
+        doc.rect(x, tarjetaY, tarjetaAncho, 24, 'F');
+        doc.setFillColor(...color);
+        doc.rect(x, tarjetaY, 2.5, 24, 'F');
+        doc.setFont('times', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(86, 99, 112);
+        doc.text(titulo, x + 8, tarjetaY + 9);
+        doc.setFont('times', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(28, 42, 57);
+        doc.text(String(conteoNivel.get(clave)), x + 8, tarjetaY + 20);
+      });
+
+      doc.setFont('times', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(28, 53, 81);
+      doc.text('Conteo por tipo de evento', 9, 94);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(90, 100, 112);
+      doc.text(`${todos.length.toLocaleString('es-ES')} registros · agrupados por clasificación, canal, origen y Event ID`, 9, 100);
+      autoTable(doc, {
+        startY: 104,
+        head: [['Clasificación', 'Canal', 'Origen', 'Event ID', 'Cantidad']],
+        body: ordenarTipos.map((tipo) => [tipo.nivel, tipo.canal, tipo.origen, tipo.eventId, tipo.cantidad]),
+        styles: { font: 'times', fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
+        headStyles: { fillColor: [28, 53, 81], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 25 }, 4: { cellWidth: 25, halign: 'right' } },
+        margin: { left: 9, right: 9, bottom: 14 },
+      });
+
+      doc.addPage();
+      doc.setFont('times', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(28, 53, 81);
+      doc.text('Registro de eventos', 9, 18);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(90, 100, 112);
+      doc.text('Vista compacta para lectura rápida; los mensajes se limitan a 220 caracteres.', 9, 25);
+      autoTable(doc, {
+        startY: 30,
+        head: [['Fecha y hora', 'Clasificación', 'Nivel Windows', 'Canal', 'Origen', 'ID', 'Resumen del mensaje']],
+        body: todos.map((e) => [fechaHora(e.fecha), e.nivel, e.nivel_original || e.nivel, e.canal, e.origen, e.event_id, String(e.mensaje || 'Sin mensaje').replace(/\s+/g, ' ').slice(0, 220) + (String(e.mensaje || '').length > 220 ? '…' : '')]),
+        styles: { font: 'times', fontSize: 9.5, cellPadding: 2.4, overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: [28, 53, 81], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: { 0: { cellWidth: 29 }, 1: { cellWidth: 25 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 39 }, 5: { cellWidth: 14 }, 6: { cellWidth: 'auto' } },
+        margin: { left: 9, right: 9, bottom: 14 },
+      });
+
+      const paginasPdf = doc.internal.getNumberOfPages();
+      for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) {
+        doc.setPage(paginaPdf);
+        doc.setDrawColor(220, 225, 231);
+        doc.line(9, 201, ancho - 9, 201);
+        doc.setFont('times', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(110, 120, 130);
+        doc.text(`Registro de eventos · ${todos.length} eventos · mensajes resumidos a 220 caracteres`, 9, 206);
+        doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 9, 206, { align: 'right' });
+      }
+      doc.save(`eventos-equipo-${equipoId}.pdf`);
+    } catch (e) {
+      setErrorPdf(e.message || 'No se pudo generar el PDF del registro.');
+    } finally {
+      setExportando(false);
+    }
+  };
 
   return (
     <section className="eventos-page" aria-labelledby="eventos-title">
       <div className="eventos-heading">
         <div>
+          {equipoId && <button type="button" className="btn sec eventos-volver" onClick={onVolver}>← Volver</button>}
           <span className="eyebrow">Monitor de equipos</span>
           <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
           <p>{equipoId
-            ? 'En Estándar se muestran errores y críticos de System y Application de los últimos 30 días; Auditoría Completa incluye los niveles y canales disponibles.'
-            : 'Estándar recoge errores y críticos de System y Application de los últimos 30 días. Auditoría Completa incluye todos los niveles y canales disponibles.'}</p>
+            ? 'Se muestra todo el historial almacenado para este equipo. Estándar recoge errores y críticos; Auditoría Completa incluye los niveles y canales habilitados.'
+            : 'Se muestra todo el historial almacenado. Estándar recoge errores y críticos; Auditoría Completa incluye todos los niveles y canales habilitados.'}</p>
         </div>
         <div className="eventos-actualizacion" aria-live="polite">
           <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
@@ -156,6 +309,9 @@ export default function Eventos({ equipoId = null }) {
             placeholder="Cliente, equipo, origen o mensaje"
           />
         </label>
+        <label className="eventos-fecha" htmlFor="eventos-desde"><span>Desde</span><input id="eventos-desde" type="date" value={desde} max={hasta || undefined} onChange={(event) => { setDesde(event.target.value); setPagina(1); }} /></label>
+        <label className="eventos-fecha" htmlFor="eventos-hasta"><span>Hasta</span><input id="eventos-hasta" type="date" value={hasta} min={desde || undefined} onChange={(event) => { setHasta(event.target.value); setPagina(1); }} /></label>
+        {equipoId && <button className="btn sec eventos-pdf" onClick={imprimirRegistro} disabled={exportando}>{exportando ? 'Preparando PDF…' : 'Imprimir registro PDF'}</button>}
         <label className="eventos-nivel" htmlFor="eventos-nivel">
           <span>Nivel</span>
           <select
@@ -172,7 +328,10 @@ export default function Eventos({ equipoId = null }) {
         <p className="eventos-recuento" aria-live="polite">
           {resultado === null && cargando ? 'Cargando resultados…' : `${total.toLocaleString('es-ES')} evento${total === 1 ? '' : 's'}`}
         </p>
+        <FiltrosActivos filtros={filtrosActivos} onQuitar={quitarFiltro} onLimpiar={limpiarFiltros} />
       </div>
+
+      {errorPdf && <div className="errbox eventos-error" role="alert">{errorPdf}</div>}
 
       {error && (
         <div className="errbox eventos-error" role="alert">
@@ -197,7 +356,7 @@ export default function Eventos({ equipoId = null }) {
                 <th scope="col">Fecha y hora</th>
                 <th scope="col">Cliente</th>
                 <th scope="col">Equipo</th>
-                <th scope="col">Nivel</th>
+                <th scope="col">Clasificación</th>
                 <th scope="col">Canal</th>
                 <th scope="col">Origen</th>
                 <th scope="col">Event ID</th>
@@ -210,7 +369,7 @@ export default function Eventos({ equipoId = null }) {
                   <td className="evento-fecha">{fechaHora(evento.fecha)}</td>
                   <td className="evento-cliente">{evento.cliente || '—'}</td>
                   <td className="evento-equipo">{evento.equipo || '—'}</td>
-                  <td><Nivel nivel={evento.nivel} /></td>
+                  <td><Nivel nivel={evento.nivel} />{evento.nivel_original && evento.nivel_original !== evento.nivel && <small className="evento-nivel-original">Windows: {evento.nivel_original}</small>}</td>
                   <td className="evento-canal">{evento.canal || '—'}</td>
                   <td className="evento-origen">{evento.origen || '—'}</td>
                   <td className="evento-id">{evento.event_id || '—'}</td>

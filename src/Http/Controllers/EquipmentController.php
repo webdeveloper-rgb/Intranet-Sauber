@@ -53,6 +53,40 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'equipo_alias') {
+            exigir_admin($user);
+            try {
+                $alias = monitor_alias_guardar(
+                    db(),
+                    (int) ($input['id'] ?? 0),
+                    $input['alias'] ?? null
+                );
+                out(['ok' => true, 'alias' => $alias]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
+        if ($action === 'equipo_tipo') {
+            exigir_admin($user);
+            try {
+                $tipo = equipos_guardar_tipo((int) ($input['id'] ?? 0), $input['tipo'] ?? null);
+                out(['ok' => true, 'tipo' => $tipo ?: null, 'tipo_manual' => ($input['tipo'] ?? null) === 'auto' ? null : $tipo]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
+        if ($action === 'equipo_rustdesk_password') {
+            exigir_admin($user);
+            try {
+                $password = monitor_password_equipo(db(), (int) ($input['id'] ?? 0));
+                out(['ok' => true, 'password' => $password]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_desasignar') {
             exigir_admin($user);
             try {

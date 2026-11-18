@@ -5,6 +5,7 @@ define('SIN_SESION', true);
 require __DIR__ . '/../bootstrap.php';
 require __DIR__ . '/../Security/ApiTokens.php';
 require __DIR__ . '/../Monitoring/MonitorService.php';
+require_once __DIR__ . '/../Backup/EquipmentService.php';
 require __DIR__ . '/JsonResponse.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -35,6 +36,11 @@ try {
     if (!is_array($data)) {
         monitor_responder(['error' => 'JSON no válido'], 400);
     }
+    $rustDeskPassword = $data['rustDeskPassword'] ?? null;
+    if ($rustDeskPassword !== null && (!is_string($rustDeskPassword)
+        || preg_match('/\A[A-Za-z0-9!@#$%^&*()_+=.,?-]{6,64}\z/', $rustDeskPassword) !== 1)) {
+        monitor_responder(['error' => 'La contraseña de RustDesk no tiene un formato válido.'], 422);
+    }
     try {
         $machineId = (string) ($_SERVER['HTTP_X_MACHINE_ID'] ?? '');
         $report = monitor_normalizar_informe($data, $machineId);
@@ -51,7 +57,7 @@ try {
     }
     rate_limit_clear([$rateKey]);
 
-    $equipmentId = monitor_guardar_informe($pdo, $report);
+    $equipmentId = monitor_guardar_informe($pdo, $report, $rustDeskPassword);
     monitor_responder([
         'ok' => true,
         'equipo_id' => $equipmentId,

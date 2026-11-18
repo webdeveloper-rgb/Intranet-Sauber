@@ -21,6 +21,16 @@ function monitor_migrar_esquema(PDO $pdo): void
     if (!in_array('monitor_event_mode', $columns, true)) {
         $pdo->exec("ALTER TABLE equipos ADD COLUMN monitor_event_mode VARCHAR(20) NOT NULL DEFAULT 'standard'");
     }
+    if (!in_array('monitor_alias', $columns, true)) {
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN monitor_alias VARCHAR(100) NULL');
+    }
+    if (!in_array('rustdesk_password_enc', $columns, true)) {
+        $sqlPassword = 'ALTER TABLE equipos ADD COLUMN rustdesk_password_enc TEXT NULL';
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $sqlPassword, 'columna cifrada de contraseña RustDesk');
+        else
+            $pdo->exec($sqlPassword);
+    }
     $index = $pdo->query("SELECT COUNT(*) FROM information_schema.statistics
         WHERE table_schema=DATABASE() AND table_name='equipos' AND index_name='uq_equipos_monitor_machine_id'")->fetchColumn();
     if (!(int) $index) {
@@ -29,7 +39,10 @@ function monitor_migrar_esquema(PDO $pdo): void
 
     $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/monitor.sql');
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
-        $pdo->exec($statement);
+        if (function_exists('migracion_ejecutar_sql'))
+            migracion_ejecutar_sql($pdo, $statement, 'database/monitor.sql');
+        else
+            $pdo->exec($statement);
     }
 }
 
@@ -99,6 +112,21 @@ function monitor_lista($source, array $fields, int $maxItems): array
         $normalized = monitor_campos($item, $fields);
         if ($normalized !== null) {
             $result[] = $normalized;
+        }
+    }
+    return $result;
+}
+
+function monitor_lista_textos($source, int $maxItems, int $maxLength): array
+{
+    if (!is_array($source)) {
+        return [];
+    }
+    $result = [];
+    foreach (array_slice($source, 0, $maxItems) as $item) {
+        $text = monitor_texto($item, $maxLength);
+        if ($text !== null && !in_array($text, $result, true)) {
+            $result[] = $text;
         }
     }
     return $result;
@@ -222,15 +250,26 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'name' => 'text', 'chargePercent' => 'number', 'designCapacity' => 'number',
         'fullChargeCapacity' => 'number', 'healthPercent' => 'number',
     ];
+    $software = is_array($data['software'] ?? null) ? $data['software'] : [];
 
     return [
         'agentVersion' => monitor_texto($data['agentVersion'] ?? null, 40),
         'machineId' => $machineId,
         'hostname' => $hostname,
+        'clientNote' => monitor_texto($data['clientNote'] ?? null, 160),
         'timestampUtc' => gmdate('c', $timestamp),
         'rustDeskId' => monitor_texto($data['rustDeskId'] ?? null, 128),
+        'collectionErrors' => monitor_lista_textos($data['collectionErrors'] ?? null, 40, 500),
         'eventExtractionMode' => $eventMode,
         'system' => monitor_campos($data['system'] ?? null, $systemFields),
+        'software' => [
+            'available' => is_array($data['software'] ?? null),
+            'windowsRelease' => monitor_texto($software['windowsRelease'] ?? null, 40),
+            'windowsLicenseStatus' => in_array($software['windowsLicenseStatus'] ?? null, ['licensed', 'not_licensed', 'unknown'], true)
+                ? $software['windowsLicenseStatus'] : 'unknown',
+            'antivirusProducts' => monitor_lista_textos($software['antivirusProducts'] ?? null, 20, 160),
+            'backupProducts' => monitor_lista_textos($software['backupProducts'] ?? null, 30, 160),
+        ],
         'board' => monitor_campos($data['board'] ?? null, $boardFields),
         'cpus' => monitor_lista($data['cpus'] ?? null, $cpuFields, 32),
         'ram' => monitor_lista($data['ram'] ?? null, $ramFields, 64),
@@ -469,7 +508,89 @@ function monitor_evaluar_alertas(array $report): array
     return $alerts;
 }
 
-function monitor_guardar_informe(PDO $pdo, array $report): int
+function monitor_cliente_texto_normalizar(string $value): string
+{
+    $value = mb_strtolower(trim($value), 'UTF-8');
+    $value = strtr($value, [
+        'á' => 'a', 'à' => 'a', 'ä' => 'a', 'â' => 'a',
+        'é' => 'e', 'è' => 'e', 'ë' => 'e', 'ê' => 'e',
+        'í' => 'i', 'ì' => 'i', 'ï' => 'i', 'î' => 'i',
+        'ó' => 'o', 'ò' => 'o', 'ö' => 'o', 'ô' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'ü' => 'u', 'û' => 'u',
+        'ñ' => 'n', 'ç' => 'c',
+    ]);
+    if (function_exists('iconv')) {
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (is_string($ascii)) {
+            $value = strtolower($ascii);
+        }
+    }
+    // Normaliza las variantes legales habituales: "S.L.", "S. L." y "Sociedad Limitada"
+    // deben equivaler a "SL", para que una referencia breve coincida con la razón social.
+    $value = preg_replace(
+        '/\b(?:s\.?\s*l\.?u?\.?|s\.?\s*a\.?u?\.?|s\.?\s*r\.?\s*l\.?|sociedad\s+(?:limitada|anonima)|responsabilidad\s+limitada)\b/u',
+        ' ',
+        $value
+    ) ?? $value;
+    $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? '';
+    $stop = ['cliente', 'client', 'empresa', 'equipo', 'pc', 'ordenador', 'portatil', 'sede', 'oficina', 'sucursal', 'nota', 'referencia', 'para', 'de', 'del', 'la', 'el', 'los', 'las', 'sl', 'sa', 'srl', 'slu', 'inc', 'ltd'];
+    $tokens = array_filter(explode(' ', trim($value)), static fn($token) => $token !== '' && !in_array($token, $stop, true));
+    return implode(' ', $tokens);
+}
+
+/** Returns one active client only when the note identifies it clearly and uniquely. */
+function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSatbk): ?array
+{
+    $needle = monitor_cliente_texto_normalizar($note);
+    if ($needle === '') {
+        return null;
+    }
+    $sql = 'SELECT id,nombre,codigo FROM clientes WHERE activo=1' . ($requiresSatbk ? ' AND tiene_satbk=1' : '');
+    $clients = $pdo->query($sql)->fetchAll();
+    $exact = [];
+    foreach ($clients as $client) {
+        foreach ([$client['nombre'] ?? '', $client['codigo'] ?? ''] as $candidate) {
+            $normalized = monitor_cliente_texto_normalizar((string) $candidate);
+            if ($normalized !== '' && $normalized === $needle) {
+                $exact[(int) $client['id']] = $client;
+                break;
+            }
+        }
+    }
+    if (count($exact) === 1) {
+        return array_values($exact)[0];
+    }
+    if (count($exact) > 1) {
+        return null;
+    }
+
+    $scores = [];
+    foreach ($clients as $client) {
+        $name = monitor_cliente_texto_normalizar((string) ($client['nombre'] ?? ''));
+        if (strlen($name) < 5) {
+            continue;
+        }
+        similar_text($needle, $name, $percent);
+        $score = $percent / 100;
+        if (strpos($needle, $name) !== false || strpos($name, $needle) !== false) {
+            $score = max($score, 0.94);
+        }
+        if ($score >= 0.90) {
+            $scores[(int) $client['id']] = ['client' => $client, 'score' => $score];
+        }
+    }
+    if (!$scores) {
+        return null;
+    }
+    usort($scores, static fn($a, $b) => $b['score'] <=> $a['score']);
+    if ($scores[0]['score'] < 0.92
+        || (isset($scores[1]) && $scores[0]['score'] - $scores[1]['score'] < 0.08)) {
+        return null;
+    }
+    return $scores[0]['client'];
+}
+
+function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null): int
 {
     $events = $report['events'] ?? [];
     unset($report['events']);
@@ -500,9 +621,40 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
             }
         }
 
+        if (!empty($report['clientNote'])) {
+            $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(sugerido,?) WHERE id=?')
+                ->execute([$report['clientNote'], $equipmentId]);
+            $st = $pdo->prepare('SELECT cliente_id,
+                (EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=e.id)
+                    OR EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)) AS tiene_copias
+                FROM equipos e WHERE e.id=? FOR UPDATE');
+            $st->execute([$equipmentId]);
+            $assignment = $st->fetch();
+            if ($assignment && $assignment['cliente_id'] === null) {
+                $client = monitor_cliente_coincidir_nota($pdo, $report['clientNote'], (bool) $assignment['tiene_copias']);
+                if ($client) {
+                    $link = $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=? AND cliente_id IS NULL');
+                    $link->execute([(int) $client['id'], $equipmentId]);
+                    if ($link->rowCount() === 1) {
+                        $pdo->prepare('UPDATE copias SET cliente=? WHERE equipo_id=?')
+                            ->execute([$client['nombre'], $equipmentId]);
+                        if (function_exists('correo_importar_equipo')) {
+                            correo_importar_equipo($equipmentId, (int) $client['id'], $pdo);
+                        }
+                    }
+                }
+            }
+        }
+
         $json = json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
-            ->execute([$report['machineId'], $json, $equipmentId]);
+        if ($rustDeskPassword !== null) {
+            $encrypted = monitor_password_cifrar($rustDeskPassword);
+            $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,rustdesk_password_enc=?,monitor_last_seen=NOW() WHERE id=?')
+                ->execute([$report['machineId'], $json, $encrypted, $equipmentId]);
+        } else {
+            $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
+                ->execute([$report['machineId'], $json, $equipmentId]);
+        }
 
         $saveEvent = $pdo->prepare('INSERT INTO monitor_eventos
             (event_key,machine_id,equipo_id,record_id,event_time,log_name,source,event_id,level,message)
@@ -566,6 +718,61 @@ function monitor_guardar_informe(PDO $pdo, array $report): int
 
     monitor_enviar_alertas_pendientes($pdo);
     return (int) $equipmentId;
+}
+
+function monitor_password_clave(): string
+{
+    $secret = trim((string) cfg('monitor_password_secret', ''));
+    if ($secret === '') {
+        $database = cfg('db', []);
+        $secret = (string) ($database['pass'] ?? '');
+    }
+    if (strlen($secret) < 16) {
+        throw new RuntimeException('Configura monitor_password_secret (mínimo 16 caracteres) o una contraseña de base de datos segura.');
+    }
+    return hash_hmac('sha256', 'sauber-rustdesk-passwords-v1', $secret, true);
+}
+
+function monitor_password_cifrar(string $password): string
+{
+    if (!function_exists('openssl_encrypt')) {
+        throw new RuntimeException('OpenSSL debe estar habilitado para cifrar contraseñas de RustDesk.');
+    }
+    $nonce = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($password, 'aes-256-gcm', monitor_password_clave(), OPENSSL_RAW_DATA, $nonce, $tag);
+    if (!is_string($ciphertext)) {
+        throw new RuntimeException('No se pudo cifrar la contraseña de RustDesk.');
+    }
+    return 'v1:' . base64_encode($nonce . $tag . $ciphertext);
+}
+
+function monitor_password_descifrar(string $encoded): string
+{
+    if (!function_exists('openssl_decrypt') || substr($encoded, 0, 3) !== 'v1:') {
+        throw new RuntimeException('Formato de contraseña cifrada no compatible.');
+    }
+    $payload = base64_decode(substr($encoded, 3), true);
+    if (!is_string($payload) || strlen($payload) < 29) {
+        throw new RuntimeException('La contraseña cifrada está dañada.');
+    }
+    $plain = openssl_decrypt(substr($payload, 28), 'aes-256-gcm', monitor_password_clave(), OPENSSL_RAW_DATA,
+        substr($payload, 0, 12), substr($payload, 12, 16));
+    if (!is_string($plain)) {
+        throw new RuntimeException('No se pudo descifrar la contraseña de RustDesk. Revisa la clave del servidor.');
+    }
+    return $plain;
+}
+
+function monitor_password_equipo(PDO $pdo, int $equipmentId): ?string
+{
+    $st = $pdo->prepare('SELECT rustdesk_password_enc FROM equipos WHERE id=? AND monitor_machine_id IS NOT NULL');
+    $st->execute([$equipmentId]);
+    $value = $st->fetchColumn();
+    if (!is_string($value) || $value === '') {
+        return null;
+    }
+    return monitor_password_descifrar($value);
 }
 
 function monitor_enviar_alertas_pendientes(PDO $pdo): void
@@ -666,9 +873,27 @@ function monitor_event_mode_guardar(PDO $pdo, int $equipmentId, string $mode): v
     }
 }
 
+function monitor_alias_guardar(PDO $pdo, int $equipmentId, $alias): ?string
+{
+    if ($equipmentId < 1 || (!is_string($alias) && $alias !== null)) {
+        throw new ApiError('El equipo o el alias no es válido.');
+    }
+    $normalized = monitor_texto($alias, 100);
+    $st = $pdo->prepare('UPDATE equipos SET monitor_alias=? WHERE id=?');
+    $st->execute([$normalized, $equipmentId]);
+    if (!$st->rowCount()) {
+        $st = $pdo->prepare('SELECT id FROM equipos WHERE id=?');
+        $st->execute([$equipmentId]);
+        if (!$st->fetchColumn()) {
+            throw new ApiError('Equipo no encontrado.');
+        }
+    }
+    return $normalized;
+}
+
 function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
 {
-    $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen,monitor_event_mode FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
+    $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen,monitor_event_mode,monitor_alias FROM equipos WHERE id=? AND monitor_report IS NOT NULL');
     $st->execute([$equipmentId]);
     $row = $st->fetch();
     if (!$row) {
@@ -690,31 +915,64 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     unset($alert);
     return [
         'monitor' => $report,
+        'monitor_alias' => $row['monitor_alias'],
         'monitor_last_seen' => $row['monitor_last_seen'],
         'event_extraction_mode' => $row['monitor_event_mode'],
         'alertas' => $alerts,
     ];
 }
 
-function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null): array
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
 {
     if (!in_array($level, [
-        'all', 'LogAlways', 'Critical', 'Error', 'Warning', 'Information', 'Verbose', 'Unknown',
+        'all', 'Critical', 'Error', 'Warning', 'Information',
     ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
         throw new InvalidArgumentException('El nivel de evento no es válido.');
     }
 
     $page = max(1, min($page, 100000));
-    $pageSize = 50;
+    $pageSize = 10;
     $search = monitor_texto($search, 150) ?? '';
-    $where = ["(e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)"];
+    // Ciertos errores de Windows son ruido conocido o tienen impacto de advertencia.
+    // Se conserva el nivel original en la respuesta para que el visor sea transparente.
+    $classifiedLevel = "CASE
+        WHEN ev.level='Critical' OR ev.level='Level 1' THEN 'Critical'
+        WHEN ev.level='Warning' OR ev.level='Level 3' THEN 'Warning'
+        WHEN ev.level IN ('Information','Verbose','LogAlways','Level 4','Level 5') THEN 'Information'
+        WHEN ev.level='Unknown' THEN 'Warning'
+        WHEN ev.level='Level 2' THEN 'Error'
+        WHEN ev.level='Error' AND (
+            (LOWER(COALESCE(ev.source,'')) LIKE '%distributedcom%' AND ev.event_id=10016)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%kernel-eventtracing%' AND ev.event_id IN (2,3,4,5,6,15,28))
+        ) THEN 'Information'
+        WHEN ev.level='Error' AND (
+            (LOWER(COALESCE(ev.source,'')) LIKE '%windowsupdateclient%' AND ev.event_id IN (20,21,31,34))
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%distributedcom%' AND ev.event_id=10010)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%devicesetupmanager%' AND ev.event_id=131)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%kernel-pnp%' AND ev.event_id=219)
+            OR (LOWER(COALESCE(ev.source,'')) LIKE '%appmodel-runtime%' AND ev.event_id IN (65,69))
+            OR (ev.log_name='Application' AND ev.event_id=1002)
+            OR (ev.log_name='System' AND ev.event_id=6008)
+        ) THEN 'Warning'
+        ELSE 'Error' END";
+    // El visor recorre todo el historial almacenado. El modo de extracción solo controla
+    // qué eventos nuevos recoge el agente; no debe ocultar registros antiguos ya guardados.
+    $where = ['1=1'];
     $params = [];
     if ($equipoId !== null) {
         $where[] = 'ev.equipo_id = ?';
         $params[] = $equipoId;
     }
+    if ($dateFrom !== null && $dateFrom !== '') {
+        $where[] = 'ev.event_time >= ?';
+        $params[] = $dateFrom . ' 00:00:00';
+    }
+    if ($dateTo !== null && $dateTo !== '') {
+        $where[] = 'ev.event_time < DATE_ADD(?, INTERVAL 1 DAY)';
+        $params[] = $dateTo . ' 00:00:00';
+    }
     if ($level !== 'all') {
-        $where[] = 'ev.level = ?';
+        $where[] = "({$classifiedLevel}) = ?";
         $params[] = $level;
     }
     if ($search !== '') {
@@ -735,7 +993,7 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     $rows = $pdo->prepare("SELECT ev.id,
             DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%sZ') AS fecha,
             COALESCE(c.nombre,'Sin asignar') AS cliente,e.nombre AS equipo,
-            ev.level AS nivel,ev.log_name AS canal,ev.record_id AS registro,
+            {$classifiedLevel} AS nivel,ev.level AS nivel_original,ev.log_name AS canal,ev.record_id AS registro,
             ev.event_id,ev.source AS origen,ev.message AS mensaje
         FROM monitor_eventos ev
         JOIN equipos e ON e.id=ev.equipo_id

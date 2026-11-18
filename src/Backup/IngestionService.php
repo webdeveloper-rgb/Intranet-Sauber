@@ -250,13 +250,13 @@ function ingesta_guardar(PDO $pdo, array $d): array
         if (count($monitorMatches) === 1) {
             $eq = $monitorMatches[0];
             $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(?,sugerido),
-                    tipo=COALESCE(?,tipo),programa=COALESCE(?,programa) WHERE id=?')
+                    tipo=COALESCE(tipo_manual,COALESCE(?,tipo)),programa=COALESCE(?,programa) WHERE id=?')
                 ->execute([$d['sugerido'], $d['tipo'], $d['programa'], $eq['id']]);
         } else {
             // Una copia posterior se asocia a la ficha ya creada por Monitor-Equipos.
             $pdo->prepare('INSERT INTO equipos (nombre,software,origen,sugerido,tipo,programa) VALUES (?,?,?,?,?,?)
                 ON DUPLICATE KEY UPDATE origen=VALUES(origen), sugerido=COALESCE(VALUES(sugerido),sugerido),
-                    tipo=COALESCE(VALUES(tipo),tipo), programa=COALESCE(VALUES(programa),programa)')
+                    tipo=COALESCE(tipo_manual,COALESCE(VALUES(tipo),tipo)), programa=COALESCE(VALUES(programa),programa)')
                 ->execute([$d['nombre'], $d['software'], $d['origen'], $d['sugerido'], $d['tipo'], $d['programa']]);
             $st = $pdo->prepare('SELECT id, cliente_id FROM equipos WHERE software=? AND nombre=?');
             $st->execute([$d['software'], $d['nombre']]);

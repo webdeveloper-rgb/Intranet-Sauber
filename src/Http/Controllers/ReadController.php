@@ -46,8 +46,35 @@ final class ReadController
                 $_SESSION['mig_tipos'] = 1;
                 $_SESSION['mig_dias_copia'] = 1;
             }
-            $rows = db()->query(SQL_COPIA . " WHERE fecha >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-                ORDER BY cursor_fecha DESC, id DESC LIMIT 3001")->fetchAll();
+            $dateFrom = $_GET['desde'] ?? '';
+            $dateTo = $_GET['hasta'] ?? '';
+            $dateIsValid = static function (string $value): bool {
+                return $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1
+                    && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4)));
+            };
+            if (!is_string($dateFrom) || !is_string($dateTo)
+                || !$dateIsValid($dateFrom) || !$dateIsValid($dateTo)
+                || ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo)) {
+                fail('El intervalo de fechas no es válido.');
+            }
+            $where = [];
+            $params = [];
+            if ($dateFrom !== '') {
+                $where[] = 'fecha >= ?';
+                $params[] = $dateFrom . ' 00:00:00';
+            }
+            if ($dateTo !== '') {
+                $where[] = 'fecha < DATE_ADD(?, INTERVAL 1 DAY)';
+                $params[] = $dateTo . ' 00:00:00';
+            }
+            $sql = SQL_COPIA;
+            if ($where) {
+                $sql .= ' WHERE ' . implode(' AND ', $where);
+            }
+            $query = db()->prepare($sql . ' ORDER BY cursor_fecha DESC, id DESC LIMIT 3001');
+            $query->execute($params);
+            $rows = $query->fetchAll();
+            $truncado = count($rows) > 3000;
             if (count($rows) > 3000) {
                 array_pop($rows);
             }
@@ -64,6 +91,7 @@ final class ReadController
 
             $body = json_encode([
                 'copias' => $rows,
+                'truncado' => $truncado,
                 'usuario' => $user['usuario'],
                 'hay_mas_historial' => false,
             ], JSON_UNESCAPED_UNICODE);
@@ -131,15 +159,24 @@ final class ReadController
             $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
             $search = $_GET['q'] ?? '';
             $level = $_GET['nivel'] ?? 'all';
+            $dateFrom = $_GET['desde'] ?? '';
+            $dateTo = $_GET['hasta'] ?? '';
             $equipoId = array_key_exists('equipo_id', $_GET)
                 ? filter_var($_GET['equipo_id'], FILTER_VALIDATE_INT)
                 : null;
+            $fechaValida = static function (string $value): bool {
+                return $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1
+                    && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4)));
+            };
             if ($page === false || $page < 1 || !is_string($search)
-                || !is_string($level) || !in_array($level, ['all', 'Critical', 'Error'], true)
+                || !is_string($level) || !in_array($level, ['all', 'Critical', 'Error', 'Warning', 'Information'], true)
+                || !is_string($dateFrom) || !is_string($dateTo)
+                || !$fechaValida($dateFrom) || !$fechaValida($dateTo)
+                || ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo)
                 || ($equipoId !== null && ($equipoId === false || $equipoId < 1))) {
                 fail('Los filtros de eventos no son válidos.');
             }
-            out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId));
+            out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId, $dateFrom ?: null, $dateTo ?: null));
         }
 
         if ($action === 'notificaciones') {

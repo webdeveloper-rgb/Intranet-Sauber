@@ -12,6 +12,9 @@ return [
         'pass' => 'CONTRASEÑA_BD',
     ],
 
+    // Opcional: añade 'monitor_password_secret' => '<secreto aleatorio estable>' para cifrar
+    // las contraseñas de RustDesk. Si se omite, se deriva de la contraseña de base de datos.
+
     // API de clientes y filtro por servicio contratado
     'api_sync' => [
         'base_url' => 'https://api.albelink.es/api/v1',

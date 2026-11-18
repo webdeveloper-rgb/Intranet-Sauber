@@ -9,13 +9,166 @@ import Detalle from './Detalle';
 import MonitorDetalle from './MonitorDetalle';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
+import FiltrosActivos from './FiltrosActivos';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
+const fechaLocal = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('es-ES');
+};
 const DIAS_SEMANA = [
   ['L', 'Lunes'], ['M', 'Martes'], ['X', 'Miércoles'], ['J', 'Jueves'],
   ['V', 'Viernes'], ['S', 'Sábado'], ['D', 'Domingo'],
 ];
+
+function AliasEquipo({ equipo, admin, onSaved }) {
+  const [alias, setAlias] = useState(equipo.monitor_alias || '');
+  const [guardandoAlias, setGuardandoAlias] = useState(false);
+  const [estado, setEstado] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setAlias(equipo.monitor_alias || '');
+    setEstado('');
+    setError('');
+  }, [equipo.id, equipo.monitor_alias]);
+
+  const guardar = async (event) => {
+    event.preventDefault();
+    setGuardandoAlias(true);
+    setEstado('');
+    setError('');
+    try {
+      const result = await api('equipo_alias', { id: equipo.id, alias: alias.trim() });
+      const nuevoAlias = result.alias || '';
+      setAlias(nuevoAlias);
+      onSaved(equipo.id, nuevoAlias);
+      setEstado(nuevoAlias ? 'Alias guardado.' : 'Alias eliminado.');
+    } catch (e) {
+      setError(e.message || 'No se pudo guardar el alias.');
+    } finally {
+      setGuardandoAlias(false);
+    }
+  };
+
+  if (!admin) return null;
+  return <form className="equipo-alias-editor" onSubmit={guardar}>
+    <label htmlFor={`alias-equipo-${equipo.id}`}>Alias (se muestra junto al nombre original)</label>
+    <div>
+      <input id={`alias-equipo-${equipo.id}`} value={alias} maxLength={100}
+        placeholder="Ej.: Recepción, Caja 1…" disabled={guardandoAlias}
+        onChange={(event) => { setAlias(event.target.value); setEstado(''); }} />
+      <button className="btn sec" type="submit" disabled={guardandoAlias || alias.trim() === (equipo.monitor_alias || '')}>
+        {guardandoAlias ? 'Guardando…' : 'Guardar alias'}
+      </button>
+    </div>
+    <span className={`equipo-alias-estado${error ? ' error' : ''}`} role={error ? 'alert' : 'status'}>{error || estado}</span>
+  </form>;
+}
+
+function TipoEquipoEditor({ equipo, admin, onSaved }) {
+  const [tipo, setTipo] = useState(equipo.tipo_manual ? equipo.tipo : 'auto');
+  const [guardando, setGuardando] = useState(false);
+  const [estado, setEstado] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setTipo(equipo.tipo_manual ? equipo.tipo : 'auto');
+    setEstado('');
+    setError('');
+  }, [equipo.id, equipo.tipo, equipo.tipo_manual]);
+
+  const guardar = async () => {
+    setGuardando(true);
+    setEstado('');
+    setError('');
+    try {
+      const result = await api('equipo_tipo', { id: equipo.id, tipo });
+      onSaved(equipo.id, result.tipo || null, result.tipo_manual || null);
+      setEstado(tipo === 'auto' ? 'Tipo automático restablecido.' : 'Tipo de equipo guardado.');
+    } catch (e) {
+      setError(e.message || 'No se pudo guardar el tipo de equipo.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  if (!admin) return null;
+  const tipoActual = equipo.tipo_manual ? equipo.tipo : 'auto';
+  return <div className="equipo-tipo-editor">
+    <label htmlFor={`tipo-equipo-${equipo.id}`}>Tipo de equipo (independiente del alias)</label>
+    <div>
+      <select id={`tipo-equipo-${equipo.id}`} value={tipo} disabled={guardando} onChange={(event) => { setTipo(event.target.value); setEstado(''); }}>
+        <option value="auto">Automático por nombre</option>
+        <option value="usuario">Equipo de usuario</option>
+        <option value="servidor">Servidor</option>
+        <option value="programa">Equipo de programa</option>
+      </select>
+      <button type="button" className="btn sec" disabled={guardando || tipo === tipoActual} onClick={guardar}>
+        {guardando ? 'Guardando…' : 'Guardar tipo'}
+      </button>
+    </div>
+    <span className={`equipo-alias-estado${error ? ' error' : ''}`} role={error ? 'alert' : 'status'}>
+      {error || estado || (equipo.tipo_manual ? 'Tipo fijado manualmente; las próximas copias conservarán esta elección.' : 'El sistema clasifica este equipo según su nombre.')}
+    </span>
+  </div>;
+}
+
+function RustDeskAcceso({ equipo, monitor, admin }) {
+  const [password, setPassword] = useState('');
+  const [mostrar, setMostrar] = useState(false);
+  const [cargandoPassword, setCargandoPassword] = useState(false);
+  const [error, setError] = useState('');
+  const rustDeskId = monitor?.rustDeskId || '';
+
+  useEffect(() => {
+    setPassword('');
+    setMostrar(false);
+    setError('');
+  }, [equipo.id, rustDeskId]);
+
+  const alternarPassword = async () => {
+    if (mostrar) {
+      setMostrar(false);
+      return;
+    }
+    if (password) {
+      setMostrar(true);
+      return;
+    }
+    setCargandoPassword(true);
+    setError('');
+    try {
+      const result = await api('equipo_rustdesk_password', { id: equipo.id });
+      if (!result.password) throw new Error('Este equipo aún no ha enviado una contraseña. Vuelve a ejecutar el instalador actualizado en ese equipo.');
+      setPassword(result.password);
+      setMostrar(true);
+    } catch (e) {
+      setError(e.message || 'No se pudo consultar la contraseña.');
+    } finally {
+      setCargandoPassword(false);
+    }
+  };
+
+  return <div className="equipo-rustdesk-acceso">
+    <div className="equipo-rustdesk-id">
+      <span>ID de RustDesk</span>
+      <code>{rustDeskId || 'Aún no recibido'}</code>
+    </div>
+    {rustDeskId && <a className="btn rustdesk-conectar" href={`rustdesk://connection/new/${encodeURIComponent(rustDeskId)}`}>
+      Conectar con RustDesk
+    </a>}
+    {admin && <div className="rustdesk-password">
+      <button type="button" className="btn sec" onClick={alternarPassword} disabled={cargandoPassword}>
+        {cargandoPassword ? 'Consultando…' : mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña permanente'}
+      </button>
+      {mostrar && <code>{password}</code>}
+      {error && <span role="alert">{error}</span>}
+    </div>}
+  </div>;
+}
 
 function HorarioSemana({ equipo, onSaved }) {
   const horarioActual = /^[01]{7}$/.test(equipo.dias_copia || '') && equipo.dias_copia.includes('1')
@@ -103,6 +256,12 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   const equipoAbierto = equipoId;
   const [busqueda, setBusqueda] = useState('');
   const [filtroSatbk, setFiltroSatbk] = useState('todos');
+  const [ordenClientes, setOrdenClientes] = useState('az');
+  const [filtroAgenteCliente, setFiltroAgenteCliente] = useState('todos');
+  const [softwareCliente, setSoftwareCliente] = useState('');
+  const [filtrosEquipo, setFiltrosEquipo] = useState({
+    orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: '', software: '', desde: '', hasta: '',
+  });
   const [asignaciones, setAsignaciones] = useState({});
   const [cargando, setCargando] = useState(true);
   const [sync, setSync] = useState(false);
@@ -196,6 +355,8 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
   }, [equipoAbierto, cargarHistorial]);
 
   const clientes = cat?.clientes || [];
+  const softwaresEquipo = [...new Set(equipos.map((equipo) => equipo.software).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
   const idsClientesActivos = new Set(clientes.map((cliente) => Number(cliente.id)));
   const idsClientesSinSatbk = new Set(clientes.filter((cliente) => !cliente.tiene_satbk).map((cliente) => Number(cliente.id)));
   const equiposClienteInactivo = equipos.filter((equipo) => equipo.cliente_id && !idsClientesActivos.has(Number(equipo.cliente_id)));
@@ -244,19 +405,58 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     if (filtroSatbk === 'sin') return clientes.filter((cliente) => !cliente.tiene_satbk);
     return clientes;
   }, [clientes, filtroSatbk]);
-  const clientesFiltrados = useMemo(() => clientesPorSatbk.filter((cliente) => {
+  const clientesPorEquipo = useMemo(() => clientesPorSatbk.filter((cliente) => {
+    const relacionados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
+    if (filtroAgenteCliente === 'con' && !relacionados.some((equipo) => equipo.tiene_monitor)) return false;
+    if (filtroAgenteCliente === 'sin' && relacionados.some((equipo) => equipo.tiene_monitor)) return false;
+    if (softwareCliente && !relacionados.some((equipo) => equipo.software === softwareCliente)) return false;
+    return true;
+  }), [clientesPorSatbk, equipos, filtroAgenteCliente, softwareCliente]);
+  const clientesFiltrados = useMemo(() => clientesPorEquipo.filter((cliente) => {
     const datos = unir(cliente.nombre, cliente.codigo);
     return !textoBusqueda || norm(datos).includes(textoBusqueda);
-  }), [clientesPorSatbk, textoBusqueda]);
-  const equiposFiltrados = useMemo(() => equiposCliente
-    .filter((equipo) => !textoBusqueda || norm(unir(equipo.nombre, equipo.software, equipo.sugerido, equipo.origen)).includes(textoBusqueda))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
-  [equiposCliente, textoBusqueda]);
-  const paginaClientes = usePagination(clientesFiltrados, 24, `${textoBusqueda}|${filtroSatbk}`);
-  const paginaEquipos = usePagination(equiposFiltrados, 24, `${clienteAbierto}|${textoBusqueda}`);
+  }).sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }) * (ordenClientes === 'az' ? 1 : -1)),
+  [clientesPorEquipo, textoBusqueda, ordenClientes]);
+  const equiposFiltrados = useMemo(() => equiposCliente.filter((equipo) => {
+    if (textoBusqueda && !norm(unir(equipo.nombre, equipo.monitor_alias, equipo.software, equipo.programa, equipo.sugerido, equipo.origen, equipo.tipo)).includes(textoBusqueda)) return false;
+    if (filtrosEquipo.agente === 'con' && !equipo.tiene_monitor) return false;
+    if (filtrosEquipo.agente === 'sin' && equipo.tiene_monitor) return false;
+    if (filtrosEquipo.copias === 'con' && !equipo.tiene_copias) return false;
+    if (filtrosEquipo.copias === 'sin' && equipo.tiene_copias) return false;
+    if (filtrosEquipo.tipo && filtrosEquipo.tipo !== 'todos' && equipo.tipo !== filtrosEquipo.tipo) return false;
+    if (filtrosEquipo.software && equipo.software !== filtrosEquipo.software) return false;
+    if (filtrosEquipo.desde && (!equipo.fecha_creacion || equipo.fecha_creacion < filtrosEquipo.desde)) return false;
+    if (filtrosEquipo.hasta && (!equipo.fecha_creacion || equipo.fecha_creacion > filtrosEquipo.hasta)) return false;
+    return true;
+  }).sort((a, b) => {
+    if (filtrosEquipo.orden === 'nombre-za') return String(b.nombre || '').localeCompare(String(a.nombre || ''), 'es', { sensitivity: 'base' });
+    if (filtrosEquipo.orden === 'alta-reciente') return String(b.fecha_creacion || '').localeCompare(String(a.fecha_creacion || '')) || String(a.nombre).localeCompare(String(b.nombre), 'es');
+    if (filtrosEquipo.orden === 'alta-antigua') return String(a.fecha_creacion || '').localeCompare(String(b.fecha_creacion || '')) || String(a.nombre).localeCompare(String(b.nombre), 'es');
+    if (filtrosEquipo.orden === 'informe-reciente') return String(b.monitor_last_seen || '').localeCompare(String(a.monitor_last_seen || '')) || String(a.nombre).localeCompare(String(b.nombre), 'es');
+    return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+  }), [equiposCliente, textoBusqueda, filtrosEquipo]);
+  const filtrosActivosClientes = [
+    ...(busqueda.trim() ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${busqueda.trim()}` }] : []),
+    ...(filtroSatbk !== 'todos' ? [{ clave: 'satbk', etiqueta: filtroSatbk === 'con' ? 'Con SATBK' : 'Sin SATBK' }] : []),
+    ...(filtroAgenteCliente !== 'todos' ? [{ clave: 'agente', etiqueta: filtroAgenteCliente === 'con' ? 'Con agente' : 'Sin agente' }] : []),
+    ...(softwareCliente ? [{ clave: 'software', etiqueta: `Programa: ${softwareCliente}` }] : []),
+  ];
+  const filtrosActivosEquipos = [
+    ...(busqueda.trim() ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${busqueda.trim()}` }] : []),
+    ...(filtrosEquipo.agente !== 'todos' ? [{ clave: 'agente', etiqueta: filtrosEquipo.agente === 'con' ? 'Con agente' : 'Sin agente' }] : []),
+    ...(filtrosEquipo.copias !== 'todos' ? [{ clave: 'copias', etiqueta: filtrosEquipo.copias === 'con' ? 'Con copias' : 'Sin copias' }] : []),
+    ...(filtrosEquipo.tipo ? [{ clave: 'tipo', etiqueta: `Tipo: ${filtrosEquipo.tipo}` }] : []),
+    ...(filtrosEquipo.software ? [{ clave: 'software', etiqueta: `Programa: ${filtrosEquipo.software}` }] : []),
+    ...(filtrosEquipo.desde ? [{ clave: 'desde', etiqueta: `Alta desde: ${filtrosEquipo.desde}` }] : []),
+    ...(filtrosEquipo.hasta ? [{ clave: 'hasta', etiqueta: `Alta hasta: ${filtrosEquipo.hasta}` }] : []),
+  ];
+  const paginaClientes = usePagination(clientesFiltrados, 24, `${textoBusqueda}|${filtroSatbk}|${ordenClientes}|${filtroAgenteCliente}|${softwareCliente}`);
+  const paginaEquipos = usePagination(equiposFiltrados, 24, `${clienteAbierto}|${textoBusqueda}|${JSON.stringify(filtrosEquipo)}`);
   const equiposSinAsignar = equipos.filter((equipo) => !equipo.cliente_id);
   const totalServidores = equiposCliente.filter((equipo) => equipo.tipo === 'servidor').length;
   const equipoSugerencia = equipoActual?.sugerido ? sugerirCliente(clientesAsignables, equipoActual.sugerido) : undefined;
+  const otrosMismoNombre = equipoActual ? equipos.filter((otro) => Number(otro.id) !== Number(equipoActual.id)
+    && norm(String(otro.nombre || '')) === norm(String(equipoActual.nombre || ''))) : [];
   const seleccionGuardada = asignaciones[equipoActual?.id];
   const seleccionGuardadaValida = clientesAsignables.some((cliente) => Number(cliente.id) === Number(seleccionGuardada));
   const clienteActualElegible = clientesAsignables.some((cliente) => Number(cliente.id) === Number(equipoActual?.cliente_id));
@@ -333,6 +533,20 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     setEquipos(actualizar);
   };
 
+  const actualizarAlias = (id, alias) => {
+    const actualizar = (lista) => lista.map((item) => item.id === id ? { ...item, monitor_alias: alias || null } : item);
+    cargaActual.current += 1;
+    equiposActuales.current = actualizar(equiposActuales.current);
+    setEquipos(actualizar);
+  };
+
+  const actualizarTipo = (id, tipo, tipoManual) => {
+    const actualizar = (lista) => lista.map((item) => item.id === id ? { ...item, tipo, tipo_manual: tipoManual } : item);
+    cargaActual.current += 1;
+    equiposActuales.current = actualizar(equiposActuales.current);
+    setEquipos(actualizar);
+  };
+
   const volverAClientes = () => {
     onNavigate('/clientes');
     setBusqueda('');
@@ -345,37 +559,76 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     setFallo('');
     setMensaje('');
   };
+  const quitarFiltroCliente = (clave) => {
+    if (clave === 'busqueda') setBusqueda('');
+    else if (clave === 'satbk') setFiltroSatbk('todos');
+    else if (clave === 'agente') setFiltroAgenteCliente('todos');
+    else if (clave === 'software') setSoftwareCliente('');
+  };
+  const limpiarFiltrosClientes = () => {
+    setBusqueda('');
+    setFiltroSatbk('todos');
+    setFiltroAgenteCliente('todos');
+    setSoftwareCliente('');
+  };
+  const quitarFiltroEquipo = (clave) => {
+    if (clave === 'busqueda') setBusqueda('');
+    else setFiltrosEquipo((actual) => ({ ...actual, [clave]: clave === 'agente' || clave === 'copias' ? 'todos' : '' }));
+  };
+  const limpiarFiltrosEquipo = () => {
+    setBusqueda('');
+    setFiltrosEquipo({ orden: 'nombre-az', agente: 'todos', copias: 'todos', tipo: '', software: '', desde: '', hasta: '' });
+  };
+  const abrirEquipoRelacionado = (otro) => {
+    const grupo = otro.cliente_id ? `/clientes/${encodeURIComponent(String(otro.cliente_id))}` : '/clientes/sin-asignar';
+    onNavigate(`${grupo}/equipos/${otro.id}`);
+  };
 
   return <div className="clientes-page">
     <section className="mapeo-panel" aria-labelledby="titulo-mapeo">
       <div className="mapeo-heading">
         <div>
-          <h2 id="titulo-mapeo">{equipoActual ? equipoActual.nombre : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
+          <h2 id="titulo-mapeo">{equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</> : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
+          {equipoActual && <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />}
+          {equipoActual && <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />}
           {clienteActual && !equipoActual && <p>{equiposCliente.length} equipos · {totalServidores} servidores</p>}
           {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
             equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
             equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
-          {equipoActual?.tiene_monitor && <div className="equipo-rustdesk-id">
-            <span>ID de RustDesk</span>
-            <code>{detalleMonitor?.monitor?.rustDeskId
-              || (cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Aún no recibido')}</code>
-          </div>}
+          {equipoActual?.tiene_monitor && <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />}
         </div>
-        <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
+        {!equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
           <strong>{equiposSinAsignar.length}</strong>
           <span>sin asignar</span>
-        </div>
+        </div>}
       </div>
 
       <div className="mapeo-toolbar">
         {clienteActual ? <button className="btn sec" onClick={equipoActual ? volverAEquipos : volverAClientes}>
-          ← {equipoActual ? clienteActual.nombre : 'Clientes'}
+          ← Volver
         </button> : (
           <label className="mapeo-busqueda">
             <span className="sr-only">Buscar cliente</span>
             <input type="search" placeholder="Buscar cliente…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           </label>
         )}
+        {!clienteActual && !equipoActual && <>
+          <label className="mapeo-filtro"><span>Ordenar clientes</span>
+            <select value={ordenClientes} onChange={(e) => setOrdenClientes(e.target.value)}>
+              <option value="az">Nombre: A a Z</option><option value="za">Nombre: Z a A</option>
+            </select>
+          </label>
+          <label className="mapeo-filtro"><span>Agente Monitor</span>
+            <select value={filtroAgenteCliente} onChange={(e) => setFiltroAgenteCliente(e.target.value)}>
+              <option value="todos">Cualquier estado</option><option value="con">Con agente</option><option value="sin">Sin agente</option>
+            </select>
+          </label>
+          <label className="mapeo-filtro"><span>Programa de copia</span>
+            <select value={softwareCliente} onChange={(e) => setSoftwareCliente(e.target.value)}>
+              <option value="">Todos</option>{softwaresEquipo.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)}
+            </select>
+          </label>
+        </>}
         {clienteActual && !equipoActual && <label className="mapeo-busqueda">
           <span className="sr-only">Buscar equipo</span>
           <input type="search" placeholder="Buscar equipo o software…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
@@ -387,6 +640,36 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
         )}
         {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
       </div>
+
+      {!clienteActual && !equipoActual && <FiltrosActivos filtros={filtrosActivosClientes}
+        onQuitar={quitarFiltroCliente} onLimpiar={limpiarFiltrosClientes} />}
+
+      {clienteActual && !equipoActual && <div className="equipo-filtros" role="group" aria-label="Filtros de equipos">
+        <label><span>Ordenar</span><select value={filtrosEquipo.orden} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, orden: e.target.value }))}>
+          <option value="nombre-az">Nombre: A a Z</option><option value="nombre-za">Nombre: Z a A</option>
+          <option value="alta-reciente">Alta: más reciente</option><option value="alta-antigua">Alta: más antigua</option>
+          <option value="informe-reciente">Último informe del agente</option>
+        </select></label>
+        <label><span>Agente Monitor</span><select value={filtrosEquipo.agente} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, agente: e.target.value }))}>
+          <option value="todos">Todos</option><option value="con">Con agente</option><option value="sin">Sin agente</option>
+        </select></label>
+        <label><span>Copias</span><select value={filtrosEquipo.copias} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, copias: e.target.value }))}>
+          <option value="todos">Todos</option><option value="con">Con copias</option><option value="sin">Sin copias</option>
+        </select></label>
+        <label><span>Tipo de equipo</span><select value={filtrosEquipo.tipo} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, tipo: e.target.value }))}>
+          <option value="">Todos</option><option value="usuario">Usuario</option><option value="servidor">Servidor</option><option value="programa">Programa</option>
+        </select></label>
+        <label><span>Programa de copia</span><select value={filtrosEquipo.software} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, software: e.target.value }))}>
+          <option value="">Todos</option>{softwaresEquipo.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)}
+        </select></label>
+        <label><span>Alta desde</span><input type="date" value={filtrosEquipo.desde} max={filtrosEquipo.hasta || undefined}
+          onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, desde: e.target.value }))} /></label>
+        <label><span>Alta hasta</span><input type="date" value={filtrosEquipo.hasta} min={filtrosEquipo.desde || undefined}
+          onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, hasta: e.target.value }))} /></label>
+        <span className="cnt">{equiposFiltrados.length} equipo{equiposFiltrados.length === 1 ? '' : 's'}</span>
+      </div>}
+      {clienteActual && !equipoActual && <FiltrosActivos filtros={filtrosActivosEquipos}
+        onQuitar={quitarFiltroEquipo} onLimpiar={limpiarFiltrosEquipo} />}
 
       {(ultimaLectura?.alerta || ultimaLectura?.ok === 0 || u?.ok === 0) && <div className="estado-alertas" role="status">
         {ultimaLectura?.alerta && <p>No se reciben avisos de copias desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
@@ -416,7 +699,7 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
           {!clienteActual && !equipoActual && <>
-            {clientesFiltrados.length || equiposSinAsignar.length || equiposClienteSinSatbk.length ? <div className="cliente-grid">
+            {clientesFiltrados.length || (!filtrosActivosClientes.length && (equiposSinAsignar.length || equiposClienteSinSatbk.length || equiposClienteInactivo.length)) ? <div className="cliente-grid">
               {paginaClientes.items.map((cliente) => {
                 const asignados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
                 const servidores = asignados.filter((equipo) => equipo.tipo === 'servidor').length;
@@ -433,25 +716,25 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>
                 </button>;
               })}
-              {equiposSinAsignar.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+              {!filtrosActivosClientes.length && equiposSinAsignar.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/sin-asignar'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
                 <strong>Sin asignar</strong>
                 <span className="cliente-conteo">{equiposSinAsignar.length} equipos por vincular</span>
               </button>}
-              <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+              {!filtrosActivosClientes.length && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/sin-satbk'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
                 <strong>Equipos sin SATBK</strong>
                 <span className="cliente-conteo">{equiposClienteSinSatbk.length} equipos asignados a clientes sin SATBK</span>
-              </button>
-              {equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
+              </button>}
+              {!filtrosActivosClientes.length && equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/cliente-inactivo'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
                 <strong>Cliente no activo</strong>
                 <span className="cliente-conteo">{equiposClienteInactivo.length} equipos conservados</span>
               </button>}
-            </div> : <div className="mapeo-vacio">No hay clientes ni equipos para mostrar.</div>}
+            </div> : <div className="mapeo-vacio">{cargando ? 'Cargando clientes y equipos…' : fallo ? 'No se pudieron cargar los clientes y equipos.' : filtrosActivosClientes.length ? 'Ningún cliente coincide con los filtros seleccionados.' : 'No hay clientes ni equipos para mostrar.'}</div>}
             <Paginacion total={clientesFiltrados.length} pagina={paginaClientes.page} paginas={paginaClientes.pageCount}
               porPagina={paginaClientes.pageSize} onCambiar={paginaClientes.setPage} etiqueta="clientes" />
           </>}
@@ -463,22 +746,56 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
                   <button type="button" className="equipo-navegable-abrir"
                     onClick={() => onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}/equipos/${equipo.id}`)}>
                     <span className="equipo-navegable-info">
-                      <strong>{equipo.nombre}</strong>
-                      <span>{unir(equipo.software, equipo.programa || TIPOS[equipo.tipo])}</span>
+                      <strong>{equipo.nombre}{equipo.monitor_alias && <small className="equipo-alias-lista"> · {equipo.monitor_alias}</small>}</strong>
+                      <span>{unir(equipo.software, equipo.programa || TIPOS[equipo.tipo], equipo.fecha_creacion ? `Alta ${equipo.fecha_creacion}` : null)}</span>
                     </span>
                     <span className="equipo-tipo-pill">{equipo.tipo === 'servidor' ? 'Servidor' : 'Equipo'}</span>
                     <span className="equipo-tarjeta-flecha">›</span>
                   </button>
                 </article>
               ))}
-            </div> : <div className="mapeo-vacio">{busqueda ? 'No hay equipos que coincidan con la búsqueda.'
+            </div> : <div className="mapeo-vacio">{cargando ? 'Cargando equipos…' : fallo ? 'No se pudieron cargar los equipos.' : filtrosActivosEquipos.length
+              ? 'Ningún equipo coincide con los filtros seleccionados.'
               : clienteAbierto === 'sin-satbk' ? 'No hay equipos asignados a clientes sin SATBK.'
-                : 'Este cliente todavía no tiene equipos asociados.'}</div>}
+                : clienteAbierto === 'sin-asignar' ? 'No hay equipos sin asignar.'
+                  : 'Este cliente todavía no tiene equipos asociados.'}</div>}
             <Paginacion total={equiposFiltrados.length} pagina={paginaEquipos.page} paginas={paginaEquipos.pageCount}
               porPagina={paginaEquipos.pageSize} onCambiar={paginaEquipos.setPage} etiqueta="equipos" />
           </>}
 
           {equipoActual && <div className="equipo-historial-vista">
+            <section className="equipo-resumen" aria-labelledby="titulo-resumen-equipo">
+              <h3 id="titulo-resumen-equipo">Resumen del equipo</h3>
+              <div className="equipo-resumen-grid">
+                <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
+                <div><span>Datos recibidos</span><strong className="equipo-fuentes">
+                  {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
+                  {equipoActual.tiene_monitor && <span className="equipo-fuente">Monitor-Equipos</span>}
+                  {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos recibidos</span>}
+                </strong></div>
+                <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
+                <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias registradas')}</strong></div>
+                {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
+                  ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
+              </div>
+            </section>
+
+            {!equipoActual.cliente_id && equipoSugerencia && <div className="equipo-vinculacion-sugerida" role="status">
+              <div><strong>Posible cliente: {equipoSugerencia.nombre}</strong>
+                <span>La referencia recibida «{equipoActual.sugerido}» coincide con este cliente. Revisa la sugerencia antes de vincular.</span>
+              </div>
+              <button className="btn" disabled={guardando === equipoActual.id || !hayCambioAsignacion} onClick={asignar}>
+                {guardando === equipoActual.id ? 'Vinculando…' : 'Vincular con este cliente'}
+              </button>
+            </div>}
+
+            {otrosMismoNombre.length > 0 && <details className="equipo-coincidencias">
+              <summary>{otrosMismoNombre.length} posible{otrosMismoNombre.length === 1 ? '' : 's'} duplicado{otrosMismoNombre.length === 1 ? '' : 's'} por nombre; comprobar antes de combinar</summary>
+              <div>{otrosMismoNombre.map((otro) => <button type="button" key={otro.id} onClick={() => abrirEquipoRelacionado(otro)}>
+                <strong>{otro.nombre}</strong><span>{otro.cliente || 'Sin asignar'} · {unir(otro.software, otro.programa, otro.tipo ? TIPOS[otro.tipo] : null) || 'Sin tipo'}</span>
+              </button>)}</div>
+            </details>}
+
             <details className="equipo-gestion">
               <summary>Asignación y avisos</summary>
               <div className="equipo-accion">
