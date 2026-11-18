@@ -599,23 +599,38 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   };
 
   return <div className="clientes-page">
-    <section className="mapeo-panel" aria-labelledby="titulo-mapeo">
-      <div className="mapeo-heading">
+    <section className={`mapeo-panel${equipoActual ? ' equipo-panel-detalle' : ''}`} aria-labelledby="titulo-mapeo">
+      <div className={`mapeo-heading${equipoActual ? ' equipo-detalle-heading' : ''}`}>
         <div>
           <h2 id="titulo-mapeo">{equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</> : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
-          {equipoActual && <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />}
-          {equipoActual && <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />}
           {clienteActual && !equipoActual && <p>{equiposCliente.length} equipos · {totalServidores} servidores</p>}
           {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
             equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
             equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
           {equipoActual?.tiene_monitor && <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />}
         </div>
+        {equipoActual && <div className="equipo-resumen-grid equipo-resumen-compacto" aria-label="Resumen del equipo">
+          <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
+          <div><span>Datos recibidos</span><strong className="equipo-fuentes">
+            {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
+            {equipoActual.tiene_monitor && <span className="equipo-fuente">Monitor-Equipos</span>}
+            {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos</span>}
+          </strong></div>
+          <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
+          <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias')}</strong></div>
+          {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
+            ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
+        </div>}
         {!equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
           <strong>{equiposSinAsignar.length}</strong>
           <span>sin asignar</span>
         </div>}
       </div>
+
+      {equipoActual && admin && <div className="equipo-editores">
+        <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />
+        <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />
+      </div>}
 
       <div className="mapeo-toolbar">
         {clienteActual ? <button className="btn sec" onClick={equipoActual ? volverAEquipos : volverAClientes}>
@@ -778,22 +793,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           </>}
 
           {equipoActual && <div className="equipo-historial-vista">
-            <section className="equipo-resumen" aria-labelledby="titulo-resumen-equipo">
-              <h3 id="titulo-resumen-equipo">Resumen del equipo</h3>
-              <div className="equipo-resumen-grid">
-                <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
-                <div><span>Datos recibidos</span><strong className="equipo-fuentes">
-                  {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
-                  {equipoActual.tiene_monitor && <span className="equipo-fuente">Monitor-Equipos</span>}
-                  {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos recibidos</span>}
-                </strong></div>
-                <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
-                <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias registradas')}</strong></div>
-                {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
-                  ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
-              </div>
-            </section>
-
             <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
 
             {!equipoActual.cliente_id && equipoSugerencia && <div className="equipo-vinculacion-sugerida" role="status">
@@ -863,9 +862,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                   cargarHistorial(equipoActual.id, ultima, true);
                 }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
               </section>
-              {equipoActual.tiene_monitor && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
-                cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin}
-                clienteNombre={clienteAsignadoActual?.nombre || ''} />}
+              {equipoActual.tiene_monitor && <details className="equipo-monitor-detalle">
+                <summary>Estado y especificaciones técnicas</summary>
+                <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
+                  cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin}
+                  clienteNombre={clienteAsignadoActual?.nombre || ''} />
+              </details>}
             </div>
           </div>}
         </>
