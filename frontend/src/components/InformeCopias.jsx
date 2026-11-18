@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import Paginacion from './Paginacion';
 import Tag from './Tag';
+import PageHeading from './PageHeading';
 
 const fechaLocal = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const fechaInicial = () => {
@@ -81,9 +82,9 @@ export default function InformeCopias({ onNavigate }) {
   const resumen = resultado?.resumen || {};
 
   return <section className="informe-page" aria-labelledby="informe-titulo">
-    <div className="page-heading"><div><span className="eyebrow">Auditoría</span><h2 id="informe-titulo">Informe de copias</h2>
-      <p>Historial de copias del periodo. Los resultados ambiguos se identifican como <strong>por clasificar</strong>.</p></div>
-      <button className="btn" type="button" onClick={exportar} disabled={exportando || !total}>{exportando ? 'Preparando CSV…' : 'Exportar CSV'}</button></div>
+    <PageHeading id="informe-titulo" eyebrow="Auditoría" title="Informe de copias"
+      description={<>Historial de copias del periodo. Los resultados ambiguos se identifican como <strong>por clasificar</strong>.</>}
+      actions={<button className="btn" type="button" onClick={exportar} disabled={exportando || !total}>{exportando ? 'Preparando CSV…' : 'Exportar CSV'}</button>} />
     <form className="informe-filtros" onSubmit={aplicar}>
       <label>Desde<input type="date" value={desde} max={hasta} onChange={(event) => setDesde(event.target.value)} /></label>
       <label>Hasta<input type="date" value={hasta} min={desde} onChange={(event) => setHasta(event.target.value)} /></label>

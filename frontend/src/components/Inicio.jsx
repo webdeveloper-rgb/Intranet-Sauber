@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { rutaHref } from '../routes';
+import PageHeading from './PageHeading';
 
 const normalizar = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 
@@ -50,12 +51,9 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
 
   if (equipoId) {
     return <section className="inicio-page" aria-labelledby="inicio-titulo">
-      <div className="page-heading">
-        <div><span className="eyebrow">Ficha del equipo</span>
-          <h2 id="inicio-titulo">Equipo #{equipoId}</h2>
-          <p>Abriendo la ficha paginada del equipo…</p></div>
-        <button className="btn sec" type="button" onClick={() => onNavigate('/')}>← Volver al inicio</button>
-      </div>
+      <PageHeading id="inicio-titulo" eyebrow="Ficha del equipo" title={`Equipo #${equipoId}`}
+        description="Abriendo la ficha paginada del equipo…"
+        actions={<button className="btn sec" type="button" onClick={() => onNavigate('/')}>← Volver al inicio</button>} />
       {error && <div className="errbox" role="alert">{error} <button className="btn sec" onClick={reintentar}>Reintentar</button></div>}
       {cargando && <div className="empty-state" role="status">Localizando equipo…</div>}
     </section>;
@@ -107,11 +105,9 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
     setOrden('incidencias');
   };
   return <section className="inicio-page" aria-labelledby="inicio-titulo">
-    <div className="page-heading">
-      <div><span className="eyebrow">Centro de operaciones</span><h2 id="inicio-titulo">Estado de los equipos</h2>
-        <p>Incidencias pendientes de copias y eventos de Windows clasificados como error o crítico.</p></div>
-      <button className="btn sec" type="button" onClick={reintentar} disabled={cargando}>Actualizar</button>
-    </div>
+    <PageHeading id="inicio-titulo" eyebrow="Centro de operaciones" title="Estado de los equipos"
+      description="Incidencias pendientes de copias y eventos de Windows clasificados como error o crítico."
+      actions={<button className="btn sec" type="button" onClick={reintentar} disabled={cargando}>Actualizar</button>} />
     <div className="inicio-resumen" aria-label="Métricas de incidencias">
       <article className="inicio-metrica"><span>Equipos con incidencias</span><strong>{equipos.length}</strong></article>
       <article className="inicio-metrica error"><span>Errores de copias</span><strong>{totalCopias}</strong></article>

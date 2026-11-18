@@ -70,8 +70,10 @@ export default function Tokens() {
 
   return (
     <section className="ucard">
-      <h3>Tokens de integraciones</h3>
-      <p className="mut">Para Monitor-Equipos, crea una sola clave API compartida sin caducidad y reutiliza esa misma clave en todos los equipos. El instalador la solicitará; no necesitas generar una por equipo. Limita quién puede acceder a la clave y revócala si se filtra.</p>
+      <div className="section-heading token-panel-heading">
+        <div><h3>Credencial compartida del agente</h3>
+          <p className="mut">Reutiliza el mismo token en todos los equipos. El instalador lo solicita; no hace falta crear uno por equipo.</p></div>
+      </div>
 
       <form className="token-form" onSubmit={crear}>
         <label>

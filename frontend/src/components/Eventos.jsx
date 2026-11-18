@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import Paginacion from './Paginacion';
 import FiltrosActivos from './FiltrosActivos';
+import PageHeading from './PageHeading';
 
 const POR_PAGINA = 10;
 const niveles = [
@@ -285,20 +286,18 @@ export default function Eventos({ equipoId = null, onVolver }) {
 
   return (
     <section className="eventos-page" aria-labelledby="eventos-title">
-      <div className="eventos-heading">
-        <div>
+      <PageHeading id="eventos-title" className="eventos-heading" eyebrow="Monitor de equipos"
+        title={equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}
+        description={equipoId
+          ? 'Se muestra todo el historial almacenado para este equipo. Estándar recoge errores y críticos; Auditoría Completa incluye los niveles y canales habilitados.'
+          : 'Se muestra todo el historial almacenado. Estándar recoge errores y críticos; Auditoría Completa incluye todos los niveles y canales habilitados.'}
+        actions={<>
           {equipoId && <button type="button" className="btn sec eventos-volver" onClick={onVolver}>← Volver</button>}
-          <span className="eyebrow">Monitor de equipos</span>
-          <h2 id="eventos-title">{equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}</h2>
-          <p>{equipoId
-            ? 'Se muestra todo el historial almacenado para este equipo. Estándar recoge errores y críticos; Auditoría Completa incluye los niveles y canales habilitados.'
-            : 'Se muestra todo el historial almacenado. Estándar recoge errores y críticos; Auditoría Completa incluye todos los niveles y canales habilitados.'}</p>
-        </div>
-        <div className="eventos-actualizacion" aria-live="polite">
-          <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
-          {cargando ? 'Actualizando…' : 'Actualizado automáticamente cada minuto'}
-        </div>
-      </div>
+          <div className="eventos-actualizacion" aria-live="polite">
+            <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
+            {cargando ? 'Actualizando…' : 'Actualizado automáticamente cada minuto'}
+          </div>
+        </>} />
 
       <div className="eventos-controles">
         <label className="eventos-busqueda" htmlFor="eventos-buscar">

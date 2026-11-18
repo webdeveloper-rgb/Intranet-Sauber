@@ -11,6 +11,7 @@ import RevisionEquipo from './RevisionEquipo';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
 import FiltrosActivos from './FiltrosActivos';
+import PageHeading from './PageHeading';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
@@ -606,32 +607,34 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
 
   return <div className="clientes-page">
     <section className={`mapeo-panel${equipoActual ? ' equipo-panel-detalle' : ''}`} aria-labelledby="titulo-mapeo">
-      <div className={`mapeo-heading${equipoActual ? ' equipo-detalle-heading' : ''}`}>
-        <div>
-          <h2 id="titulo-mapeo">{equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</> : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
-          {clienteActual && !equipoActual && <p>{equiposCliente.length} equipos · {totalServidores} servidores</p>}
-          {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
+      <PageHeading id="titulo-mapeo" className={equipoActual
+        ? `equipo-detalle-heading${equipoActual.tiene_monitor ? ' con-rustdesk' : ''}` : ''}
+        eyebrow={equipoActual ? 'Equipo' : clienteActual ? 'Cliente' : 'Directorio de clientes'}
+        title={equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</>
+          : clienteActual ? clienteActual.nombre : 'Clientes'}
+        description={equipoActual
+          ? unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
             equipoActual.tiene_monitor ? 'Agente de Monitorización' : null,
-            equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
-          {equipoActual?.tiene_monitor && <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />}
-        </div>
-        {equipoActual && <div className="equipo-resumen-grid equipo-resumen-compacto" aria-label="Resumen del equipo">
-          <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
-          <div><span>Datos recibidos</span><strong className="equipo-fuentes">
-            {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
-            {equipoActual.tiene_monitor && <span className="equipo-fuente">Agente de Monitorización</span>}
-            {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos</span>}
-          </strong></div>
-          <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
-          <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias')}</strong></div>
-          {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
-            ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
-        </div>}
-        {!equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
-          <strong>{equiposSinAsignar.length}</strong>
-          <span>sin asignar</span>
-        </div>}
-      </div>
+            equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')
+          : clienteActual ? `${equiposCliente.length} equipos · ${totalServidores} servidores`
+            : 'Clientes SATBK, asignaciones y estado de los equipos.'}
+        actions={equipoActual?.tiene_monitor
+          ? <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />
+          : !equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
+            <strong>{equiposSinAsignar.length}</strong><span>sin asignar</span>
+          </div>} />
+      {equipoActual && <div className="equipo-resumen-grid equipo-resumen-compacto" aria-label="Resumen del equipo">
+        <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
+        <div><span>Datos recibidos</span><strong className="equipo-fuentes">
+          {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
+          {equipoActual.tiene_monitor && <span className="equipo-fuente">Agente de Monitorización</span>}
+          {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos</span>}
+        </strong></div>
+        <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
+        <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias')}</strong></div>
+        {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
+          ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
+      </div>}
 
       {equipoActual && <section className="equipo-asignacion" aria-labelledby="titulo-asignacion-equipo">
         <div className="equipo-asignacion-heading">
