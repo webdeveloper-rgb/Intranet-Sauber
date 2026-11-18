@@ -9,6 +9,28 @@ final class HistoryController
 {
     public static function handle(string $action, array $input): bool
     {
+        if ($action === 'equipo_errores') {
+            $equipoId = filter_var($input['equipo_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($equipoId === false || $equipoId < 1) {
+                fail('Equipo no válido');
+            }
+            $query = db()->prepare("SELECT * FROM (
+                SELECT id AS copia_id,NULL AS staging_id,DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha,
+                    estado,software,codigo,desc_error,0 AS staging
+                    FROM copias WHERE equipo_id=? AND estado='ERROR'
+                UNION ALL
+                SELECT NULL AS copia_id,id AS staging_id,DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha,
+                    estado,software,codigo,desc_error,1 AS staging
+                    FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR'
+            ) errores ORDER BY fecha DESC,staging_id DESC,copia_id DESC LIMIT 50");
+            $query->execute([$equipoId, $equipoId]);
+            $count = db()->prepare("SELECT
+                (SELECT COUNT(*) FROM copias WHERE equipo_id=? AND estado='ERROR') +
+                (SELECT COUNT(*) FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR')");
+            $count->execute([$equipoId, $equipoId]);
+            out(['errores' => $query->fetchAll(), 'total' => (int) $count->fetchColumn()]);
+        }
+
         if ($action === 'equipo_historial') {
             $equipoId = filter_var($input['equipo_id'] ?? null, FILTER_VALIDATE_INT);
             if ($equipoId === false || $equipoId < 1) {
