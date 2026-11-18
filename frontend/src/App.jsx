@@ -26,18 +26,27 @@ const filtrosIniciales = () => {
 
 export default function App() {
   const [sesion, setSesion] = useState(null);
+  const [falloSesion, setFalloSesion] = useState('');
   const [ruta, setRuta] = useState(leerRuta);
   const [filtro, setFiltro] = useState('todos');
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
-  const copias = useCopias(f.desde, f.hasta);
+  const vista = ruta.vista;
+  const copias = useCopias(f.desde, f.hasta, vista === 'copias');
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [actualizacionEquipos, setActualizacionEquipos] = useState(0);
-  const vista = ruta.vista;
   const historialInterno = useRef([]);
   const hrefActual = useRef(`${window.location.pathname}${window.location.search}`);
-  useEffect(() => { iniciarSesion().then(setSesion).catch(() => {}); }, []);
+  const cargarSesion = useCallback(() => {
+    setFalloSesion('');
+    iniciarSesion().then(setSesion).catch((error) => setFalloSesion(error.message));
+  }, []);
+  useEffect(() => { cargarSesion(); }, [cargarSesion]);
+
+  const estadoSesion = falloSesion
+    ? <div className="empty-state" role="alert"><strong>No se pudo cargar el panel</strong><span>{falloSesion}</span><button className="btn sec" onClick={cargarSesion}>Reintentar</button></div>
+    : <div className="empty-state" role="status">Comprobando sesión…</div>;
 
   const navegar = useCallback((path) => {
     const href = rutaHref(path);
@@ -107,10 +116,6 @@ export default function App() {
         const clave = JSON.stringify([d.m, d.staging, d.ingesta, d.ausentes, d.eventos, d.alertas]);
         if (ultima === null) {
           ultima = clave;
-          // Asegura que la lista queda sincronizada con el marcador inicial,
-          // aunque entrara una copia mientras terminaba la carga de sesión.
-          if (vistaActual.current === 'copias') cargarRef.current();
-          else setActualizacionEquipos((actual) => actual + 1);
           return;
         }
         const cambio = clave !== ultima;
@@ -123,7 +128,7 @@ export default function App() {
       finally { comprobando = false; }
     };
     comprobar();
-    const t = setInterval(comprobar, 5000);
+    const t = setInterval(comprobar, 15000);
     return () => {
       activa = false;
       clearInterval(t);
@@ -188,14 +193,14 @@ export default function App() {
         onCuenta={() => { setNotificacionesAbiertas(false); setCuentaAbierta(true); }}
         onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
       <main>
-        {vista === 'inicio' ? (
+        {!sesion && vista !== 'copias' ? estadoSesion : vista === 'inicio' ? (
           sesion ? <Inicio key={`inicio-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} sesion={sesion}
             refreshSignal={actualizacionEquipos} onNavigate={navegar} />
-            : <div className="empty-state" role="status">Comprobando sesión…</div>
+            : estadoSesion
         ) : vista === 'informes' ? (
-          sesion ? <InformeCopias /> : <div className="empty-state" role="status">Comprobando sesión…</div>
+          sesion ? <InformeCopias /> : estadoSesion
         ) : vista === 'eventos' ? (
-          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
+          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : estadoSesion
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} />

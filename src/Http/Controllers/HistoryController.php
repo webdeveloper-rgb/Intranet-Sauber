@@ -15,12 +15,26 @@ final class HistoryController
                 fail('Equipo no válido');
             }
             $query = db()->prepare("SELECT * FROM (
-                SELECT id AS copia_id,NULL AS staging_id,DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha,
-                    estado,software,codigo,desc_error,resultado_original,clasificacion_fuente,clasificacion_evidencia,0 AS staging
+                SELECT id AS copia_id,NULL AS staging_id,
+                    CONVERT(DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS fecha,
+                    CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado,
+                    CONVERT(software USING utf8mb4) COLLATE utf8mb4_unicode_ci AS software,
+                    CONVERT(codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS codigo,
+                    CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
+                    CONVERT(resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci AS resultado_original,
+                    CONVERT(clasificacion_fuente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_fuente,
+                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,0 AS staging
                     FROM copias WHERE equipo_id=? AND estado='ERROR'
                 UNION ALL
-                SELECT NULL AS copia_id,id AS staging_id,DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha,
-                    estado,software,codigo,desc_error,resultado_original,clasificacion_fuente,clasificacion_evidencia,1 AS staging
+                SELECT NULL AS copia_id,id AS staging_id,
+                    CONVERT(DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS fecha,
+                    CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado,
+                    CONVERT(software USING utf8mb4) COLLATE utf8mb4_unicode_ci AS software,
+                    CONVERT(codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS codigo,
+                    CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
+                    CONVERT(resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci AS resultado_original,
+                    CONVERT(clasificacion_fuente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_fuente,
+                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,1 AS staging
                     FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR'
             ) errores ORDER BY fecha DESC,staging_id DESC,copia_id DESC LIMIT 50");
             $query->execute([$equipoId, $equipoId]);

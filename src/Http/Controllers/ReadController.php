@@ -2,6 +2,95 @@
 declare(strict_types=1);
 
 
+function dashboard_inicio_listar(PDO $pdo): array
+{
+    $estadisticas = [];
+    $copias = $pdo->query("SELECT equipo_id,SUM(total) AS total FROM (
+            SELECT equipo_id,COUNT(*) AS total FROM copias WHERE equipo_id IS NOT NULL AND estado='ERROR' GROUP BY equipo_id
+            UNION ALL
+            SELECT equipo_id,COUNT(*) AS total FROM correo_copias
+                WHERE equipo_id IS NOT NULL AND importada=0 AND estado='ERROR' GROUP BY equipo_id
+        ) errores GROUP BY equipo_id")->fetchAll();
+    foreach ($copias as $row) {
+        $id = (int) $row['equipo_id'];
+        $estadisticas[$id] = ['copias' => (int) $row['total'], 'eventos' => 0, 'ultimo' => null];
+    }
+
+    $nivelEvento = monitor_evento_nivel_sql();
+    $bugCheck = "(ev.log_name='System' AND ev.event_id=1001
+        AND (LOWER(COALESCE(ev.source,'')) LIKE '%bugcheck%'
+            OR LOWER(COALESCE(ev.source,'')) LIKE '%wer-systemerrorreporting%'))";
+    $condicionEventos = "(({$nivelEvento}) IN ('Critical','Error') OR {$bugCheck})
+        AND (e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)";
+    $ordenEvento = "CONCAT(DATE_FORMAT(ev.event_time,'%Y%m%d%H%i%s'),LPAD(ev.id,20,'0'))";
+    $eventos = $pdo->query("SELECT ev.equipo_id,COUNT(*) AS total,
+            CAST(RIGHT(MAX({$ordenEvento}),20) AS UNSIGNED) AS ultimo_id
+        FROM monitor_eventos ev JOIN equipos e ON e.id=ev.equipo_id
+        WHERE {$condicionEventos} GROUP BY ev.equipo_id")->fetchAll();
+    $ultimosIds = [];
+    foreach ($eventos as $row) {
+        $id = (int) $row['equipo_id'];
+        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null];
+        $estadisticas[$id]['eventos'] += (int) $row['total'];
+        $ultimosIds[] = (int) $row['ultimo_id'];
+    }
+    if ($ultimosIds) {
+        $placeholders = implode(',', array_fill(0, count($ultimosIds), '?'));
+        $st = $pdo->prepare("SELECT id,equipo_id,event_time,log_name,event_id,source FROM monitor_eventos WHERE id IN ({$placeholders})");
+        $st->execute($ultimosIds);
+        foreach ($st->fetchAll() as $row) {
+            $source = trim((string) ($row['source'] ?? ''));
+            $isBugCheck = $row['log_name'] === 'System' && (int) $row['event_id'] === 1001
+                && (stripos($source, 'bugcheck') !== false || stripos($source, 'wer-systemerrorreporting') !== false);
+            if ($isBugCheck) $title = 'Fallo critico de Windows';
+            elseif ($row['log_name'] === 'Application' && (int) $row['event_id'] === 1000) $title = 'Cierre inesperado de aplicacion';
+            elseif ($row['log_name'] === 'Application' && (int) $row['event_id'] === 1002) $title = 'Aplicacion bloqueada';
+            elseif ($row['log_name'] === 'System' && (int) $row['event_id'] === 41) $title = 'Apagado inesperado';
+            else $title = 'Evento de Windows: ' . ($source !== '' ? $source : 'sin origen');
+            $id = (int) $row['equipo_id'];
+            $estadisticas[$id]['ultimo'] = [
+                'fecha' => $row['event_time'], 'titulo' => $title,
+            ];
+        }
+    }
+
+    $alertas = $pdo->query("SELECT equipo_id,titulo,ultima_vez FROM monitor_alertas
+        WHERE activo=1 AND severidad='critical' ORDER BY ultima_vez DESC,id DESC")->fetchAll();
+    foreach ($alertas as $alerta) {
+        $id = (int) $alerta['equipo_id'];
+        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null];
+        $estadisticas[$id]['eventos']++;
+        $current = $estadisticas[$id]['ultimo'];
+        if ($current === null || strcmp((string) $alerta['ultima_vez'], (string) $current['fecha']) > 0) {
+            $estadisticas[$id]['ultimo'] = [
+                'fecha' => $alerta['ultima_vez'], 'titulo' => $alerta['titulo'],
+            ];
+        }
+    }
+
+    $ids = array_keys(array_filter($estadisticas, static fn(array $row): bool => $row['copias'] > 0 || $row['eventos'] > 0));
+    if (!$ids) return [];
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $st = $pdo->prepare("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.tipo,e.programa,e.cliente_id,c.nombre AS cliente
+        FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id WHERE e.id IN ({$placeholders})");
+    $st->execute($ids);
+    $result = [];
+    foreach ($st->fetchAll() as $equipo) {
+        $id = (int) $equipo['id'];
+        $equipo['id'] = $id;
+        $equipo['errores_pendientes'] = $estadisticas[$id]['copias'];
+        $equipo['total_errores_evento'] = $estadisticas[$id]['eventos'];
+        $equipo['errores_evento'] = $estadisticas[$id]['ultimo'] !== null ? [$estadisticas[$id]['ultimo']] : [];
+        $result[] = $equipo;
+    }
+    usort($result, static function (array $a, array $b): int {
+        return ($b['errores_pendientes'] + $b['total_errores_evento'])
+            <=> ($a['errores_pendientes'] + $a['total_errores_evento'])
+            ?: strcasecmp($a['nombre'], $b['nombre']);
+    });
+    return $result;
+}
+
 /**
  * Acciones de lectura del panel: sesion, novedades, copias recientes, equipos, catalogo y tokens.
  */
@@ -145,12 +234,33 @@ final class ReadController
             if ($status !== 'all') { $where[] = 'informe.estado = ?'; $params[] = $status; }
             $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
             $pdo = db();
-            $union = "SELECT id,fecha,cliente,equipo,equipo_id,estado,desc_error,codigo,resultado_original,
-                    clasificacion_fuente,clasificacion_evidencia,software,destino,tamano,duracion,0 AS staging FROM copias
+            $union = "SELECT CONVERT(CAST(id AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS id,fecha,
+                    CONVERT(cliente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS cliente,
+                    CONVERT(equipo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS equipo,equipo_id,
+                    CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado,
+                    CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
+                    CONVERT(codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS codigo,
+                    CONVERT(resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci AS resultado_original,
+                    CONVERT(clasificacion_fuente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_fuente,
+                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,
+                    CONVERT(software USING utf8mb4) COLLATE utf8mb4_unicode_ci AS software,
+                    CONVERT(destino USING utf8mb4) COLLATE utf8mb4_unicode_ci AS destino,
+                    CONVERT(CAST(tamano AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS tamano,
+                    CONVERT(CAST(duracion AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS duracion,0 AS staging FROM copias
                 UNION ALL
-                SELECT CONCAT('staging-',cc.id),cc.fecha,COALESCE(c.nombre,'Sin asignar'),e.nombre,cc.equipo_id,
-                    cc.estado,cc.desc_error,cc.codigo,cc.resultado_original,cc.clasificacion_fuente,
-                    cc.clasificacion_evidencia,cc.software,cc.destino,cc.tamano,cc.duracion,1 AS staging
+                SELECT CONVERT(CONCAT('staging-',cc.id) USING utf8mb4) COLLATE utf8mb4_unicode_ci,cc.fecha,
+                    CONVERT(COALESCE(c.nombre,'Sin asignar') USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(e.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci,cc.equipo_id,
+                    CONVERT(cc.estado USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.clasificacion_fuente USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.software USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.destino USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(CAST(cc.tamano AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(CAST(cc.duracion AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci,1 AS staging
                 FROM correo_copias cc JOIN equipos e ON e.id=cc.equipo_id
                 LEFT JOIN clientes c ON c.id=e.cliente_id WHERE cc.importada=0";
             $count = $pdo->prepare('SELECT COUNT(*) FROM (' . $union . ') informe' . $whereSql);
@@ -189,6 +299,19 @@ final class ReadController
             }
             unset($r);
             out(['tokens' => $rows]);
+        }
+
+        if ($action === 'monitor_agents') {
+            exigir_admin($user);
+            $rows = db()->query("SELECT a.machine_id,e.nombre AS equipo,a.active,
+                    DATE_FORMAT(a.created_at,'%Y-%m-%d %H:%i') AS created_at,
+                    DATE_FORMAT(a.last_used_at,'%Y-%m-%d %H:%i') AS last_used_at
+                FROM monitor_agents a
+                LEFT JOIN equipos e ON e.monitor_machine_id=a.machine_id
+                ORDER BY a.active DESC,a.last_used_at DESC,a.created_at DESC")->fetchAll();
+            foreach ($rows as &$row) $row['active'] = (int) $row['active'];
+            unset($row);
+            out(['agents' => $rows]);
         }
 
         if ($action === 'monitor_enrollments') {
@@ -240,42 +363,7 @@ final class ReadController
         }
 
         if ($action === 'panel_inicio') {
-            $equipos = equipos_listado()['equipos'];
-            $eventosPorEquipo = [];
-            foreach (['error', 'critico'] as $nivel) {
-                $page = 1;
-                do {
-                    $batch = monitor_notificaciones_listar(db(), $page, '', 'all', $nivel, 500);
-                    foreach ($batch['notificaciones'] as $item) {
-                        if ($item['tipo'] === 'copias_repetidas') continue;
-                        $id = (int) $item['equipo_id'];
-                        if (!isset($eventosPorEquipo[$id])) {
-                            $eventosPorEquipo[$id] = ['total' => 0, 'ultimo' => null];
-                        }
-                        $eventosPorEquipo[$id]['total']++;
-                        if ($eventosPorEquipo[$id]['ultimo'] === null
-                            || strcmp((string) $item['fecha'], (string) $eventosPorEquipo[$id]['ultimo']['fecha']) > 0) {
-                            $eventosPorEquipo[$id]['ultimo'] = $item;
-                        }
-                    }
-                    $page++;
-                } while (($page - 1) * (int) $batch['por_pagina'] < (int) $batch['total']);
-            }
-            $incidencias = [];
-            foreach ($equipos as $equipo) {
-                $eventData = $eventosPorEquipo[$equipo['id']] ?? ['total' => 0, 'ultimo' => null];
-                $equipo['errores_evento'] = $eventData['ultimo'] !== null ? [$eventData['ultimo']] : [];
-                $equipo['total_errores_evento'] = (int) $eventData['total'];
-                if ($equipo['errores_pendientes'] > 0 || $equipo['total_errores_evento'] > 0) {
-                    $incidencias[] = $equipo;
-                }
-            }
-            usort($incidencias, static function (array $a, array $b): int {
-                return ($b['errores_pendientes'] + $b['total_errores_evento'])
-                    <=> ($a['errores_pendientes'] + $a['total_errores_evento'])
-                    ?: strcasecmp($a['nombre'], $b['nombre']);
-            });
-            out(['equipos' => $incidencias]);
+            out(['equipos' => dashboard_inicio_listar(db())]);
         }
 
         if ($action === 'notificaciones') {

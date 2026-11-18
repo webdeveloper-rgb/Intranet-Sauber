@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '../api';
 
 // Carga las copias y expone las acciones del panel.
-export function useCopias(desde = '', hasta = '') {
+export function useCopias(desde = '', hasta = '', enabled = true) {
   const [recientes, setRecientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState('');
@@ -32,8 +32,14 @@ export function useCopias(desde = '', hasta = '') {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setCargando(false);
+      return undefined;
+    }
+    setCargando(true);
     cargar(desde, hasta);
-  }, [cargar, desde, hasta]);
+    return () => { cargaActual.current += 1; };
+  }, [cargar, desde, hasta, enabled]);
 
   // Cada acción llama a la API y sustituye la copia con lo que devuelve el servidor
   const run = useCallback(async (action, body) => {

@@ -354,9 +354,11 @@ function ingesta_guardar(PDO $pdo, array $d): array
                 $reviewedAt = $review->fetchColumn();
                 if ($reviewedAt !== false && $reviewedAt !== null) {
                     $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
-                        SELECT message_key,equipo_id FROM correo_copias WHERE equipo_id=? AND estado='ERROR'
-                        UNION
-                        SELECT huella,equipo_id FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL");
+                        SELECT CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
+                        FROM correo_copias WHERE equipo_id=? AND estado='ERROR'
+                        UNION ALL
+                        SELECT CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
+                        FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL");
                     $rememberDeleted->execute([(int) $eq['id'], (int) $eq['id']]);
                     $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'");
                     $deleteHistory->execute([(int) $eq['id']]);
