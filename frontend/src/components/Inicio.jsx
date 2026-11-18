@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { rutaHref } from '../routes';
 import PageHeading from './PageHeading';
+import BarraFiltros from './BarraFiltros';
 
 const normalizar = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 
@@ -15,6 +16,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   const [softwareFiltro, setSoftwareFiltro] = useState('todos');
   const [incidenciaFiltro, setIncidenciaFiltro] = useState('todos');
   const [orden, setOrden] = useState('incidencias');
+  const etiquetasIncidencia = { copias: 'Errores de copias', eventos: 'Errores/eventos', ambos: 'Copias y eventos' };
 
   useEffect(() => {
     let activo = true;
@@ -96,7 +98,18 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
       return (copiasB + eventosB) - (copiasA + eventosA) || String(a.nombre).localeCompare(String(b.nombre), 'es');
     });
   }, [equipos, busqueda, clienteFiltro, softwareFiltro, incidenciaFiltro, orden]);
-  const filtrosActivos = Boolean(busqueda || clienteFiltro !== 'todos' || softwareFiltro !== 'todos' || incidenciaFiltro !== 'todos');
+  const filtrosActivos = [
+    ...(busqueda ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${busqueda}` }] : []),
+    ...(incidenciaFiltro !== 'todos' ? [{ clave: 'incidencia', etiqueta: `Incidencia: ${etiquetasIncidencia[incidenciaFiltro]}` }] : []),
+    ...(clienteFiltro !== 'todos' ? [{ clave: 'cliente', etiqueta: `Cliente: ${clienteFiltro === 'sin-asignar' ? 'Sin asignar' : clientes.find((cliente) => cliente.id === clienteFiltro)?.nombre || clienteFiltro}` }] : []),
+    ...(softwareFiltro !== 'todos' ? [{ clave: 'software', etiqueta: `Programa: ${softwareFiltro}` }] : []),
+  ];
+  const quitarFiltro = (clave) => {
+    if (clave === 'busqueda') setBusqueda('');
+    else if (clave === 'incidencia') setIncidenciaFiltro('todos');
+    else if (clave === 'cliente') setClienteFiltro('todos');
+    else if (clave === 'software') setSoftwareFiltro('todos');
+  };
   const limpiarFiltros = () => {
     setBusqueda('');
     setClienteFiltro('todos');
@@ -115,43 +128,25 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
       <article className="inicio-metrica"><span>Clientes afectados</span><strong>{clientesAfectados}</strong></article>
       <article className="inicio-metrica"><span>Equipos sin asignar</span><strong>{sinAsignar}</strong></article>
     </div>
-    <section className="inicio-filtros" aria-label="Filtros del dashboard">
-      <div className="inicio-filtros-heading">
-        <div><h3>Filtrar equipos</h3><p>Busca y ordena las incidencias que requieren atención.</p></div>
-        <span className="inicio-filtros-conteo">{equiposFiltrados.length} de {equipos.length} equipos</span>
-      </div>
-      <div className="inicio-filtros-campos">
-        <label className="inicio-busqueda"><span>Buscar</span>
-          <input type="search" value={busqueda} onChange={(event) => setBusqueda(event.target.value)}
-            placeholder="Equipo, cliente, software o evento" />
-        </label>
-        <label><span>Incidencia</span>
-          <select value={incidenciaFiltro} onChange={(event) => setIncidenciaFiltro(event.target.value)}>
-            <option value="todos">Todas</option><option value="copias">Errores de copias</option>
-            <option value="eventos">Errores/eventos</option><option value="ambos">Copias y eventos</option>
-          </select>
-        </label>
-        <label><span>Cliente</span>
-          <select value={clienteFiltro} onChange={(event) => setClienteFiltro(event.target.value)}>
-            <option value="todos">Todos los clientes</option><option value="sin-asignar">Sin asignar</option>
-            {clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}
-          </select>
-        </label>
-        <label><span>Programa</span>
-          <select value={softwareFiltro} onChange={(event) => setSoftwareFiltro(event.target.value)}>
-            <option value="todos">Todos los programas</option>
-            {softwares.map((software) => <option key={software} value={software}>{software}</option>)}
-          </select>
-        </label>
-        <label><span>Ordenar por</span>
-          <select value={orden} onChange={(event) => setOrden(event.target.value)}>
-            <option value="incidencias">Más incidencias</option><option value="copias">Más errores de copias</option>
-            <option value="eventos">Más errores/eventos</option><option value="nombre">Nombre del equipo</option>
-          </select>
-        </label>
-        {filtrosActivos && <button className="btn sec inicio-filtros-limpiar" type="button" onClick={limpiarFiltros}>Limpiar filtros</button>}
-      </div>
-    </section>
+    <BarraFiltros title="Filtrar equipos" description="Prioriza las incidencias que requieren atención."
+      search={{ id: 'inicio-busqueda', value: busqueda, placeholder: 'Equipo, cliente, software o evento',
+        onChange: (event) => setBusqueda(event.target.value) }}
+      fields={[
+        { id: 'inicio-incidencia', label: 'Incidencia', type: 'select', value: incidenciaFiltro,
+          onChange: (event) => setIncidenciaFiltro(event.target.value),
+          options: [['todos', 'Todas'], ['copias', 'Errores de copias'], ['eventos', 'Errores/eventos'], ['ambos', 'Copias y eventos']] },
+        { id: 'inicio-cliente', label: 'Cliente', type: 'select', value: clienteFiltro,
+          onChange: (event) => setClienteFiltro(event.target.value),
+          options: [['todos', 'Todos los clientes'], ['sin-asignar', 'Sin asignar'], ...clientes.map((cliente) => [cliente.id, cliente.nombre])] },
+        { id: 'inicio-programa', label: 'Programa', type: 'select', value: softwareFiltro,
+          onChange: (event) => setSoftwareFiltro(event.target.value),
+          options: [['todos', 'Todos los programas'], ...softwares.map((software) => [software, software])] },
+        { id: 'inicio-orden', label: 'Ordenar por', type: 'select', value: orden,
+          onChange: (event) => setOrden(event.target.value),
+          options: [['incidencias', 'Más incidencias'], ['copias', 'Más errores de copias'], ['eventos', 'Más errores/eventos'], ['nombre', 'Nombre del equipo']] },
+      ]}
+      count={`${equiposFiltrados.length} de ${equipos.length} equipos`}
+      activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />
     {error && <div className="errbox" role="alert">{error} <button className="btn sec" onClick={reintentar}>Reintentar</button></div>}
     {cargando ? <div className="empty-state" role="status">Cargando el estado de los equipos…</div> : equiposFiltrados.length ? <div className="inicio-equipos">
       {equiposFiltrados.map((item) => {

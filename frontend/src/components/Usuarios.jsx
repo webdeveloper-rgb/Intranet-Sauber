@@ -18,7 +18,7 @@ export default function Usuarios({ sesion, onClose }) {
     <>
       <div className="ov" onClick={onClose} />
       <aside role="dialog" aria-modal="true" aria-label={admin ? 'Gestión de tokens' : 'Mi cuenta'}>
-        <PageHeading eyebrow={admin ? 'Administración' : 'Cuenta'}
+        <PageHeading level={2} eyebrow={admin ? 'Administración' : 'Cuenta'}
           title={admin ? 'Tokens de integración' : 'Mi cuenta'}
           actions={<button className="x" onClick={onClose} aria-label="Cerrar">×</button>} />
         {admin ? <Tokens /> : <p>Sesión iniciada como <b>{sesion.nombre || sesion.usuario}</b>.</p>}

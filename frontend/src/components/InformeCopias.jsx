@@ -3,6 +3,7 @@ import { api } from '../api';
 import Paginacion from './Paginacion';
 import Tag from './Tag';
 import PageHeading from './PageHeading';
+import BarraFiltros from './BarraFiltros';
 
 const fechaLocal = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const fechaInicial = () => {
@@ -85,16 +86,19 @@ export default function InformeCopias({ onNavigate }) {
     <PageHeading id="informe-titulo" eyebrow="Auditoría" title="Informe de copias"
       description={<>Historial de copias del periodo. Los resultados ambiguos se identifican como <strong>por clasificar</strong>.</>}
       actions={<button className="btn" type="button" onClick={exportar} disabled={exportando || !total}>{exportando ? 'Preparando CSV…' : 'Exportar CSV'}</button>} />
-    <form className="informe-filtros" onSubmit={aplicar}>
-      <label>Desde<input type="date" value={desde} max={hasta} onChange={(event) => setDesde(event.target.value)} /></label>
-      <label>Hasta<input type="date" value={hasta} min={desde} onChange={(event) => setHasta(event.target.value)} /></label>
-      <label>Resultado<select value={estado} onChange={(event) => setEstado(event.target.value)}>
-        <option value="all">Todos</option><option value="OK">Correcta</option><option value="ERROR">Error confirmado</option>
-        <option value="WARNING">Advertencia</option><option value="RUNNING">En curso</option><option value="REVISION">Por clasificar</option>
-      </select></label>
-      <button className="btn sec" type="submit">Aplicar filtros</button>
-      <span className="informe-conteo">{total.toLocaleString('es-ES')} registros</span>
-    </form>
+    <BarraFiltros className="informe-filtros" title="Filtrar informe"
+      fields={[
+        { id: 'informe-desde', label: 'Desde', type: 'date', value: desde, max: hasta,
+          onChange: (event) => setDesde(event.target.value) },
+        { id: 'informe-hasta', label: 'Hasta', type: 'date', value: hasta, min: desde,
+          onChange: (event) => setHasta(event.target.value) },
+        { id: 'informe-estado', label: 'Resultado', type: 'select', value: estado,
+          onChange: (event) => setEstado(event.target.value),
+          options: [['all', 'Todos'], ['OK', 'Correcta'], ['ERROR', 'Error confirmado'],
+            ['WARNING', 'Advertencia'], ['RUNNING', 'En curso'], ['REVISION', 'Por clasificar']] },
+      ]}
+      actions={<button className="btn sec" type="submit">Aplicar filtros</button>}
+      count={`${total.toLocaleString('es-ES')} registros`} onSubmit={aplicar} />
     <div className="informe-resumen" aria-live="polite">
       <span>Correctas <strong>{resumen.OK || 0}</strong></span><span>Errores confirmados <strong>{resumen.ERROR || 0}</strong></span>
       <span>Advertencias <strong>{resumen.WARNING || 0}</strong></span><span>En curso <strong>{resumen.RUNNING || 0}</strong></span>

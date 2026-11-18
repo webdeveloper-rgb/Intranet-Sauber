@@ -10,8 +10,8 @@ import MonitorDetalle from './MonitorDetalle';
 import RevisionEquipo from './RevisionEquipo';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
-import FiltrosActivos from './FiltrosActivos';
 import PageHeading from './PageHeading';
+import BarraFiltros from './BarraFiltros';
 import { usePagination } from '../hooks/usePagination';
 
 const unir = (...v) => v.filter(Boolean).join(' · ');
@@ -671,73 +671,71 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />
       </div>}
 
-      <div className="mapeo-toolbar">
-        {clienteActual ? <button className="btn sec" onClick={equipoActual ? volverAEquipos : volverAClientes}>
-          ← Volver
-        </button> : (
-          <label className="mapeo-busqueda">
-            <span className="sr-only">Buscar cliente</span>
-            <input type="search" placeholder="Buscar cliente…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-          </label>
-        )}
-        {!clienteActual && !equipoActual && <>
-          <label className="mapeo-filtro"><span>Ordenar clientes</span>
-            <select value={ordenClientes} onChange={(e) => setOrdenClientes(e.target.value)}>
-              <option value="az">Nombre: A a Z</option><option value="za">Nombre: Z a A</option>
-            </select>
-          </label>
-          <label className="mapeo-filtro"><span>Agente Monitor</span>
-            <select value={filtroAgenteCliente} onChange={(e) => setFiltroAgenteCliente(e.target.value)}>
-              <option value="todos">Cualquier estado</option><option value="con">Con agente</option><option value="sin">Sin agente</option>
-            </select>
-          </label>
-          <label className="mapeo-filtro"><span>Programa de copia</span>
-            <select value={softwareCliente} onChange={(e) => setSoftwareCliente(e.target.value)}>
-              <option value="">Todos</option>{softwaresEquipo.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)}
-            </select>
-          </label>
+      {!equipoActual && !clienteActual && <BarraFiltros title="Filtrar clientes"
+        search={{ id: 'clientes-buscar', value: busqueda, placeholder: 'Buscar cliente…',
+          onChange: (event) => setBusqueda(event.target.value) }}
+        fields={[
+          { id: 'clientes-ordenar', label: 'Ordenar', type: 'select', value: ordenClientes,
+            onChange: (event) => setOrdenClientes(event.target.value), options: [['az', 'Nombre: A a Z'], ['za', 'Nombre: Z a A']] },
+          { id: 'clientes-agente', label: 'Agente Monitor', type: 'select', value: filtroAgenteCliente,
+            onChange: (event) => setFiltroAgenteCliente(event.target.value), options: [['todos', 'Cualquier estado'], ['con', 'Con agente'], ['sin', 'Sin agente']] },
+          { id: 'clientes-programa', label: 'Programa de copia', type: 'select', value: softwareCliente,
+            onChange: (event) => setSoftwareCliente(event.target.value), options: [['', 'Todos'], ...softwaresEquipo.map((nombre) => [nombre, nombre])] },
+        ]}
+        actions={admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
+        count={`${clientesFiltrados.length} de ${clientes.length} clientes`}
+        activeFilters={filtrosActivosClientes} onRemoveFilter={quitarFiltroCliente} onClear={limpiarFiltrosClientes}>
+        <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por SATBK">
+          <span className="cliente-filtros-label">SATBK</span>
+          <div className="cliente-filtros-opciones">
+            <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'todos'}
+              onClick={() => setFiltroSatbk('todos')}>Todos <span>{clientes.length}</span></button>
+            <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''} aria-pressed={filtroSatbk === 'con'}
+              onClick={() => setFiltroSatbk('con')}>Con SATBK <span>{clientes.filter((cliente) => cliente.tiene_satbk).length}</span></button>
+            <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sin'}
+              onClick={() => setFiltroSatbk('sin')}>Sin SATBK <span>{clientes.filter((cliente) => !cliente.tiene_satbk).length}</span></button>
+          </div>
+          <small>El filtro solo cambia la vista; no modifica clientes ni asignaciones.</small>
+        </div>
+      </BarraFiltros>}
+
+      {clienteActual && !equipoActual && <BarraFiltros title="Filtrar equipos"
+        search={{ id: 'equipos-cliente-buscar', value: busqueda, placeholder: 'Buscar equipo o software…',
+          onChange: (event) => setBusqueda(event.target.value) }}
+        fields={[
+          { id: 'equipos-ordenar', label: 'Ordenar', type: 'select', value: filtrosEquipo.orden,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, orden: event.target.value })),
+            options: [['nombre-az', 'Nombre: A a Z'], ['nombre-za', 'Nombre: Z a A'], ['alta-reciente', 'Alta: más reciente'],
+              ['alta-antigua', 'Alta: más antigua'], ['informe-reciente', 'Último informe del agente']] },
+          { id: 'equipos-agente', label: 'Agente Monitor', type: 'select', value: filtrosEquipo.agente,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, agente: event.target.value })),
+            options: [['todos', 'Todos'], ['con', 'Con agente'], ['sin', 'Sin agente']] },
+          { id: 'equipos-copias', label: 'Copias', type: 'select', value: filtrosEquipo.copias,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, copias: event.target.value })),
+            options: [['todos', 'Todos'], ['con', 'Con copias'], ['sin', 'Sin copias']] },
+          { id: 'equipos-tipo', label: 'Tipo de equipo', type: 'select', value: filtrosEquipo.tipo,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, tipo: event.target.value })),
+            options: [['', 'Todos'], ['usuario', 'Usuario'], ['servidor', 'Servidor'], ['programa', 'Programa']] },
+          { id: 'equipos-programa', label: 'Programa de copia', type: 'select', value: filtrosEquipo.software,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, software: event.target.value })),
+            options: [['', 'Todos'], ...softwaresEquipo.map((nombre) => [nombre, nombre])] },
+          { id: 'equipos-desde', label: 'Alta desde', type: 'date', value: filtrosEquipo.desde, max: filtrosEquipo.hasta || undefined,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, desde: event.target.value })) },
+          { id: 'equipos-hasta', label: 'Alta hasta', type: 'date', value: filtrosEquipo.hasta, min: filtrosEquipo.desde || undefined,
+            onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, hasta: event.target.value })) },
+        ]}
+        actions={<>
+          <button className="btn sec" type="button" onClick={volverAClientes}>← Volver</button>
+          {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
         </>}
-        {clienteActual && !equipoActual && <label className="mapeo-busqueda">
-          <span className="sr-only">Buscar equipo</span>
-          <input type="search" placeholder="Buscar equipo o software…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-        </label>}
-        {equipoActual?.tiene_monitor && (
-          <button className="btn" onClick={() => onNavigate(`/eventos?equipo_id=${equipoActual.id}`)}>
-            Ver eventos de Windows
-          </button>
-        )}
-        {admin && <button className="btn sec" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
-      </div>
+        count={`${equiposFiltrados.length} equipos`} activeFilters={filtrosActivosEquipos}
+        onRemoveFilter={quitarFiltroEquipo} onClear={limpiarFiltrosEquipo} />}
 
-      {!clienteActual && !equipoActual && <FiltrosActivos filtros={filtrosActivosClientes}
-        onQuitar={quitarFiltroCliente} onLimpiar={limpiarFiltrosClientes} />}
-
-      {clienteActual && !equipoActual && <div className="equipo-filtros" role="group" aria-label="Filtros de equipos">
-        <label><span>Ordenar</span><select value={filtrosEquipo.orden} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, orden: e.target.value }))}>
-          <option value="nombre-az">Nombre: A a Z</option><option value="nombre-za">Nombre: Z a A</option>
-          <option value="alta-reciente">Alta: más reciente</option><option value="alta-antigua">Alta: más antigua</option>
-          <option value="informe-reciente">Último informe del agente</option>
-        </select></label>
-        <label><span>Agente Monitor</span><select value={filtrosEquipo.agente} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, agente: e.target.value }))}>
-          <option value="todos">Todos</option><option value="con">Con agente</option><option value="sin">Sin agente</option>
-        </select></label>
-        <label><span>Copias</span><select value={filtrosEquipo.copias} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, copias: e.target.value }))}>
-          <option value="todos">Todos</option><option value="con">Con copias</option><option value="sin">Sin copias</option>
-        </select></label>
-        <label><span>Tipo de equipo</span><select value={filtrosEquipo.tipo} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, tipo: e.target.value }))}>
-          <option value="">Todos</option><option value="usuario">Usuario</option><option value="servidor">Servidor</option><option value="programa">Programa</option>
-        </select></label>
-        <label><span>Programa de copia</span><select value={filtrosEquipo.software} onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, software: e.target.value }))}>
-          <option value="">Todos</option>{softwaresEquipo.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)}
-        </select></label>
-        <label><span>Alta desde</span><input type="date" value={filtrosEquipo.desde} max={filtrosEquipo.hasta || undefined}
-          onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, desde: e.target.value }))} /></label>
-        <label><span>Alta hasta</span><input type="date" value={filtrosEquipo.hasta} min={filtrosEquipo.desde || undefined}
-          onChange={(e) => setFiltrosEquipo((actual) => ({ ...actual, hasta: e.target.value }))} /></label>
-        <span className="cnt">{equiposFiltrados.length} equipo{equiposFiltrados.length === 1 ? '' : 's'}</span>
+      {equipoActual && <div className="mapeo-toolbar">
+        <button className="btn sec" type="button" onClick={volverAEquipos}>← Volver a equipos</button>
+        {equipoActual.tiene_monitor && <button className="btn" type="button" onClick={() => onNavigate(`/eventos?equipo_id=${equipoActual.id}`)}>Ver eventos de Windows</button>}
+        {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
       </div>}
-      {clienteActual && !equipoActual && <FiltrosActivos filtros={filtrosActivosEquipos}
-        onQuitar={quitarFiltroEquipo} onLimpiar={limpiarFiltrosEquipo} />}
 
       {(ultimaLectura?.alerta || ultimaLectura?.ok === 0 || u?.ok === 0) && <div className="estado-alertas" role="status">
         {ultimaLectura?.alerta && <p>No se reciben avisos de copias desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
@@ -751,19 +749,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
       {sync && <p className="sync-estado" role="status" aria-live="polite">Actualizando los clientes.</p>}
       {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
-      {!clienteActual && !equipoActual && <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por SATBK">
-        <span className="cliente-filtros-label">Filtrar clientes</span>
-        <div className="cliente-filtros-opciones">
-          <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'todos'}
-            onClick={() => setFiltroSatbk('todos')}>Todos <span>{clientes.length}</span></button>
-          <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''} aria-pressed={filtroSatbk === 'con'}
-            onClick={() => setFiltroSatbk('con')}>Con SATBK <span>{clientes.filter((cliente) => cliente.tiene_satbk).length}</span></button>
-          <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sin'}
-            onClick={() => setFiltroSatbk('sin')}>Sin SATBK <span>{clientes.filter((cliente) => !cliente.tiene_satbk).length}</span></button>
-        </div>
-        <small>El filtro solo cambia la vista; no modifica clientes ni asignaciones.</small>
-      </div>}
-
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
           {!clienteActual && !equipoActual && <>

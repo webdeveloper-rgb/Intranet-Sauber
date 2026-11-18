@@ -1,8 +1,6 @@
-/**
- * Controles de filtro y rango temporal de la lista de copias.
- */
+/** Configura los filtros de copias usando la barra compartida del panel. */
 import { FILTROS, EXTRA, ALERTA, PROGRAMAS } from '../logic';
-import FiltrosActivos from './FiltrosActivos';
+import BarraFiltros from './BarraFiltros';
 
 export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, total, softwares = [] }) {
   const { cli, tipo, software, desde, hasta, orden, horas } = f;
@@ -25,63 +23,40 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, tot
   };
   const filtroAlerta = ALERTA[filtro] && n[EXTRA[filtro]] > 0;
   const alertas = (n.sc || 0) + (n.a || 0);
-  return (
-      <div className="fil">
-        <label className="fil-estado" htmlFor="filtro-copias">
-          <span>Estado</span>
-          <select id="filtro-copias" aria-label="Filtrar copias por estado"
-          className={filtroAlerta ? 'al' : ''}
-          value={filtro} onChange={(e) => setFiltro(e.target.value)}>
-            {FILTROS.map(([k, t]) => (
-              <option key={k} value={k}>
-                {t}{EXTRA[k] ? ` (${n[EXTRA[k]]})` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className={`aviso-cuenta${alertas ? ' activa' : ''}`}
-          title={`Avisos: ${n.sc || 0} sin copia y ${n.a || 0} errores atrasados`}
-          aria-label={`Avisos: ${alertas}`}>
-          Avisos <strong>{alertas}</strong>
-        </span>
-        <input type="search" placeholder="Cliente, equipo, software o error…" aria-label="Buscar copias" value={cli}
-          onChange={(e) => setF({ cli: e.target.value })} />
-        <label>Tipo de equipo{' '}
-          <select value={tipo} onChange={(e) => setF({ tipo: e.target.value })}>
-            <option value="">Todos</option>
-            <option value="usuario">Usuarios</option>
-            <option value="servidor">Servidores</option>
-            <option value="programa">Programas (todos)</option>
-            {PROGRAMAS.map((p) => <option key={p} value={'programa:' + p}>{p}</option>)}
-          </select>
-        </label>
-        <label>Software de copia{' '}
-          <select value={software} onChange={(e) => setF({ software: e.target.value })}>
-            <option value="">Todos</option>
-            {softwares.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)}
-          </select>
-        </label>
-        <label>Fecha desde <input type="date" value={desde} max={hasta || undefined}
-          onChange={(e) => setF({ desde: e.target.value })} /></label>
-        <label>Fecha hasta <input type="date" value={hasta} min={desde || undefined}
-          onChange={(e) => setF({ hasta: e.target.value })} /></label>
-        <span className="cnt">{resultados}{Number.isFinite(total) ? ` de ${total}` : ''} resultado${resultados === 1 ? '' : 's'}</span>
-        <label>Ordenar{' '}
-          <select value={orden} onChange={(e) => setF({ orden: e.target.value })}>
-            <option value="fecha-desc">Fecha: recientes primero</option>
-            <option value="fecha-asc">Fecha: antiguas primero</option>
-            <option value="cliente-az">Cliente: A a Z</option>
-            <option value="cliente-za">Cliente: Z a A</option>
-            <option value="equipo-az">Equipo: A a Z</option>
-            <option value="equipo-za">Equipo: Z a A</option>
-          </select>
-        </label>
-        <label>Avisar errores tras{' '}
-          <select value={horas} onChange={(e) => setF({ horas: +e.target.value })}>
-            {[12, 24, 48, 72].map((h) => <option key={h} value={h}>{h} h</option>)}
-          </select>
-        </label>
-        <FiltrosActivos filtros={filtrosActivos} onQuitar={quitarFiltro} onLimpiar={limpiarFiltros} />
-      </div>
-  );
+
+  return <BarraFiltros className="fil" title="Filtrar copias"
+    search={{ id: 'filtro-buscar-copias', label: 'Buscar', value: cli,
+      placeholder: 'Cliente, equipo, software o error…', onChange: (event) => setF({ cli: event.target.value }) }}
+    fields={[
+      { id: 'filtro-copias', className: 'fil-estado', label: 'Estado', type: 'select', value: filtro,
+        controlClassName: filtroAlerta ? 'al' : '',
+        onChange: (event) => setFiltro(event.target.value),
+        options: FILTROS.map(([key, label]) => [key, `${label}${EXTRA[key] ? ` (${n[EXTRA[key]]})` : ''}`]),
+        ariaLabel: 'Filtrar copias por estado' },
+      { id: 'filtro-tipo-equipo', label: 'Tipo de equipo', type: 'select', value: tipo,
+        onChange: (event) => setF({ tipo: event.target.value }),
+        options: [['', 'Todos'], ['usuario', 'Usuarios'], ['servidor', 'Servidores'], ['programa', 'Programas (todos)'],
+          ...PROGRAMAS.map((programa) => [`programa:${programa}`, programa])] },
+      { id: 'filtro-software-copia', label: 'Software de copia', type: 'select', value: software,
+        onChange: (event) => setF({ software: event.target.value }),
+        options: [['', 'Todos'], ...softwares.map((nombre) => [nombre, nombre])] },
+      { id: 'filtro-fecha-desde', label: 'Fecha desde', type: 'date', value: desde, max: hasta || undefined,
+        onChange: (event) => setF({ desde: event.target.value }) },
+      { id: 'filtro-fecha-hasta', label: 'Fecha hasta', type: 'date', value: hasta, min: desde || undefined,
+        onChange: (event) => setF({ hasta: event.target.value }) },
+      { id: 'filtro-orden-copias', label: 'Ordenar', type: 'select', value: orden,
+        onChange: (event) => setF({ orden: event.target.value }),
+        options: [['fecha-desc', 'Fecha: recientes primero'], ['fecha-asc', 'Fecha: antiguas primero'],
+          ['cliente-az', 'Cliente: A a Z'], ['cliente-za', 'Cliente: Z a A'],
+          ['equipo-az', 'Equipo: A a Z'], ['equipo-za', 'Equipo: Z a A']] },
+      { id: 'filtro-avisar-horas', label: 'Avisar errores tras', type: 'select', value: String(horas),
+        onChange: (event) => setF({ horas: Number(event.target.value) }),
+        options: [12, 24, 48, 72].map((horas) => [String(horas), `${horas} h`]) },
+    ]}
+    summary={<span className={`aviso-cuenta${alertas ? ' activa' : ''}`}
+      title={`Avisos: ${n.sc || 0} sin copia y ${n.a || 0} errores atrasados`}>
+      Avisos <strong>{alertas}</strong>
+    </span>}
+    count={`${resultados}${Number.isFinite(total) ? ` de ${total}` : ''} resultado${resultados === 1 ? '' : 's'}`}
+    activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />;
 }

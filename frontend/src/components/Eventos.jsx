@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import Paginacion from './Paginacion';
-import FiltrosActivos from './FiltrosActivos';
+import BarraFiltros from './BarraFiltros';
 import PageHeading from './PageHeading';
 
 const POR_PAGINA = 10;
@@ -299,38 +299,23 @@ export default function Eventos({ equipoId = null, onVolver }) {
           </div>
         </>} />
 
-      <div className="eventos-controles">
-        <label className="eventos-busqueda" htmlFor="eventos-buscar">
-          <span>Buscar</span>
-          <input
-            id="eventos-buscar"
-            type="search"
-            value={buscar}
-            onChange={(event) => setBuscar(event.target.value)}
-            placeholder="Cliente, equipo, origen o mensaje"
-          />
-        </label>
-        <label className="eventos-fecha" htmlFor="eventos-desde"><span>Desde</span><input id="eventos-desde" type="date" value={desde} max={hasta || undefined} onChange={(event) => { setDesde(event.target.value); setPagina(1); }} /></label>
-        <label className="eventos-fecha" htmlFor="eventos-hasta"><span>Hasta</span><input id="eventos-hasta" type="date" value={hasta} min={desde || undefined} onChange={(event) => { setHasta(event.target.value); setPagina(1); }} /></label>
-        {equipoId && <button className="btn sec eventos-pdf" onClick={imprimirRegistro} disabled={exportando}>{exportando ? 'Preparando PDF…' : 'Imprimir registro PDF'}</button>}
-        <label className="eventos-nivel" htmlFor="eventos-nivel">
-          <span>Nivel</span>
-          <select
-            id="eventos-nivel"
-            value={nivel}
-            onChange={(event) => {
-              setNivel(event.target.value);
-              setPagina(1);
-            }}
-          >
-            {niveles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <p className="eventos-recuento" aria-live="polite">
-          {resultado === null && cargando ? 'Cargando resultados…' : `${total.toLocaleString('es-ES')} evento${total === 1 ? '' : 's'}`}
-        </p>
-        <FiltrosActivos filtros={filtrosActivos} onQuitar={quitarFiltro} onLimpiar={limpiarFiltros} />
-      </div>
+      <BarraFiltros title="Filtrar eventos"
+        search={{ id: 'eventos-buscar', value: buscar, placeholder: 'Cliente, equipo, origen o mensaje',
+          onChange: (event) => setBuscar(event.target.value) }}
+        fields={[
+          { id: 'eventos-desde', label: 'Desde', type: 'date', value: desde, max: hasta || undefined,
+            onChange: (event) => { setDesde(event.target.value); setPagina(1); } },
+          { id: 'eventos-hasta', label: 'Hasta', type: 'date', value: hasta, min: desde || undefined,
+            onChange: (event) => { setHasta(event.target.value); setPagina(1); } },
+          { id: 'eventos-nivel', label: 'Nivel', type: 'select', value: nivel,
+            onChange: (event) => { setNivel(event.target.value); setPagina(1); }, options: niveles },
+        ]}
+        actions={equipoId && <button className="btn sec eventos-pdf" type="button" onClick={imprimirRegistro} disabled={exportando}>
+          {exportando ? 'Preparando PDF…' : 'Imprimir registro PDF'}
+        </button>}
+        count={resultado === null && cargando ? 'Cargando resultados…'
+          : `${total.toLocaleString('es-ES')} evento${total === 1 ? '' : 's'}`}
+        activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />
 
       {errorPdf && <div className="errbox eventos-error" role="alert">{errorPdf}</div>}
 

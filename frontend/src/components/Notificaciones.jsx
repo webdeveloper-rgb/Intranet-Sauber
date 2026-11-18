@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import Paginacion from './Paginacion';
+import PageHeading from './PageHeading';
+import BarraFiltros from './BarraFiltros';
 
 const POR_PAGINA = 25;
 const TIPOS = [
@@ -82,44 +84,40 @@ export default function Notificaciones({ onClose, onAbrir }) {
   const notificaciones = resultado?.notificaciones || [];
   const total = resultado?.total || 0;
   const paginas = Math.max(1, Math.ceil(total / (resultado?.porPagina || POR_PAGINA)));
+  const filtrosActivos = [
+    ...(buscar.trim() ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${buscar.trim()}` }] : []),
+    ...(tipo !== 'all' ? [{ clave: 'tipo', etiqueta: `Tipo: ${TIPOS.find(([key]) => key === tipo)?.[1] || tipo}` }] : []),
+    ...(nivel !== 'all' ? [{ clave: 'nivel', etiqueta: `Nivel: ${NIVELES.find(([key]) => key === nivel)?.[1] || nivel}` }] : []),
+  ];
+  const quitarFiltro = (clave) => {
+    if (clave === 'busqueda') { setBuscar(''); setQ(''); }
+    else if (clave === 'tipo') setTipo('all');
+    else if (clave === 'nivel') setNivel('all');
+    setPagina(1);
+  };
+  const limpiarFiltros = () => {
+    setBuscar(''); setQ(''); setTipo('all'); setNivel('all'); setPagina(1);
+  };
 
   return (
     <>
       <div className="ov" onClick={onClose} />
       <aside className="notificaciones-drawer" role="dialog" aria-modal="true" aria-labelledby="notificaciones-titulo">
-        <button className="x" onClick={onClose} aria-label="Cerrar notificaciones">×</button>
-        <div className="notificaciones-heading">
-          <span className="notificaciones-eyebrow">Centro de incidencias</span>
-          <h2 id="notificaciones-titulo">Notificaciones</h2>
-          <p>Alertas activas, eventos de Windows según el modo de cada equipo y fallos de copias de las últimas 24 horas.</p>
-        </div>
-
-        <div className="notificaciones-filtros">
-          <label>
-            <span>Buscar</span>
-            <input type="search" value={buscar} onChange={(event) => setBuscar(event.target.value)}
-              placeholder="Cliente, equipo o descripción" />
-          </label>
-          <label>
-            <span>Tipo</span>
-            <select value={tipo} onChange={(event) => { setTipo(event.target.value); setPagina(1); }}>
-              {TIPOS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Nivel</span>
-            <select value={nivel} onChange={(event) => { setNivel(event.target.value); setPagina(1); }}>
-              {NIVELES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-        </div>
-
-        <div className="notificaciones-resumen">
-          <span>{cargando ? 'Actualizando…' : `${total} notificación${total === 1 ? '' : 'es'}`}</span>
-          <button className="btn sec" onClick={() => setActualizar((value) => value + 1)} disabled={cargando}>
-            Actualizar
-          </button>
-        </div>
+        <PageHeading level={2} id="notificaciones-titulo" eyebrow="Centro de incidencias" title="Notificaciones"
+          description="Alertas activas, eventos de Windows y fallos recientes de copias."
+          actions={<button className="x" onClick={onClose} aria-label="Cerrar notificaciones">×</button>} />
+        <BarraFiltros className="filter-bar-drawer" title="Filtrar notificaciones"
+          search={{ id: 'notificaciones-buscar', value: buscar, placeholder: 'Cliente, equipo o descripción',
+            onChange: (event) => setBuscar(event.target.value) }}
+          fields={[
+            { id: 'notificaciones-tipo', label: 'Tipo', type: 'select', value: tipo,
+              onChange: (event) => { setTipo(event.target.value); setPagina(1); }, options: TIPOS },
+            { id: 'notificaciones-nivel', label: 'Nivel', type: 'select', value: nivel,
+              onChange: (event) => { setNivel(event.target.value); setPagina(1); }, options: NIVELES },
+          ]}
+          actions={<button className="btn sec" type="button" onClick={() => setActualizar((value) => value + 1)} disabled={cargando}>Actualizar</button>}
+          count={cargando ? 'Actualizando…' : `${total} notificación${total === 1 ? '' : 'es'}`}
+          activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />
 
         {error && (
           <div className="errbox" role="alert">
