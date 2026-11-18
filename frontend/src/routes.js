@@ -29,7 +29,7 @@ export function leerRuta() {
   if (partes[0] === 'inicio') {
     const equipo = partes[1] === 'equipos' && /^\d+$/.test(partes[2] || '') ? Number(partes[2]) : null;
     return { vista: 'inicio', clienteId: null, equipoId: equipo, copiaId: null,
-      path: equipo ? `/inicio/equipos/${equipo}` : '/inicio' };
+      path: equipo ? `/inicio/equipos/${equipo}` : '/' };
   }
 
   if (partes[0] === 'informes') {
@@ -61,6 +61,6 @@ export function leerRuta() {
     };
   }
 
-  if (!partes.length) return { vista: 'inicio', clienteId: null, equipoId: null, copiaId: null, path: '/inicio' };
-  return { vista: 'inicio', clienteId: null, equipoId: null, copiaId: null, path: '/inicio' };
+  if (!partes.length) return { vista: 'inicio', clienteId: null, equipoId: null, copiaId: null, path: '/' };
+  return { vista: 'inicio', clienteId: null, equipoId: null, copiaId: null, path: '/' };
 }
