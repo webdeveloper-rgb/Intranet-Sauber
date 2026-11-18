@@ -72,7 +72,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         <div><span className="eyebrow">Incidencias del equipo</span>
           <h2 id="inicio-titulo">{equipo?.monitor_alias || equipo?.nombre || `Equipo #${equipoId}`}</h2>
           <p>Solo se muestran fallos y eventos clasificados como error o crítico.</p></div>
-        <button className="btn sec" type="button" onClick={() => onNavigate('/inicio')}>← Volver al inicio</button>
+        <button className="btn sec" type="button" onClick={() => onNavigate('/')}>← Volver al inicio</button>
       </div>
       {error && <div className="errbox" role="alert">{error} <button className="btn sec" onClick={reintentar}>Reintentar</button></div>}
       {cargando ? <div className="empty-state" role="status">Cargando errores del equipo…</div> : <>
@@ -114,8 +114,8 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
     </div>
     {error && <div className="errbox" role="alert">{error} <button className="btn sec" onClick={reintentar}>Reintentar</button></div>}
     {cargando ? <div className="empty-state" role="status">Cargando el estado de los equipos…</div> : equipos.length ? <div className="inicio-equipos">
-      {equipos.map((item) => <a className="inicio-equipo" key={item.id} href={rutaHref(`/inicio/equipos/${item.id}`)}
-        onClick={(event) => { event.preventDefault(); onNavigate(`/inicio/equipos/${item.id}`); }}>
+      {equipos.map((item) => <a className="inicio-equipo" key={item.id} href={rutaHref(`/equipos/${item.id}`)}
+        onClick={(event) => { event.preventDefault(); onNavigate(`/equipos/${item.id}`); }}>
         <div className="inicio-equipo-titulo"><div><span className="eyebrow">{item.cliente || 'Sin asignar'}</span>
           <h3>{item.monitor_alias || item.nombre}</h3><p>{[item.software, item.programa, item.tipo === 'servidor' ? 'Servidor' : item.tipo === 'usuario' ? 'Equipo' : null].filter(Boolean).join(' · ')}</p></div>
           <span aria-hidden="true" className="inicio-equipo-flecha">›</span></div>

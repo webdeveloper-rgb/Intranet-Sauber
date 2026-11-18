@@ -93,7 +93,7 @@ Los cambios de esquema deben hacerse mediante migracion versionada en `src/Conso
 
 ## Interfaz y rutas
 
-`frontend/src/App.jsx` compone vistas y estado global. `/` y `/inicio` muestran el dashboard; `/inicio/equipos/:id` lista solo los errores de copia y eventos de ese equipo; `/informes` permite consultar y exportar copias. El logo navega al inicio. `routes.js` interpreta tambien `/copias`, `/copias/:id`, `/clientes/:cliente`, `/eventos` y sus detalles; `popstate` sincroniza atras/adelante del navegador. `api.js` es el cliente HTTP unico y mantiene CSRF en memoria. `useCopias.js` carga y modifica copias; `logic.js` concentra reglas visuales y calculos; `components/` contiene las piezas de interfaz.
+`frontend/src/App.jsx` compone vistas y estado global. `/` muestra el dashboard; `/equipos/:id` lista solo los errores de copia y eventos de ese equipo; `/informes` permite consultar y exportar copias. El logo navega a la raíz. `/inicio` y `/inicio/equipos/:id` se canonicalizan a las rutas nuevas para conservar enlaces antiguos. `routes.js` interpreta tambien `/copias`, `/copias/:id`, `/clientes/:cliente`, `/eventos` y sus detalles; `popstate` sincroniza atras/adelante del navegador. `api.js` es el cliente HTTP unico y mantiene CSRF en memoria. `useCopias.js` carga y modifica copias; `logic.js` concentra reglas visuales y calculos; `components/` contiene las piezas de interfaz.
 
 La lista diaria consulta las ultimas 24 horas. Los historiales se cargan con cursor estable (fecha e ID) para paginar sin saltos. `App.jsx` comprueba novedades mientras la sesion esta activa.
 

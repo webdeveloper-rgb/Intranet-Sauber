@@ -26,10 +26,17 @@ export function leerRuta() {
     return { vista: 'copias', clienteId: null, equipoId: null, copiaId, path: copiaId ? `/copias/${copiaId}` : '/copias' };
   }
 
+  if (partes[0] === 'equipos') {
+    const equipoId = /^\d+$/.test(partes[1] || '') ? Number(partes[1]) : null;
+    return { vista: 'inicio', clienteId: null, equipoId: equipoId || null, copiaId: null,
+      path: equipoId ? `/equipos/${equipoId}` : '/' };
+  }
+
+  // Canonicaliza enlaces antiguos sin romper marcadores guardados.
   if (partes[0] === 'inicio') {
-    const equipo = partes[1] === 'equipos' && /^\d+$/.test(partes[2] || '') ? Number(partes[2]) : null;
-    return { vista: 'inicio', clienteId: null, equipoId: equipo, copiaId: null,
-      path: equipo ? `/inicio/equipos/${equipo}` : '/' };
+    const equipoId = partes[1] === 'equipos' && /^\d+$/.test(partes[2] || '') ? Number(partes[2]) : null;
+    return { vista: 'inicio', clienteId: null, equipoId, copiaId: null,
+      path: equipoId ? `/equipos/${equipoId}` : '/' };
   }
 
   if (partes[0] === 'informes') {

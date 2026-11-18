@@ -58,7 +58,7 @@ export default function App() {
       return;
     }
     const actual = leerRuta();
-    let destino = '/inicio';
+    let destino = '/';
     if (actual.vista === 'clientes') {
       if (actual.equipoId) destino = actual.clienteId
         ? `/clientes/${encodeURIComponent(String(actual.clienteId))}`

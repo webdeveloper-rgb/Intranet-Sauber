@@ -8,6 +8,7 @@ const TEXTOS = {
   informes: ['Informes', 'Historial exportable para auditorías'],
 };
 const NAV = [['inicio', 'Inicio'], ['copias', 'Copias'], ['clientes', 'Clientes'], ['eventos', 'Eventos'], ['informes', 'Informes']];
+const navPath = (key) => key === 'inicio' ? '/' : `/${key}`;
 
 export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones }) {
   const [titulo, subtitulo] = TEXTOS[vista] || TEXTOS.inicio;
@@ -19,14 +20,14 @@ export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, on
   return (
     <header className="app-header">
       <div className="header-bar">
-        <a className="logo" href={rutaHref('/inicio')} aria-label="Sauber Ofimática, ir al inicio"
-          onClick={(event) => navegar(event, '/inicio')}>
+        <a className="logo" href={rutaHref('/')} aria-label="Sauber Ofimática, ir al inicio"
+          onClick={(event) => navegar(event, '/')}>
           <img src="assets/logo.png" alt="Sauber Ofimática" />
         </a>
         <div className="header-page-title"><h1>{titulo}</h1><p>{subtitulo}</p></div>
         <nav className="primary-nav" aria-label="Navegación principal">
-          {nombre && NAV.map(([key, label]) => <a className="linkbtn" key={key} href={rutaHref(`/${key}`)}
-            aria-current={vista === key ? 'page' : undefined} onClick={(event) => navegar(event, `/${key}`)}>{label}</a>)}
+          {nombre && NAV.map(([key, label]) => <a className="linkbtn" key={key} href={rutaHref(navPath(key))}
+            aria-current={vista === key ? 'page' : undefined} onClick={(event) => navegar(event, navPath(key))}>{label}</a>)}
         </nav>
         <div className="header-actions">
           {nombre && <span className="header-user">{nombre}</span>}
