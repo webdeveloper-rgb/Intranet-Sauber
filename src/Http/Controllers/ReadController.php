@@ -22,6 +22,8 @@ final class ReadController
             $r = db()->query('SELECT COALESCE(MAX(id), 0) AS m FROM copias')->fetch();
             $staging = (int) db()->query('SELECT COALESCE(MAX(id), 0) FROM correo_copias')->fetchColumn();
             $ingesta = (int) db()->query("SELECT COALESCE(MAX(id), 0) FROM correo_sync_log WHERE origen='n8n'")->fetchColumn();
+            $eventos = (int) db()->query('SELECT COALESCE(MAX(id),0) FROM monitor_eventos')->fetchColumn();
+            $alertasActivas = db()->query('SELECT id,severidad,titulo,detalle,ultima_vez FROM monitor_alertas WHERE activo=1 ORDER BY id')->fetchAll();
             if (empty($_SESSION['mig_tipos']) || empty($_SESSION['mig_dias_copia'])) {
                 asegurar_tablas_equipos(db());
                 $_SESSION['mig_tipos'] = 1;
@@ -37,6 +39,8 @@ final class ReadController
                 'staging' => $staging,
                 'ingesta' => $ingesta,
                 'ausentes' => hash('sha256', json_encode($ausentes, JSON_UNESCAPED_UNICODE)),
+                'eventos' => $eventos,
+                'alertas' => hash('sha256', json_encode($alertasActivas, JSON_UNESCAPED_UNICODE)),
             ]);
         }
 
@@ -112,6 +116,62 @@ final class ReadController
             exit;
         }
 
+        if ($action === 'informe_copias') {
+            $dateFrom = $_GET['desde'] ?? '';
+            $dateTo = $_GET['hasta'] ?? '';
+            $status = $_GET['estado'] ?? 'all';
+            $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
+            $validDate = static fn($value): bool => is_string($value) && ($value === '' ||
+                (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1
+                    && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))));
+            if (!$validDate($dateFrom) || !$validDate($dateTo)
+                || ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo)
+                || !in_array($status, ['all', 'OK', 'ERROR', 'WARNING', 'RUNNING', 'REVISION'], true)
+                || $page === false || $page < 1) {
+                fail('Los filtros del informe no son válidos.');
+            }
+            $where = [];
+            $params = [];
+            $dateWhere = [];
+            $dateParams = [];
+            if ($dateFrom !== '') {
+                $dateWhere[] = 'informe.fecha >= ?'; $dateParams[] = $dateFrom . ' 00:00:00';
+            }
+            if ($dateTo !== '') {
+                $dateWhere[] = 'informe.fecha < DATE_ADD(?, INTERVAL 1 DAY)'; $dateParams[] = $dateTo . ' 00:00:00';
+            }
+            $where = $dateWhere;
+            $params = $dateParams;
+            if ($status !== 'all') { $where[] = 'informe.estado = ?'; $params[] = $status; }
+            $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+            $pdo = db();
+            $union = "SELECT id,fecha,cliente,equipo,equipo_id,estado,desc_error,codigo,resultado_original,
+                    clasificacion_fuente,clasificacion_evidencia,software,destino,tamano,duracion,0 AS staging FROM copias
+                UNION ALL
+                SELECT CONCAT('staging-',cc.id),cc.fecha,COALESCE(c.nombre,'Sin asignar'),e.nombre,cc.equipo_id,
+                    cc.estado,cc.desc_error,cc.codigo,cc.resultado_original,cc.clasificacion_fuente,
+                    cc.clasificacion_evidencia,cc.software,cc.destino,cc.tamano,cc.duracion,1 AS staging
+                FROM correo_copias cc JOIN equipos e ON e.id=cc.equipo_id
+                LEFT JOIN clientes c ON c.id=e.cliente_id WHERE cc.importada=0";
+            $count = $pdo->prepare('SELECT COUNT(*) FROM (' . $union . ') informe' . $whereSql);
+            $count->execute($params);
+            $total = (int) $count->fetchColumn();
+            $summaryQuery = $pdo->prepare('SELECT informe.estado,COUNT(*) AS total FROM (' . $union . ') informe'
+                . ($dateWhere ? ' WHERE ' . implode(' AND ', $dateWhere) : '') . ' GROUP BY estado');
+            $summaryQuery->execute($dateParams);
+            $summary = ['OK' => 0, 'ERROR' => 0, 'WARNING' => 0, 'RUNNING' => 0, 'REVISION' => 0];
+            foreach ($summaryQuery->fetchAll() as $row) $summary[$row['estado']] = (int) $row['total'];
+            $pageSize = 100;
+            $query = $pdo->prepare('SELECT informe.id,DATE_FORMAT(informe.fecha,\'%Y-%m-%d %H:%i\') AS fecha,
+                informe.cliente,informe.equipo,informe.estado,informe.desc_error,informe.codigo,informe.resultado_original,
+                informe.clasificacion_fuente,informe.clasificacion_evidencia,informe.software,informe.destino,
+                informe.tamano,informe.duracion,informe.staging FROM (' . $union . ') informe' . $whereSql
+                . " ORDER BY informe.fecha DESC,informe.id DESC LIMIT {$pageSize} OFFSET " . (($page - 1) * $pageSize));
+            $query->execute($params);
+            $rows = $query->fetchAll();
+            out(['copias' => $rows, 'total' => $total, 'resumen' => $summary, 'pagina' => $page, 'por_pagina' => $pageSize]);
+        }
+
         if ($action === 'usuarios') {
             fail('La gestión de accesos se realiza en la API de usuarios autorizados.', 403);
         }
@@ -179,16 +239,64 @@ final class ReadController
             out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId, $dateFrom ?: null, $dateTo ?: null));
         }
 
+        if ($action === 'panel_inicio') {
+            $equipos = equipos_listado()['equipos'];
+            $eventosPorEquipo = [];
+            foreach (['error', 'critico'] as $nivel) {
+                $page = 1;
+                do {
+                    $batch = monitor_notificaciones_listar(db(), $page, '', 'all', $nivel, 500);
+                    foreach ($batch['notificaciones'] as $item) {
+                        if ($item['tipo'] === 'copias_repetidas') continue;
+                        $id = (int) $item['equipo_id'];
+                        if (!isset($eventosPorEquipo[$id])) {
+                            $eventosPorEquipo[$id] = ['total' => 0, 'ultimo' => null];
+                        }
+                        $eventosPorEquipo[$id]['total']++;
+                        if ($eventosPorEquipo[$id]['ultimo'] === null
+                            || strcmp((string) $item['fecha'], (string) $eventosPorEquipo[$id]['ultimo']['fecha']) > 0) {
+                            $eventosPorEquipo[$id]['ultimo'] = $item;
+                        }
+                    }
+                    $page++;
+                } while (($page - 1) * (int) $batch['por_pagina'] < (int) $batch['total']);
+            }
+            $incidencias = [];
+            foreach ($equipos as $equipo) {
+                $eventData = $eventosPorEquipo[$equipo['id']] ?? ['total' => 0, 'ultimo' => null];
+                $equipo['errores_evento'] = $eventData['ultimo'] !== null ? [$eventData['ultimo']] : [];
+                $equipo['total_errores_evento'] = (int) $eventData['total'];
+                if ($equipo['errores_pendientes'] > 0 || $equipo['total_errores_evento'] > 0) {
+                    $incidencias[] = $equipo;
+                }
+            }
+            usort($incidencias, static function (array $a, array $b): int {
+                return ($b['errores_pendientes'] + $b['total_errores_evento'])
+                    <=> ($a['errores_pendientes'] + $a['total_errores_evento'])
+                    ?: strcasecmp($a['nombre'], $b['nombre']);
+            });
+            out(['equipos' => $incidencias]);
+        }
+
         if ($action === 'notificaciones') {
             $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
             $search = $_GET['q'] ?? '';
             $type = $_GET['tipo'] ?? 'all';
             $severity = $_GET['nivel'] ?? 'all';
+            $pageSize = filter_var($_GET['por_pagina'] ?? '25', FILTER_VALIDATE_INT);
+            $equipmentId = array_key_exists('equipo_id', $_GET)
+                ? filter_var($_GET['equipo_id'], FILTER_VALIDATE_INT)
+                : null;
             if ($page === false || $page < 1 || !is_string($search)
-                || !is_string($type) || !is_string($severity)) {
+                || !is_string($type) || !is_string($severity)
+                || $pageSize === false || $pageSize < 1 || $pageSize > 500
+                || ($equipmentId !== null && ($equipmentId === false || $equipmentId < 1))) {
                 fail('Los filtros de notificaciones no son válidos.');
             }
-            out(monitor_notificaciones_listar(db(), $page, $search, $type, $severity));
+            out(monitor_notificaciones_listar(
+                db(), $page, $search, $type, $severity, $pageSize,
+                $equipmentId !== null ? (int) $equipmentId : null
+            ));
         }
 
         return false;

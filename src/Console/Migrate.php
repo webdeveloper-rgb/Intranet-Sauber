@@ -144,6 +144,36 @@ try {
                 KEY idx_correo_eliminadas_equipo (equipo_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         },
+        15 => static function (PDO $pdo): void {
+            foreach (['copias', 'correo_copias'] as $table) {
+                $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                    WHERE table_schema=DATABASE() AND table_name='{$table}'")->fetchAll(PDO::FETCH_COLUMN);
+                foreach ([
+                    'resultado_original' => "VARCHAR(24) NOT NULL DEFAULT ''",
+                    'clasificacion_fuente' => "VARCHAR(40) NOT NULL DEFAULT ''",
+                    'clasificacion_evidencia' => "VARCHAR(600) NOT NULL DEFAULT ''",
+                ] as $column => $definition) {
+                    if (!in_array($column, $columns, true)) {
+                        $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+                    }
+                }
+            }
+            $pdo->exec("UPDATE copias SET resultado_original=estado,clasificacion_fuente='legacy'
+                WHERE resultado_original='' AND clasificacion_fuente=''");
+            $pdo->exec("UPDATE correo_copias SET resultado_original=estado,clasificacion_fuente='legacy'
+                WHERE resultado_original='' AND clasificacion_fuente=''");
+        },
+        16 => static function (PDO $pdo): void {
+            foreach (['copias', 'correo_copias'] as $table) {
+                $column = $pdo->prepare("SELECT column_type FROM information_schema.columns
+                    WHERE table_schema=DATABASE() AND table_name=? AND column_name='estado'");
+                $column->execute([$table]);
+                $type = (string) $column->fetchColumn();
+                if ($type !== '' && (!str_contains($type, "'WARNING'") || !str_contains($type, "'RUNNING'"))) {
+                    $pdo->exec("ALTER TABLE `{$table}` MODIFY estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL");
+                }
+            }
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

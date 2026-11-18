@@ -140,7 +140,8 @@ function ingesta_adaptar($it)
     // Solo un fallo confirmado es ERROR. Resultados leves, contradictorios o desconocidos
     // se conservan como REVISION para no generar falsos fallos ni perder evidencia.
     $etiquetas = [
-        'FALLO_LEVE' => 'Revisión necesaria',
+        'FALLO_LEVE' => 'Advertencia',
+        'EN_CURSO' => 'Operacion en curso',
         'FALLO_GRAVE' => 'Fallo grave',
         'CORRECTA' => null,
         'REVISION' => 'Revisión necesaria',
@@ -148,6 +149,8 @@ function ingesta_adaptar($it)
     $estado = match ($res) {
         'CORRECTA' => 'OK',
         'FALLO_GRAVE' => 'ERROR',
+        'FALLO_LEVE' => 'WARNING',
+        'EN_CURSO' => 'RUNNING',
         default => 'REVISION',
     };
     $etiqueta = $etiquetas[$res] ?? 'Resultado sin clasificar';
@@ -180,6 +183,10 @@ function ingesta_adaptar($it)
         'sugerido' => $cliente !== '' ? $cliente : (ingesta_clasificar_nombre($nombre)['empresa'] ?? $p['sugerido']),
         'estado' => $estado,
         'desc_error' => $desc,
+        'clasificacion_motivo' => $motivo,
+        'clasificacion_evidencia' => (string) ($it['evidencia'] ?? ''),
+        'resultado_original' => $res,
+        'clasificacion_fuente' => ingesta_texto($it['clasificacion_fuente'] ?? null, 40) ?? 'n8n_ai',
         'tipo_equipo' => $it['tipo_equipo'] ?? null,
         'codigo' => $it['codigo'] ?? null,
         'destino' => $it['destino'] ?? null,
@@ -206,8 +213,8 @@ function ingesta_normalizar($it): array
         throw new InvalidArgumentException("'software' debe ser: " . implode(', ', INGESTA_SOFTWARE));
 
     $estado = strtoupper((string) ($it['estado'] ?? ''));
-    if (!in_array($estado, ['OK', 'ERROR', 'REVISION'], true))
-        throw new InvalidArgumentException("'estado' debe ser OK, ERROR o REVISION");
+    if (!in_array($estado, ['OK', 'ERROR', 'WARNING', 'RUNNING', 'REVISION'], true))
+        throw new InvalidArgumentException("'estado' debe ser OK, ERROR, WARNING, RUNNING o REVISION");
 
     $nombre = ingesta_texto($it['nombre'] ?? null, 200, true, 'nombre');
 
@@ -227,6 +234,13 @@ function ingesta_normalizar($it): array
     $ia = strtoupper(trim((string) ($it['tipo_equipo'] ?? '')));
     $tipoIa = $ia === 'SERVIDOR' ? 'servidor' : ($ia === 'EQUIPO' ? 'usuario' : null);
     $tipo = $cl['tipo'] ?? $tipoIa ?? ($software === 'VMware' ? 'servidor' : null);
+    $resultadoOriginal = strtoupper((string) ($it['resultado_original'] ?? $it['resultado'] ?? $estado));
+    if (!preg_match('/^[A-Z_]{1,24}$/D', $resultadoOriginal)) {
+        $resultadoOriginal = $estado;
+    }
+    $fuenteClasificacion = ingesta_texto($it['clasificacion_fuente'] ?? null, 40) ?? 'api_directa';
+    $motivoClasificacion = ingesta_texto($it['clasificacion_motivo'] ?? null, 500)
+        ?? ($estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null);
 
     return [
         'message_key' => sha1('n8n|' . strtolower($mid)),
@@ -241,6 +255,10 @@ function ingesta_normalizar($it): array
         // Mantener estos límites alineados con correo_copias y copias en database/.
         'desc_error' => $estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
         'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
+        'resultado_original' => $resultadoOriginal,
+        'clasificacion_fuente' => $fuenteClasificacion,
+        'clasificacion_evidencia' => ingesta_texto($it['clasificacion_evidencia'] ?? $it['evidencia'] ?? null, 600) ?? '',
+        'clasificacion_motivo' => $motivoClasificacion,
         'destino' => ingesta_texto($it['destino'] ?? null, 120),
         'tamano' => ingesta_texto($it['tamano'] ?? null, 40),
         'duracion' => $duracion,
@@ -308,8 +326,9 @@ function ingesta_guardar(PDO $pdo, array $d): array
 
         // Los reenvios de una copia existente se ignoran y se informan como duplicados.
         $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
-            (message_key,equipo_id,fecha,estado,desc_error,codigo,software,destino,tamano,duracion)
-            VALUES (?,?,?,?,?,?,?,?,?,?)');
+            (message_key,equipo_id,fecha,estado,desc_error,codigo,resultado_original,clasificacion_fuente,
+                clasificacion_evidencia,software,destino,tamano,duracion)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $ins->execute([
             $d['message_key'],
             $eq['id'],
@@ -317,6 +336,9 @@ function ingesta_guardar(PDO $pdo, array $d): array
             $d['estado'],
             $d['desc_error'],
             $d['codigo'],
+            $d['resultado_original'],
+            $d['clasificacion_fuente'],
+            $d['clasificacion_evidencia'],
             $d['software'],
             $d['destino'],
             $d['tamano'],

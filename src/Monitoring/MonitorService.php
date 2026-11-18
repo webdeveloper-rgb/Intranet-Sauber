@@ -922,20 +922,12 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
     ];
 }
 
-function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
+function monitor_evento_nivel_sql(string $alias = 'ev'): string
 {
-    if (!in_array($level, [
-        'all', 'Critical', 'Error', 'Warning', 'Information',
-    ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
-        throw new InvalidArgumentException('El nivel de evento no es válido.');
+    if (!in_array($alias, ['ev'], true)) {
+        throw new InvalidArgumentException('Alias de evento no válido.');
     }
-
-    $page = max(1, min($page, 100000));
-    $pageSize = 10;
-    $search = monitor_texto($search, 150) ?? '';
-    // Ciertos errores de Windows son ruido conocido o tienen impacto de advertencia.
-    // Se conserva el nivel original en la respuesta para que el visor sea transparente.
-    $classifiedLevel = "CASE
+    return "CASE
         WHEN ev.level='Critical' OR ev.level='Level 1' THEN 'Critical'
         WHEN ev.level='Warning' OR ev.level='Level 3' THEN 'Warning'
         WHEN ev.level IN ('Information','Verbose','LogAlways','Level 4','Level 5') THEN 'Information'
@@ -955,6 +947,21 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
             OR (ev.log_name='System' AND ev.event_id=6008)
         ) THEN 'Warning'
         ELSE 'Error' END";
+}
+
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
+{
+    if (!in_array($level, [
+        'all', 'Critical', 'Error', 'Warning', 'Information',
+    ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
+        throw new InvalidArgumentException('El nivel de evento no es válido.');
+    }
+
+    $page = max(1, min($page, 100000));
+    $pageSize = 10;
+    $search = monitor_texto($search, 150) ?? '';
+    // El mismo nivel clasificado se usa en el visor, notificaciones e inicio.
+    $classifiedLevel = monitor_evento_nivel_sql();
     // El visor recorre todo el historial almacenado. El modo de extracción solo controla
     // qué eventos nuevos recoge el agente; no debe ocultar registros antiguos ya guardados.
     $where = ['1=1'];
@@ -1018,7 +1025,7 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     ];
 }
 
-function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, string $type, string $severity): array
+function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, string $type, string $severity, int $pageSize = 25, ?int $equipmentId = null): array
 {
     $types = ['all', 'disco', 'espacio', 'bateria', 'salud', 'crash', 'windows', 'copias_repetidas'];
     $severities = ['all', 'aviso', 'advertencia', 'error', 'critico'];
@@ -1027,11 +1034,12 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
     }
 
     $page = max(1, min($page, 100000));
-    $pageSize = 25;
+    $pageSize = max(1, min(500, $pageSize));
     $search = monitor_texto($search, 150) ?? '';
     $bugCheck = "(ev.log_name='System' AND ev.event_id=1001
         AND (LOWER(COALESCE(ev.source,'')) LIKE '%bugcheck%'
             OR LOWER(COALESCE(ev.source,'')) LIKE '%wer-systemerrorreporting%'))";
+    $classifiedLevel = monitor_evento_nivel_sql();
     $crash = "({$bugCheck}
         OR (ev.log_name='Application' AND ev.event_id IN (1000,1002))
         OR (ev.log_name='Application' AND ev.event_id=1001
@@ -1056,8 +1064,8 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         SELECT CONCAT('evento-',ev.id) AS id,
             DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%s') AS fecha,
             CASE WHEN {$crash} THEN 'crash' ELSE 'windows' END AS tipo,
-            CASE WHEN ev.level='Critical' OR {$bugCheck} THEN 'critico'
-                WHEN ev.level='Warning' THEN 'advertencia' ELSE 'error' END AS nivel,
+            CASE WHEN ({$classifiedLevel})='Critical' OR {$bugCheck} THEN 'critico'
+                WHEN ({$classifiedLevel})='Warning' THEN 'advertencia' ELSE 'error' END AS nivel,
             CASE
                 WHEN {$bugCheck} THEN 'Fallo crítico de Windows'
                 WHEN ev.log_name='Application' AND ev.event_id=1000 THEN 'Cierre inesperado de aplicación'
@@ -1070,7 +1078,7 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         FROM monitor_eventos ev
         JOIN equipos e ON e.id=ev.equipo_id
         LEFT JOIN clientes c ON c.id=e.cliente_id
-        WHERE ev.level IN ('Critical','Error','Warning')
+        WHERE (({$classifiedLevel}) IN ('Critical','Error','Warning') OR {$bugCheck})
             AND (e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)
         UNION ALL
         SELECT CONCAT('copias-',e.id) AS id,
@@ -1097,6 +1105,10 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
     if ($severity !== 'all') {
         $where[] = 'n.nivel=?';
         $params[] = $severity;
+    }
+    if ($equipmentId !== null) {
+        $where[] = 'n.equipo_id=?';
+        $params[] = $equipmentId;
     }
     if ($search !== '') {
         $where[] = '(n.cliente LIKE ? OR n.equipo LIKE ? OR n.titulo LIKE ? OR n.detalle LIKE ?)';

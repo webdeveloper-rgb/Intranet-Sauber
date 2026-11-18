@@ -41,4 +41,27 @@ $vmware = ingesta_parsear_asunto('VMware ESXi backup completed');
 $same('VMware', $vmware['software'], 'asunto VMware');
 $same(null, $vmware['nombre'], 'VMware requiere nombre explícito');
 
+$baseAviso = [
+    'message_id' => '<acronis-demo@example.test>',
+    'asunto' => 'Notificacion de Acronis True Image de ACME_SRV-ARCHIVO',
+    'fecha' => '2026-11-17T01:22:28+01:00',
+    'software' => 'Acronis',
+    'equipo' => 'ACME_SRV-ARCHIVO',
+    'tipo_equipo' => 'SERVIDOR',
+    'clasificacion_fuente' => 'n8n_ai_gpt4o_mini',
+    'evidencia' => 'La imagen aparece como creada; el error posterior ocurre al consolidar un archivo.',
+    'motivo' => 'La copia se creó, pero hay un error de archivo durante la consolidación.',
+    'codigo' => '0xb03e9',
+];
+$ambiguo = ingesta_normalizar($baseAviso + ['resultado' => 'REVISION']);
+$same('REVISION', $ambiguo['estado'], 'el error posterior a una copia creada queda para revisión');
+$same('REVISION', $ambiguo['resultado_original'], 'se conserva la clasificación original');
+$same('n8n_ai_gpt4o_mini', $ambiguo['clasificacion_fuente'], 'se conserva la fuente de clasificación');
+$same($baseAviso['evidencia'], $ambiguo['clasificacion_evidencia'], 'se conserva la evidencia del correo');
+$same('ERROR', ingesta_normalizar($baseAviso + ['resultado' => 'FALLO_GRAVE'])['estado'], 'fallo grave confirmado');
+$same('WARNING', ingesta_normalizar($baseAviso + ['resultado' => 'FALLO_LEVE'])['estado'], 'fallo leve queda como advertencia y no como fallo');
+$same('RUNNING', ingesta_normalizar($baseAviso + ['resultado' => 'EN_CURSO'])['estado'], 'una copia que sigue ejecutandose conserva su estado');
+$same('OK', ingesta_normalizar($baseAviso + ['resultado' => 'CORRECTA'])['estado'], 'copia correcta confirmada');
+$same('REVISION', ingesta_normalizar($baseAviso + ['resultado' => 'DESCONOCIDO'])['estado'], 'resultado sin clasificar pasa a revision');
+
 echo "{$checks} comprobaciones de ingesta correctas.\n";

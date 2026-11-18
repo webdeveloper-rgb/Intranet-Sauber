@@ -26,6 +26,16 @@ export function leerRuta() {
     return { vista: 'copias', clienteId: null, equipoId: null, copiaId, path: copiaId ? `/copias/${copiaId}` : '/copias' };
   }
 
+  if (partes[0] === 'inicio') {
+    const equipo = partes[1] === 'equipos' && /^\d+$/.test(partes[2] || '') ? Number(partes[2]) : null;
+    return { vista: 'inicio', clienteId: null, equipoId: equipo, copiaId: null,
+      path: equipo ? `/inicio/equipos/${equipo}` : '/inicio' };
+  }
+
+  if (partes[0] === 'informes') {
+    return { vista: 'informes', clienteId: null, equipoId: null, copiaId: null, path: '/informes' };
+  }
+
   if (partes[0] === 'clientes') {
     const cliente = partes[1] || null;
     const equipo = partes[2] === 'equipos' && /^\d+$/.test(partes[3] || '') ? Number(partes[3]) : null;
@@ -51,5 +61,6 @@ export function leerRuta() {
     };
   }
 
-  return { vista: 'copias', clienteId: null, equipoId: null, copiaId: null, path: '/copias' };
+  if (!partes.length) return { vista: 'inicio', clienteId: null, equipoId: null, copiaId: null, path: '/inicio' };
+  return { vista: 'inicio', clienteId: null, equipoId: null, copiaId: null, path: '/inicio' };
 }

@@ -10,9 +10,10 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
   const k = ef(c);
   const notas = (c.notas || []).length;
   const sinCopia = c.codigo === 'SIN_COPIA';
+  const claseEstado = { ERR: 'err', WA: 'warn', RUN: 'run', REV: 'pen', INC: 'por-clasificar' }[k] || '';
   const abrir = () => !sinCopia && onOpen(c.id);
   return (
-    <tr className={`${k === 'ERR' ? 'err' : k === 'REV' ? 'pen' : k === 'INC' ? 'por-clasificar' : ''}${sinCopia ? ' sin-copia' : ''}`}
+    <tr className={`${claseEstado}${sinCopia ? ' sin-copia' : ''}`}
       tabIndex={sinCopia ? undefined : 0}
       aria-label={sinCopia ? undefined : `Abrir detalle de la copia de ${c.equipo}, ${c.fecha}`}
       onClick={abrir}

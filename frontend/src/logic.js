@@ -5,9 +5,9 @@
 // ERR: error sin revisar | REV: EN REVISIÓN (arreglo descrito, en vigilancia) | OK: copia OK o error con vigilancia cerrada
 export const MIN_PALABRAS = 15;
 
-export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN", INC: "POR CLASIFICAR" };
+export const LBL = { OK: "OK", ERR: "ERROR", WA: "ADVERTENCIA", RUN: "EN CURSO", INC: "POR CLASIFICAR" };
 
-export const ef = (c) => c.estado === "REVISION" ? "INC" : c.estado === "OK" ? "OK" : "ERR";
+export const ef = (c) => ({ OK: 'OK', ERROR: 'ERR', WARNING: 'WA', RUNNING: 'RUN', REVISION: 'INC' }[c.estado] || 'INC');
 
 export const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 export const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
@@ -46,6 +46,8 @@ export const FILTROS = [
     ["pend", "Errores"],
     ["sin", "Sin copia recibida"],
     ["rep", "Errores repetidos"],
+    ["warning", "Advertencias"],
+    ["running", "En curso"],
     ["inc", "Por clasificar"],
     ["ok", "OK"],
     ["notas", "Con notas"],
@@ -57,6 +59,8 @@ export const TEST = {
     pend: (c) => ef(c) === "ERR",
     sin: (c) => c.codigo === "SIN_COPIA",
     rep: (c, h, rep) => c.estado === "ERROR" && c.codigo !== "SIN_COPIA" && (rep?.[claveEquipo(c)] || 0) > 1,
+    warning: (c) => ef(c) === "WA",
+    running: (c) => ef(c) === "RUN",
     inc: (c) => ef(c) === "INC",
     ok: (c) => ef(c) === "OK",
     notas: (c) => (c.notas || []).length > 0,
@@ -64,7 +68,7 @@ export const TEST = {
 };
 
 // Filtros que muestran contador (clave del contador) y los que avisan en rojo
-export const EXTRA = { sin: "sc", rep: "rr", inc: "inc", notas: "c", atr: "a" };
+export const EXTRA = { sin: "sc", rep: "rr", warning: "wa", running: "run", inc: "inc", notas: "c", atr: "a" };
 export const ALERTA = { sin: 1, atr: 1 };
 
 export function contadores(data, horas) {
@@ -74,6 +78,8 @@ export function contadores(data, horas) {
         p: copias.filter(TEST.pend).length,
         sc: data.filter(TEST.sin).length,
         rr: copias.filter((c) => TEST.rep(c, horas, rep)).length,
+        wa: copias.filter(TEST.warning).length,
+        run: copias.filter(TEST.running).length,
         inc: copias.filter(TEST.inc).length,
         o: copias.filter(TEST.ok).length,
         c: copias.filter(TEST.notas).length,

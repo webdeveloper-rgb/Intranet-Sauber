@@ -3,9 +3,11 @@
  */
 export default function Kpis({ n, total }) {
   const items = [
-    ['er', n.p, 'Errores'],
-    ['wa', n.inc, 'Por clasificar'],
-    ['ok', n.o, 'OK'],
+    ['er', n.p, 'Fallos confirmados'],
+    ['wa', n.wa, 'Advertencias'],
+    ['run', n.run, 'En curso'],
+    ['inc', n.inc, 'Por clasificar'],
+    ['ok', n.o, 'Correctas'],
     ['', total, 'Total'],
   ];
   return (

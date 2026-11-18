@@ -16,11 +16,11 @@ final class HistoryController
             }
             $query = db()->prepare("SELECT * FROM (
                 SELECT id AS copia_id,NULL AS staging_id,DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha,
-                    estado,software,codigo,desc_error,0 AS staging
+                    estado,software,codigo,desc_error,resultado_original,clasificacion_fuente,clasificacion_evidencia,0 AS staging
                     FROM copias WHERE equipo_id=? AND estado='ERROR'
                 UNION ALL
                 SELECT NULL AS copia_id,id AS staging_id,DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha,
-                    estado,software,codigo,desc_error,1 AS staging
+                    estado,software,codigo,desc_error,resultado_original,clasificacion_fuente,clasificacion_evidencia,1 AS staging
                     FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR'
             ) errores ORDER BY fecha DESC,staging_id DESC,copia_id DESC LIMIT 50");
             $query->execute([$equipoId, $equipoId]);

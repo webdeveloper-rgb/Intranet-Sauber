@@ -1,38 +1,39 @@
-/**
- * Cabecera, navegacion principal y acceso a acciones de cuenta.
- */
 import { rutaHref } from '../routes';
 
 const TEXTOS = {
-  copias: ['Panel de Control de Copias', 'ERROR pasa a EN REVISIÓN al describir el arreglo y a OK al cerrar la vigilancia'],
-  clientes: ['Clientes y equipos', ''],
-  eventos: ['Eventos de Windows', 'Historial clasificado por nivel e impacto según el modo de extracción de cada equipo'],
+  inicio: ['Inicio', 'Resumen de errores de copias y eventos que requieren atención'],
+  copias: ['Copias', 'Historial de resultados y seguimiento de las copias recibidas'],
+  clientes: ['Clientes y equipos', 'Asignación, estado y configuración de los equipos'],
+  eventos: ['Eventos de Windows', 'Eventos recogidos y clasificados por nivel e impacto'],
+  informes: ['Informes', 'Historial exportable para auditorías'],
 };
-const NAV = [['copias', 'Copias'], ['clientes', 'Clientes'], ['eventos', 'Eventos']];
+const NAV = [['inicio', 'Inicio'], ['copias', 'Copias'], ['clientes', 'Clientes'], ['eventos', 'Eventos'], ['informes', 'Informes']];
 
 export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones }) {
-  const [titulo, subtitulo] = TEXTOS[vista] || TEXTOS.copias;
+  const [titulo, subtitulo] = TEXTOS[vista] || TEXTOS.inicio;
   const navegar = (event, path) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     onNavegar(path);
   };
   return (
-    <header>
-      <div className="logo"><img src="assets/logo.png" alt="Sauber Ofimática" /></div>
-      <div className="titulo">
-        <h1>{titulo}</h1>
-        {subtitulo && <p>{subtitulo}</p>}
-      </div>
-      <div className="top">
-        <span>{nombre}</span>
-        {nombre && NAV.map(([k, t]) => (
-          <a className="linkbtn" key={k} href={rutaHref(`/${k}`)} aria-current={vista === k ? 'page' : undefined}
-            onClick={(event) => navegar(event, `/${k}`)}>{t}</a>
-        ))}
-        {nombre && <button className="linkbtn" onClick={onNotificaciones}>Notificaciones</button>}
-        {nombre && <button className="linkbtn" onClick={onCuenta}>{esAdmin ? 'Tokens' : 'Mi cuenta'}</button>}
-        <a href="logout.php">Salir</a>
+    <header className="app-header">
+      <div className="header-bar">
+        <a className="logo" href={rutaHref('/inicio')} aria-label="Sauber Ofimática, ir al inicio"
+          onClick={(event) => navegar(event, '/inicio')}>
+          <img src="assets/logo.png" alt="Sauber Ofimática" />
+        </a>
+        <div className="header-page-title"><h1>{titulo}</h1><p>{subtitulo}</p></div>
+        <nav className="primary-nav" aria-label="Navegación principal">
+          {nombre && NAV.map(([key, label]) => <a className="linkbtn" key={key} href={rutaHref(`/${key}`)}
+            aria-current={vista === key ? 'page' : undefined} onClick={(event) => navegar(event, `/${key}`)}>{label}</a>)}
+        </nav>
+        <div className="header-actions">
+          {nombre && <span className="header-user">{nombre}</span>}
+          {nombre && <button className="linkbtn" type="button" onClick={onNotificaciones}>Notificaciones</button>}
+          {nombre && <button className="linkbtn" type="button" onClick={onCuenta}>{esAdmin ? 'Tokens' : 'Mi cuenta'}</button>}
+          <a className="header-logout" href="logout.php">Salir</a>
+        </div>
       </div>
     </header>
   );

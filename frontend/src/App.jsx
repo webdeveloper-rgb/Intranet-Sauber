@@ -14,6 +14,8 @@ import Clientes from './components/Clientes';
 import Usuarios from './components/Usuarios';
 import Eventos from './components/Eventos';
 import Notificaciones from './components/Notificaciones';
+import Inicio from './components/Inicio';
+import InformeCopias from './components/InformeCopias';
 import Paginacion from './components/Paginacion';
 import { usePagination } from './hooks/usePagination';
 import { leerRuta, rutaHref } from './routes';
@@ -56,7 +58,7 @@ export default function App() {
       return;
     }
     const actual = leerRuta();
-    let destino = '/copias';
+    let destino = '/inicio';
     if (actual.vista === 'clientes') {
       if (actual.equipoId) destino = actual.clienteId
         ? `/clientes/${encodeURIComponent(String(actual.clienteId))}`
@@ -102,7 +104,7 @@ export default function App() {
       comprobando = true;
       try {
         const d = await api('novedades');
-        const clave = JSON.stringify([d.m, d.staging, d.ingesta, d.ausentes]);
+        const clave = JSON.stringify([d.m, d.staging, d.ingesta, d.ausentes, d.eventos, d.alertas]);
         if (ultima === null) {
           ultima = clave;
           // Asegura que la lista queda sincronizada con el marcador inicial,
@@ -186,7 +188,13 @@ export default function App() {
         onCuenta={() => { setNotificacionesAbiertas(false); setCuentaAbierta(true); }}
         onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
       <main>
-        {vista === 'eventos' ? (
+        {vista === 'inicio' ? (
+          sesion ? <Inicio key={`inicio-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} sesion={sesion}
+            refreshSignal={actualizacionEquipos} onNavigate={navegar} />
+            : <div className="empty-state" role="status">Comprobando sesión…</div>
+        ) : vista === 'informes' ? (
+          sesion ? <InformeCopias /> : <div className="empty-state" role="status">Comprobando sesión…</div>
+        ) : vista === 'eventos' ? (
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}

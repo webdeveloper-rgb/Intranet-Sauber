@@ -43,7 +43,7 @@ Los archivos PHP de la raiz son puntos de entrada de compatibilidad. La logica n
 3. `IngestEndpoint.php` valida metodo, tamano, JSON, limite de elementos y token.
 4. `IngestionService.php` adapta el formato n8n, aplica reglas conocidas del asunto, normaliza campos y rechaza valores invalidos.
 5. `ingesta_guardar()` usa una transaccion: crea o reutiliza el equipo, asigna cliente solo si la sugerencia coincide con un unico cliente activo e inserta el aviso en staging.
-6. `message_key` es unico. Reintentar el mismo mensaje no duplica la copia. `REVISION` conserva resultados ambiguos sin contarlos como error; `ERROR` se reserva para fallos confirmados.
+6. `message_key` es unico. Reintentar el mismo mensaje no duplica la copia. `WARNING` conserva una advertencia leve, `RUNNING` una operacion activa, `REVISION` un resultado ambiguo y `ERROR` un fallo confirmado. La copia guarda el resultado original, la procedencia y la evidencia de clasificacion.
 7. La revisión operativa se marca en el equipo. Cuando entra un nuevo `OK` después de esa revisión, se eliminan sus copias `ERROR` del historial y del staging dentro de la transacción; las notas ligadas a esas copias también se eliminan por cascada. Solo se conservan las claves de mensaje eliminadas para que n8n no restaure errores en un reintento.
 8. Los avisos en staging se muestran en el panel. Al asignar el equipo, `EquipmentService.php` importa las copias pendientes al historial definitivo.
 
@@ -69,7 +69,8 @@ El envío de correo usa `mail()` de PHP, por lo que también debe estar configur
 
 | Accion | Uso |
 |---|---|
-| `sesion`, `novedades`, `list`, `history`, `equipo_historial` | Sesion, actualizacion incremental, copias recientes e historiales paginados. |
+| `sesion`, `novedades`, `panel_inicio`, `list`, `history`, `equipo_historial`, `equipo_errores` | Sesion, resumen de incidencias, copias recientes e historiales paginados. |
+| `informe_copias` | Informe paginado de auditoria, incluidos avisos pendientes de importar y procedencia de clasificacion. |
 | `catalogo`, `equipos`, `sync` | Catalogo de clientes, equipos detectados y sincronizacion externa. |
 | `monitor_equipo` | Informe de hardware y alertas del equipo seleccionado. |
 | `equipo_asignar`, `equipo_desasignar`, `equipo_vigilar`, `equipo_horario` | Asignacion y seguimiento del equipo. |
@@ -92,7 +93,7 @@ Los cambios de esquema deben hacerse mediante migracion versionada en `src/Conso
 
 ## Interfaz y rutas
 
-`frontend/src/App.jsx` compone vistas y estado global. `routes.js` interpreta `/copias`, `/copias/:id`, `/clientes/:cliente` y `/clientes/:cliente/equipos/:id`; `popstate` sincroniza atras/adelante del navegador. `api.js` es el cliente HTTP unico y mantiene CSRF en memoria. `useCopias.js` carga y modifica copias; `logic.js` concentra reglas visuales y calculos; `components/` contiene las piezas de interfaz.
+`frontend/src/App.jsx` compone vistas y estado global. `/` y `/inicio` muestran el dashboard; `/inicio/equipos/:id` lista solo los errores de copia y eventos de ese equipo; `/informes` permite consultar y exportar copias. El logo navega al inicio. `routes.js` interpreta tambien `/copias`, `/copias/:id`, `/clientes/:cliente`, `/eventos` y sus detalles; `popstate` sincroniza atras/adelante del navegador. `api.js` es el cliente HTTP unico y mantiene CSRF en memoria. `useCopias.js` carga y modifica copias; `logic.js` concentra reglas visuales y calculos; `components/` contiene las piezas de interfaz.
 
 La lista diaria consulta las ultimas 24 horas. Los historiales se cargan con cursor estable (fecha e ID) para paginar sin saltos. `App.jsx` comprueba novedades mientras la sesion esta activa.
 
