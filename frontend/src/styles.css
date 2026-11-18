@@ -3344,6 +3344,158 @@ main { width: min(100%, 1728px); padding: 26px clamp(16px, 2.4vw, 36px) 42px; }
   .informe-filtros > * { flex: 1 1 140px; }
   .informe-filtros button { flex: 0 0 auto; }
 }
+/* ===== Sistema visual compartido ===== */
+:root {
+  --r: 10px;
+  --sh: 0 1px 2px rgba(20, 30, 50, .04), 0 3px 10px rgba(20, 30, 50, .035);
+}
+main {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+.inicio-page, .informe-page, .eventos-page, .clientes-page { gap: 16px; }
+.page-heading, .eventos-heading, .mapeo-heading, .directorio-heading {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+.page-heading h2, .eventos-heading h2, .mapeo-heading h2, .directorio-heading h2 {
+  color: var(--tx);
+  font-size: clamp(21px, 2vw, 27px);
+  font-weight: 720;
+  letter-spacing: -.025em;
+}
+.page-heading p, .eventos-heading p, .mapeo-heading p, .directorio-heading p {
+  color: var(--mut);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.eyebrow { font-size: 10px; letter-spacing: .075em; }
+
+header.app-header {
+  border-bottom: 1px solid var(--bd);
+  box-shadow: 0 2px 12px rgba(20, 30, 50, .045);
+}
+.header-bar { gap: 18px; min-height: 72px; }
+.primary-nav { gap: 3px; }
+.primary-nav .linkbtn { border-radius: 7px; padding: 7px 9px; font-size: 13px; }
+.primary-nav .linkbtn[aria-current="page"] { border-color: transparent; box-shadow: inset 0 -2px var(--brand); }
+.header-actions .linkbtn { border-radius: 7px; }
+
+.btn {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 650;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+.btn:hover:not(:disabled) { filter: none; }
+.btn:not(.sec):hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 88%, #000); }
+.btn.sec { border-color: var(--bd); background: var(--card); color: var(--tx); }
+.btn.sec:hover:not(:disabled) { border-color: var(--brand); background: var(--brand-s); color: var(--brand-t); }
+
+.fil, .eventos-controles, .informe-filtros {
+  align-items: flex-end;
+  gap: 10px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--card);
+  box-shadow: none;
+}
+.fil input:not([type="checkbox"]):not([type="radio"]), .fil select,
+.eventos-controles input, .eventos-controles select,
+.informe-filtros input, .informe-filtros select,
+.inicio-filtros-campos input, .inicio-filtros-campos select {
+  min-height: 40px;
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--tx);
+  font-size: 13px;
+}
+.fil input:focus, .fil select:focus, .eventos-controles input:focus,
+.eventos-controles select:focus, .informe-filtros input:focus,
+.informe-filtros select:focus, .inicio-filtros-campos input:focus,
+.inicio-filtros-campos select:focus { border-color: var(--brand); }
+.fil label, .eventos-controles label, .informe-filtros label,
+.inicio-filtros-campos label { gap: 5px; font-size: 11px; font-weight: 650; }
+.fil label { display: grid; }
+.cnt, .informe-conteo { color: var(--mut); font-size: 12px; }
+
+.kpi, .inicio-metrica {
+  min-height: 72px;
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--card);
+  box-shadow: none;
+}
+.kpi { padding: 12px 15px; }
+.kpi b, .inicio-metrica strong { font-size: 25px; letter-spacing: -.025em; }
+.kpi span, .inicio-metrica span { font-size: 11px; font-weight: 650; }
+
+.wrap, .eventos-tabla-wrap, .informe-tabla-wrap {
+  overflow: auto;
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--card);
+  box-shadow: none;
+}
+.wrap > table, .eventos-table, .informe-tabla { border-collapse: separate; border-spacing: 0; }
+.wrap th, .eventos-table th, .informe-tabla th {
+  padding: 11px 12px;
+  background: var(--bg);
+  color: var(--mut);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.wrap td, .eventos-table td, .informe-tabla td { padding: 10px 12px; border-bottom-color: var(--bd); }
+.wrap tbody tr:last-child td, .eventos-table tbody tr:last-child td, .informe-tabla tbody tr:last-child td { border-bottom: 0; }
+.wrap tbody tr:hover td, .eventos-table tbody tr:hover td, .informe-tabla tbody tr:hover td { background: color-mix(in srgb, var(--brand-s) 40%, var(--card)); }
+
+.cliente-grid, .inicio-equipos { gap: 10px; }
+.cliente-tarjeta, .inicio-equipo, .equipo-navegable, .equipo-card,
+.monitor-panel, .incidencias-seccion, .historial-equipo, .equipo-error-revision {
+  border-radius: var(--r);
+  box-shadow: none;
+}
+.inicio-equipo, .cliente-tarjeta { padding: 14px; }
+.inicio-equipo:hover, .inicio-equipo:focus-visible,
+.cliente-tarjeta:hover, .cliente-tarjeta:focus-visible { transform: translateY(-1px); }
+.mapeo-panel, .directorio-panel { padding: 18px; box-shadow: none; }
+.clientes-page { gap: 14px; }
+.cliente-filtros { margin: 10px 0; }
+.empty-state, .eventos-estado {
+  min-height: 140px;
+  border-radius: var(--r);
+  background: var(--card);
+}
+.empty-state strong { font-size: 16px; }
+.errbox { margin: 0; border: 1px solid color-mix(in srgb, var(--er) 25%, var(--bd)); border-radius: var(--r); }
+.paginacion { gap: 6px; }
+
+@media (max-width: 760px) {
+  main { gap: 13px; }
+  .page-heading, .eventos-heading, .mapeo-heading, .directorio-heading { gap: 12px; }
+  .eventos-heading { flex-direction: column; }
+  .eventos-actualizacion { white-space: normal; font-size: 12px; }
+  .fil, .eventos-controles, .informe-filtros { padding: 11px; }
+  .fil > *, .eventos-controles > *, .informe-filtros > * { min-width: 0; }
+}
+@media (max-width: 560px) {
+  .mapeo-panel, .directorio-panel { padding: 13px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .kpi { min-height: 64px; padding: 10px 12px; }
+  .kpi b { font-size: 22px; }
+  .inicio-metrica { align-items: flex-start; flex-direction: column-reverse; gap: 5px; padding: 10px; }
+  .inicio-metrica strong { font-size: 22px; }
+  .cliente-grid, .inicio-equipos { grid-template-columns: minmax(0, 1fr); }
+  .page-heading h2, .eventos-heading h2, .mapeo-heading h2, .directorio-heading h2 { font-size: 21px; }
+}
 @media print {
   header.app-header, .informe-filtros, .informe-page > .page-heading > .btn, .paginacion { display: none !important; }
   body, main { background: #fff !important; color: #111 !important; }
