@@ -237,6 +237,7 @@ final class ReadController
             $union = "SELECT CONVERT(CAST(id AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS id,fecha,
                     CONVERT(cliente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS cliente,
                     CONVERT(equipo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS equipo,equipo_id,
+                    (SELECT cliente_id FROM equipos WHERE id=copias.equipo_id) AS cliente_id,
                     CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado,
                     CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
                     CONVERT(codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS codigo,
@@ -250,7 +251,7 @@ final class ReadController
                 UNION ALL
                 SELECT CONVERT(CONCAT('staging-',cc.id) USING utf8mb4) COLLATE utf8mb4_unicode_ci,cc.fecha,
                     CONVERT(COALESCE(c.nombre,'Sin asignar') USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                    CONVERT(e.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci,cc.equipo_id,
+                    CONVERT(e.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci,cc.equipo_id,e.cliente_id,
                     CONVERT(cc.estado USING utf8mb4) COLLATE utf8mb4_unicode_ci,
                     CONVERT(cc.desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci,
                     CONVERT(cc.codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci,
@@ -273,7 +274,7 @@ final class ReadController
             foreach ($summaryQuery->fetchAll() as $row) $summary[$row['estado']] = (int) $row['total'];
             $pageSize = 100;
             $query = $pdo->prepare('SELECT informe.id,DATE_FORMAT(informe.fecha,\'%Y-%m-%d %H:%i\') AS fecha,
-                informe.cliente,informe.equipo,informe.estado,informe.desc_error,informe.codigo,informe.resultado_original,
+                informe.cliente,informe.equipo,informe.equipo_id,informe.cliente_id,informe.estado,informe.desc_error,informe.codigo,informe.resultado_original,
                 informe.clasificacion_fuente,informe.clasificacion_evidencia,informe.software,informe.destino,
                 informe.tamano,informe.duracion,informe.staging FROM (' . $union . ') informe' . $whereSql
                 . " ORDER BY informe.fecha DESC,informe.id DESC LIMIT {$pageSize} OFFSET " . (($page - 1) * $pageSize));
@@ -299,19 +300,6 @@ final class ReadController
             }
             unset($r);
             out(['tokens' => $rows]);
-        }
-
-        if ($action === 'monitor_agents') {
-            exigir_admin($user);
-            $rows = db()->query("SELECT a.machine_id,e.nombre AS equipo,a.active,
-                    DATE_FORMAT(a.created_at,'%Y-%m-%d %H:%i') AS created_at,
-                    DATE_FORMAT(a.last_used_at,'%Y-%m-%d %H:%i') AS last_used_at
-                FROM monitor_agents a
-                LEFT JOIN equipos e ON e.monitor_machine_id=a.machine_id
-                ORDER BY a.active DESC,a.last_used_at DESC,a.created_at DESC")->fetchAll();
-            foreach ($rows as &$row) $row['active'] = (int) $row['active'];
-            unset($row);
-            out(['agents' => $rows]);
         }
 
         if ($action === 'monitor_enrollments') {

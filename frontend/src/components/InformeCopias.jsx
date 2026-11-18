@@ -10,8 +10,9 @@ const fechaInicial = () => {
   return fechaLocal(date);
 };
 const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`;
+const fuenteEtiqueta = (fuente) => fuente === 'legacy' ? 'Dato histórico (clasificación anterior)' : fuente || 'Sin registrar';
 
-export default function InformeCopias() {
+export default function InformeCopias({ onNavigate }) {
   const [desde, setDesde] = useState(fechaInicial);
   const [hasta, setHasta] = useState(() => fechaLocal(new Date()));
   const [estado, setEstado] = useState('all');
@@ -58,7 +59,7 @@ export default function InformeCopias() {
       const header = ['Fecha', 'Cliente', 'Equipo', 'Software', 'Estado panel', 'Resultado original', 'Motivo', 'Código', 'Fuente de clasificación', 'Evidencia', 'Destino', 'Tamaño', 'Duración', 'Origen de registro'];
       const lines = [header, ...rows.map((item) => [item.fecha, item.cliente, item.equipo, item.software,
         item.estado, item.resultado_original || 'DESCONOCIDO', item.desc_error, item.codigo,
-        item.clasificacion_fuente || 'Sin registrar', item.clasificacion_evidencia, item.destino, item.tamano, item.duracion,
+        fuenteEtiqueta(item.clasificacion_fuente), item.clasificacion_evidencia, item.destino, item.tamano, item.duracion,
         item.staging ? 'Pendiente de importar' : 'Historial'])]
         .map((line) => line.map(csvCell).join(';')).join('\r\n');
       const blob = new Blob(['\ufeff', lines], { type: 'text/csv;charset=utf-8' });
@@ -100,15 +101,21 @@ export default function InformeCopias() {
     </div>
     {error && <div className="errbox" role="alert">{error} <button className="btn sec" type="button" onClick={() => cargar(pagina)}>Reintentar</button></div>}
     <div className="wrap informe-tabla-wrap"><table className="informe-tabla"><thead><tr>
-      <th>Fecha</th><th>Cliente</th><th>Equipo</th><th>Software</th><th>Estado</th><th>Resultado original</th><th>Motivo / evidencia</th><th>Código</th><th>Fuente</th>
+      <th>Fecha</th><th>Cliente</th><th>Equipo</th><th>Software</th><th>Estado</th><th>Resultado original</th><th>Motivo / evidencia</th><th>Código</th><th>Fuente</th><th>Acción</th>
     </tr></thead><tbody>
       {(resultado?.copias || []).map((copy) => <tr key={copy.id}>
         <td className="nowrap">{copy.fecha}</td><td>{copy.cliente}</td><td>{copy.equipo}</td><td>{copy.software || '—'}</td>
         <td><Tag c={copy} />{copy.staging === 1 && <small className="informe-evidencia">Pendiente de importar</small>}</td><td>{copy.resultado_original || 'Desconocido'}</td>
         <td>{copy.desc_error || copy.clasificacion_evidencia || '—'}{copy.clasificacion_evidencia && copy.desc_error && <small className="informe-evidencia">Evidencia: {copy.clasificacion_evidencia}</small>}</td>
-        <td>{copy.codigo || '—'}</td><td>{copy.clasificacion_fuente || 'Sin registrar'}</td>
+        <td>{copy.codigo || '—'}</td><td>{fuenteEtiqueta(copy.clasificacion_fuente)}</td>
+        <td>{copy.equipo_id ? <button className="btn sec" type="button" onClick={() => {
+          const grupo = copy.cliente_id
+            ? `/clientes/${encodeURIComponent(String(copy.cliente_id))}`
+            : '/clientes/sin-asignar';
+          onNavigate(`${grupo}/equipos/${copy.equipo_id}`);
+        }}>Ver equipo</button> : '—'}</td>
       </tr>)}
-      {!resultado?.copias?.length && <tr><td colSpan="9" className="vacio">{cargando ? 'Cargando informe…' : 'No hay copias en el intervalo seleccionado.'}</td></tr>}
+      {!resultado?.copias?.length && <tr><td colSpan="10" className="vacio">{cargando ? 'Cargando informe…' : 'No hay copias en el intervalo seleccionado.'}</td></tr>}
     </tbody></table></div>
     <Paginacion total={total} pagina={pagina} paginas={Math.max(1, Math.ceil(total / porPagina))}
       porPagina={porPagina} onCambiar={(page) => cargar(page)} etiqueta="copias del informe" />

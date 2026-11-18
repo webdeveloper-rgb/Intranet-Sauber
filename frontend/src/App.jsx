@@ -198,7 +198,7 @@ export default function App() {
             refreshSignal={actualizacionEquipos} onNavigate={navegar} />
             : estadoSesion
         ) : vista === 'informes' ? (
-          sesion ? <InformeCopias /> : estadoSesion
+          sesion ? <InformeCopias onNavigate={navegar} /> : estadoSesion
         ) : vista === 'eventos' ? (
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : estadoSesion
         ) : vista === 'clientes' && sesion ? (

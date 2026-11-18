@@ -6,7 +6,6 @@ import { api } from '../api';
 
 export default function Tokens() {
   const [tokens, setTokens] = useState([]);
-  const [agents, setAgents] = useState([]);
   const [nombre, setNombre] = useState('');
   const [dias, setDias] = useState('0');
   const [tokenNuevo, setTokenNuevo] = useState('');
@@ -18,8 +17,6 @@ export default function Tokens() {
     try {
       const tokenData = await api('tokens');
       setTokens(tokenData.tokens);
-      const agentData = await api('monitor_agents');
-      setAgents(agentData.agents || []);
       setFallo('');
     } catch (e) {
       setFallo(e.message);
@@ -125,18 +122,6 @@ export default function Tokens() {
         {tokens.length === 0 && !fallo && <p className="mut">Aún no hay tokens creados.</p>}
       </div>
 
-      <div className="token-list">
-        <h4>Credenciales de Monitor-Equipos por equipo</h4>
-        <p className="mut">La base de datos guarda estas credenciales mediante un hash irreversible. Se muestra el equipo y su actividad, pero no se puede recuperar el secreto completo.</p>
-        {agents.map((agent) => <div className={'urow' + (!agent.active ? ' off' : '')} key={agent.machine_id}>
-          <div className="uinfo">
-            <b>{agent.equipo || agent.machine_id}</b>
-            <small>{agent.equipo ? agent.machine_id : 'Equipo aún no asociado en el panel'}</small>
-            <small>{agent.active ? `Último uso: ${agent.last_used_at || 'nunca'}` : 'Revocada'} · creada {agent.created_at}</small>
-          </div>
-        </div>)}
-        {agents.length === 0 && <p className="mut">No hay credenciales de agentes registradas.</p>}
-      </div>
     </section>
   );
 }
