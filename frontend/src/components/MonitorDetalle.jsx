@@ -293,11 +293,23 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [errorPdf, setErrorPdf] = useState('');
   const [horaActual, setHoraActual] = useState(() => Date.now());
+  const [copiasEnCurso, setCopiasEnCurso] = useState(datos?.copias_en_curso || []);
 
   useEffect(() => {
     const timer = setInterval(() => setHoraActual(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setCopiasEnCurso(datos?.copias_en_curso || []);
+    if (!monitor) return undefined;
+    let activa = true;
+    const actualizarActividad = () => api(`monitor_backup_activity&id=${encodeURIComponent(equipo.id)}`)
+      .then((result) => { if (activa) setCopiasEnCurso(result.actividades || []); })
+      .catch(() => {});
+    const timer = setInterval(actualizarActividad, 20_000);
+    return () => { activa = false; clearInterval(timer); };
+  }, [equipo.id, !!monitor]);
 
   useEffect(() => {
     setModoGuardado(modoConfigurado);
@@ -391,6 +403,14 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
           </details>
           : <span className="monitor-agent-sin-errores">Sin errores de lectura reportados</span>}
     </section>
+    {copiasEnCurso.length > 0 && <section className="monitor-backup-running" aria-label="Copias de seguridad en curso" role="status">
+      <div className="monitor-backup-running-heading"><span className="monitor-backup-running-dot" aria-hidden="true" />
+        <div><strong>Copia de seguridad en curso</strong><span>Estado actualizado automáticamente</span></div></div>
+      <ul>{copiasEnCurso.map((actividad, indice) => <li key={`${actividad.product}-${actividad.started_at}-${indice}`}>
+        <strong>{actividad.product}</strong>
+        <span>{Number(actividad.active_operations) > 1 ? `${actividad.active_operations} operaciones · ` : ''}Iniciada {fecha(actividad.started_at) || 'recientemente'}</span>
+      </li>)}</ul>
+    </section>}
     {alerts.length > 0 && <div className={`monitor-alertas ${alerts.some((alert) => alert.severidad === 'critical') ? 'critica' : 'aviso'}`}
       role={alerts.some((alert) => alert.severidad === 'critical') ? 'alert' : 'status'}>
       <h4>Alertas activas ({alerts.length})</h4>

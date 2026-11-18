@@ -185,6 +185,24 @@ try {
                 $pdo->exec('ALTER TABLE correo_copias ADD KEY idx_correo_equipo_estado_importada (equipo_id,estado,importada)');
             }
         },
+        18 => static function (PDO $pdo): void {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS monitor_backup_activity (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                source_machine_id VARCHAR(128) NOT NULL,
+                source_machine_key CHAR(64) NOT NULL,
+                equipo_id INT UNSIGNED NOT NULL,
+                product VARCHAR(40) NOT NULL,
+                session_key CHAR(64) NOT NULL,
+                started_at DATETIME NOT NULL,
+                observed_at DATETIME NOT NULL,
+                active_operations SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+                source VARCHAR(60) NOT NULL DEFAULT 'agent',
+                UNIQUE KEY uq_monitor_backup_activity_session (source_machine_key,session_key,product),
+                KEY idx_monitor_backup_activity_equipo_time (equipo_id,observed_at),
+                KEY idx_monitor_backup_activity_source (source_machine_key,product),
+                CONSTRAINT fk_monitor_backup_activity_equipo FOREIGN KEY (equipo_id) REFERENCES equipos (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

@@ -13,7 +13,7 @@ function dashboard_inicio_listar(PDO $pdo): array
         ) errores GROUP BY equipo_id")->fetchAll();
     foreach ($copias as $row) {
         $id = (int) $row['equipo_id'];
-        $estadisticas[$id] = ['copias' => (int) $row['total'], 'eventos' => 0, 'ultimo' => null];
+        $estadisticas[$id] = ['copias' => (int) $row['total'], 'eventos' => 0, 'ultimo' => null, 'en_curso' => 0, 'productos_copia' => []];
     }
 
     $nivelEvento = monitor_evento_nivel_sql();
@@ -30,7 +30,7 @@ function dashboard_inicio_listar(PDO $pdo): array
     $ultimosIds = [];
     foreach ($eventos as $row) {
         $id = (int) $row['equipo_id'];
-        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null];
+        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null, 'en_curso' => 0, 'productos_copia' => []];
         $estadisticas[$id]['eventos'] += (int) $row['total'];
         $ultimosIds[] = (int) $row['ultimo_id'];
     }
@@ -58,7 +58,7 @@ function dashboard_inicio_listar(PDO $pdo): array
         WHERE activo=1 AND severidad='critical' ORDER BY ultima_vez DESC,id DESC")->fetchAll();
     foreach ($alertas as $alerta) {
         $id = (int) $alerta['equipo_id'];
-        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null];
+        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null, 'en_curso' => 0, 'productos_copia' => []];
         $estadisticas[$id]['eventos']++;
         $current = $estadisticas[$id]['ultimo'];
         if ($current === null || strcmp((string) $alerta['ultima_vez'], (string) $current['fecha']) > 0) {
@@ -68,7 +68,18 @@ function dashboard_inicio_listar(PDO $pdo): array
         }
     }
 
-    $ids = array_keys(array_filter($estadisticas, static fn(array $row): bool => $row['copias'] > 0 || $row['eventos'] > 0));
+    $enCurso = $pdo->query("SELECT equipo_id,COUNT(*) AS total,GROUP_CONCAT(DISTINCT product ORDER BY product SEPARATOR ', ') AS productos
+        FROM monitor_backup_activity
+        WHERE observed_at >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE
+        GROUP BY equipo_id")->fetchAll();
+    foreach ($enCurso as $row) {
+        $id = (int) $row['equipo_id'];
+        $estadisticas[$id] ??= ['copias' => 0, 'eventos' => 0, 'ultimo' => null, 'en_curso' => 0, 'productos_copia' => []];
+        $estadisticas[$id]['en_curso'] = (int) $row['total'];
+        $estadisticas[$id]['productos_copia'] = $row['productos'] ? explode(', ', (string) $row['productos']) : [];
+    }
+
+    $ids = array_keys(array_filter($estadisticas, static fn(array $row): bool => $row['copias'] > 0 || $row['eventos'] > 0 || $row['en_curso'] > 0));
     if (!$ids) return [];
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $st = $pdo->prepare("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.tipo,e.programa,e.cliente_id,c.nombre AS cliente
@@ -81,6 +92,8 @@ function dashboard_inicio_listar(PDO $pdo): array
         $equipo['errores_pendientes'] = $estadisticas[$id]['copias'];
         $equipo['total_errores_evento'] = $estadisticas[$id]['eventos'];
         $equipo['errores_evento'] = $estadisticas[$id]['ultimo'] !== null ? [$estadisticas[$id]['ultimo']] : [];
+        $equipo['copias_en_curso'] = $estadisticas[$id]['en_curso'];
+        $equipo['productos_copia_en_curso'] = $estadisticas[$id]['productos_copia'];
         $result[] = $equipo;
     }
     usort($result, static function (array $a, array $b): int {
@@ -324,6 +337,14 @@ final class ReadController
                 fail('No hay un informe de Monitor-Equipos para este equipo', 404);
             }
             out($detalle);
+        }
+
+        if ($action === 'monitor_backup_activity') {
+            $equipmentId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+            if ($equipmentId === false || $equipmentId === null || $equipmentId < 1) {
+                fail('El identificador de equipo no es válido.');
+            }
+            out(['actividades' => monitor_equipo_copias_en_curso(db(), (int) $equipmentId)]);
         }
 
         if ($action === 'monitor_eventos') {

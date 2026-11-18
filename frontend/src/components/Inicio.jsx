@@ -16,7 +16,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   const [softwareFiltro, setSoftwareFiltro] = useState('todos');
   const [incidenciaFiltro, setIncidenciaFiltro] = useState('todos');
   const [orden, setOrden] = useState('incidencias');
-  const etiquetasIncidencia = { copias: 'Errores de copias', eventos: 'Errores/eventos', ambos: 'Copias y eventos' };
+  const etiquetasIncidencia = { copias: 'Errores de copias', eventos: 'Errores/eventos', ambos: 'Copias y eventos', 'en-curso': 'Copias en curso' };
 
   useEffect(() => {
     let activo = true;
@@ -28,7 +28,12 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         if (activo) { setEquipos(data.equipos || []); setError(''); }
       }).catch((e) => { if (activo) setError(e.message || 'No se pudo cargar el inicio.'); })
         .finally(() => { if (activo) setCargando(false); });
-      return () => { activo = false; };
+      const timer = setInterval(() => {
+        api('panel_inicio').then((data) => {
+          if (activo) setEquipos(data.equipos || []);
+        }).catch(() => {});
+      }, 60_000);
+      return () => { activo = false; clearInterval(timer); };
     }
 
     // Los enlaces antiguos /equipos/:id se redirigen a la ficha paginada de Clientes.
@@ -62,6 +67,9 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   }
   const totalCopias = equipos.reduce((n, item) => n + Number(item.errores_pendientes || 0), 0);
   const totalEventos = equipos.reduce((n, item) => n + Number(item.total_errores_evento || 0), 0);
+  const equiposConErrores = equipos.filter((item) => Number(item.errores_pendientes || 0) > 0 || Number(item.total_errores_evento || 0) > 0).length;
+  const totalCopiasEnCurso = equipos.reduce((n, item) => n + Number(item.copias_en_curso || 0), 0);
+  const equiposConCopiaEnCurso = equipos.filter((item) => Number(item.copias_en_curso || 0) > 0).length;
   const sinAsignar = equipos.filter((item) => !item.cliente_id).length;
   const clientesAfectados = new Set(equipos.filter((item) => item.cliente_id).map((item) => String(item.cliente_id))).size;
   const clientes = useMemo(() => [...new Map(equipos.filter((item) => item.cliente_id)
@@ -75,15 +83,18 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
     return equipos.filter((item) => {
       const copias = Number(item.errores_pendientes || 0);
       const eventos = Number(item.total_errores_evento || 0);
+      const enCurso = Number(item.copias_en_curso || 0);
       if (incidenciaFiltro === 'copias' && !copias) return false;
       if (incidenciaFiltro === 'eventos' && !eventos) return false;
       if (incidenciaFiltro === 'ambos' && (!copias || !eventos)) return false;
+      if (incidenciaFiltro === 'en-curso' && !enCurso) return false;
       if (clienteFiltro === 'sin-asignar' && item.cliente_id) return false;
       if (clienteFiltro !== 'todos' && clienteFiltro !== 'sin-asignar'
         && String(item.cliente_id) !== clienteFiltro) return false;
       if (softwareFiltro !== 'todos' && item.software !== softwareFiltro) return false;
       if (consulta && !normalizar([
         item.nombre, item.monitor_alias, item.cliente, item.software, item.programa,
+        ...(item.productos_copia_en_curso || []),
         ...(item.errores_evento || []).map((evento) => evento.titulo),
       ].join(' ')).includes(consulta)) return false;
       return true;
@@ -92,10 +103,13 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
       const copiasB = Number(b.errores_pendientes || 0);
       const eventosA = Number(a.total_errores_evento || 0);
       const eventosB = Number(b.total_errores_evento || 0);
+      const cursoA = Number(a.copias_en_curso || 0);
+      const cursoB = Number(b.copias_en_curso || 0);
       if (orden === 'copias') return copiasB - copiasA || String(a.nombre).localeCompare(String(b.nombre), 'es');
       if (orden === 'eventos') return eventosB - eventosA || String(a.nombre).localeCompare(String(b.nombre), 'es');
+      if (orden === 'en-curso') return cursoB - cursoA || String(a.nombre).localeCompare(String(b.nombre), 'es');
       if (orden === 'nombre') return String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity: 'base' });
-      return (copiasB + eventosB) - (copiasA + eventosA) || String(a.nombre).localeCompare(String(b.nombre), 'es');
+      return (copiasB + eventosB) - (copiasA + eventosA) || cursoB - cursoA || String(a.nombre).localeCompare(String(b.nombre), 'es');
     });
   }, [equipos, busqueda, clienteFiltro, softwareFiltro, incidenciaFiltro, orden]);
   const filtrosActivos = [
@@ -119,11 +133,12 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   };
   return <section className="inicio-page" aria-labelledby="inicio-titulo">
     <PageHeading id="inicio-titulo" eyebrow="Centro de operaciones" title="Estado de los equipos"
-      description="Incidencias pendientes de copias y eventos de Windows clasificados como error o crítico."
+      description="Errores pendientes y copias que se están realizando en los equipos."
       actions={<button className="btn sec" type="button" onClick={reintentar} disabled={cargando}>Actualizar</button>} />
     <div className="inicio-resumen" aria-label="Métricas de incidencias">
-      <article className="inicio-metrica"><span>Equipos con incidencias</span><strong>{equipos.length}</strong></article>
+      <article className="inicio-metrica"><span>Equipos con errores</span><strong>{equiposConErrores}</strong></article>
       <article className="inicio-metrica error"><span>Errores de copias</span><strong>{totalCopias}</strong></article>
+      <article className="inicio-metrica running"><span>Copias en curso · {equiposConCopiaEnCurso} equipos</span><strong>{totalCopiasEnCurso}</strong></article>
       <article className="inicio-metrica critical"><span>Errores y eventos críticos</span><strong>{totalEventos}</strong></article>
       <article className="inicio-metrica"><span>Clientes afectados</span><strong>{clientesAfectados}</strong></article>
       <article className="inicio-metrica"><span>Equipos sin asignar</span><strong>{sinAsignar}</strong></article>
@@ -134,7 +149,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
       fields={[
         { id: 'inicio-incidencia', label: 'Incidencia', type: 'select', value: incidenciaFiltro,
           onChange: (event) => setIncidenciaFiltro(event.target.value),
-          options: [['todos', 'Todas'], ['copias', 'Errores de copias'], ['eventos', 'Errores/eventos'], ['ambos', 'Copias y eventos']] },
+          options: [['todos', 'Todas'], ['copias', 'Errores de copias'], ['eventos', 'Errores/eventos'], ['ambos', 'Copias y eventos'], ['en-curso', 'Copias en curso']] },
         { id: 'inicio-cliente', label: 'Cliente', type: 'select', value: clienteFiltro,
           onChange: (event) => setClienteFiltro(event.target.value),
           options: [['todos', 'Todos los clientes'], ['sin-asignar', 'Sin asignar'], ...clientes.map((cliente) => [cliente.id, cliente.nombre])] },
@@ -143,7 +158,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
           options: [['todos', 'Todos los programas'], ...softwares.map((software) => [software, software])] },
         { id: 'inicio-orden', label: 'Ordenar por', type: 'select', value: orden,
           onChange: (event) => setOrden(event.target.value),
-          options: [['incidencias', 'Más incidencias'], ['copias', 'Más errores de copias'], ['eventos', 'Más errores/eventos'], ['nombre', 'Nombre del equipo']] },
+          options: [['incidencias', 'Más incidencias'], ['copias', 'Más errores de copias'], ['eventos', 'Más errores/eventos'], ['en-curso', 'Más copias en curso'], ['nombre', 'Nombre del equipo']] },
       ]}
       count={`${equiposFiltrados.length} de ${equipos.length} equipos`}
       activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />
@@ -155,6 +170,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
           : '/clientes/sin-asignar';
         const destino = `${grupo}/equipos/${item.id}`;
         const ultimoEvento = item.errores_evento?.[0]?.titulo;
+        const productosEnCurso = item.productos_copia_en_curso || [];
         return <a className="inicio-equipo" key={item.id} href={rutaHref(destino)}
         onClick={(event) => { event.preventDefault(); onNavigate(destino); }}>
         <div className="inicio-equipo-titulo"><div><span className="eyebrow">{item.cliente || 'Sin asignar'}</span>
@@ -163,6 +179,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         <div className="inicio-equipo-conteos">
           <span className={Number(item.errores_pendientes) ? 'badge error' : 'badge'}>{item.errores_pendientes} errores de copia</span>
           <span className={Number(item.total_errores_evento) ? 'badge critical' : 'badge'}>{item.total_errores_evento} errores/eventos</span>
+          {Number(item.copias_en_curso) > 0 && <span className="badge running">{item.copias_en_curso} en curso{productosEnCurso.length ? ` · ${productosEnCurso.join(', ')}` : ''}</span>}
         </div>
         {ultimoEvento ? <p className="inicio-ultimo-error">Último evento: {ultimoEvento}</p>
           : <span className="inicio-ultimo-error-placeholder" aria-hidden="true" />}
@@ -171,6 +188,6 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
     </div> : equipos.length ? <div className="empty-state"><strong>No hay equipos coincidentes</strong>
       <span>Ajusta los filtros para ver otros equipos con incidencias.</span>
       <button className="btn sec" type="button" onClick={limpiarFiltros}>Limpiar filtros</button></div>
-      : <div className="empty-state"><strong>Todo al día</strong><span>No hay equipos con errores de copias ni eventos de Windows críticos o de error.</span></div>}
+      : <div className="empty-state"><strong>Todo al día</strong><span>No hay incidencias ni copias activas ahora mismo.</span></div>}
   </section>;
 }
