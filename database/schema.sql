@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS copias (
   equipo VARCHAR(200) NOT NULL,
   equipo_id INT UNSIGNED NULL,
   huella CHAR(40) NULL,
-  estado ENUM('OK','ERROR') NOT NULL,
+  estado ENUM('OK','ERROR','REVISION') NOT NULL,
   desc_error VARCHAR(500) NOT NULL DEFAULT '',
   codigo VARCHAR(40) NULL,
   software VARCHAR(80) NULL,

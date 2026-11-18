@@ -112,6 +112,17 @@ try {
         11 => static function (PDO $pdo): void {
             monitor_migrar_esquema($pdo);
         },
+        12 => static function (PDO $pdo): void {
+            foreach (['copias', 'correo_copias'] as $table) {
+                $column = $pdo->prepare("SELECT column_type FROM information_schema.columns
+                    WHERE table_schema=DATABASE() AND table_name=? AND column_name='estado'");
+                $column->execute([$table]);
+                $type = (string) $column->fetchColumn();
+                if ($type !== '' && !str_contains($type, "'REVISION'")) {
+                    $pdo->exec("ALTER TABLE `{$table}` MODIFY estado ENUM('OK','ERROR','REVISION') NOT NULL");
+                }
+            }
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

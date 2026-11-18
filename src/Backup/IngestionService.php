@@ -122,7 +122,7 @@ function ingesta_parsear_asunto(string $asunto): array
 }
 
 /**
- * Adapta el formato del flujo n8n (resultado CORRECTA / FALLO_LEVE / FALLO_GRAVE, cliente, asunto, motivo...)
+ * Adapta el formato del flujo n8n (resultado CORRECTA / FALLO_LEVE / FALLO_GRAVE / REVISION, ...)
  * al formato interno. Si el elemento ya trae 'estado', se deja tal cual.
  */
 function ingesta_adaptar($it)
@@ -137,10 +137,20 @@ function ingesta_adaptar($it)
     if (strcasecmp($cliente, 'SIN_CLIENTE') === 0)
         $cliente = '';
 
-    // Lo que no se pudo clasificar NO se oculta: entra como ERROR para que alguien lo revise.
-    $etiquetas = ['FALLO_LEVE' => 'Fallo leve', 'FALLO_GRAVE' => 'Fallo grave', 'CORRECTA' => null];
-    $estado = $res === 'CORRECTA' ? 'OK' : 'ERROR';
-    $etiqueta = array_key_exists($res, $etiquetas) ? $etiquetas[$res] : 'Sin clasificar';
+    // Solo un fallo confirmado es ERROR. Resultados leves, contradictorios o desconocidos
+    // se conservan como REVISION para no generar falsos fallos ni perder evidencia.
+    $etiquetas = [
+        'FALLO_LEVE' => 'Revisión necesaria',
+        'FALLO_GRAVE' => 'Fallo grave',
+        'CORRECTA' => null,
+        'REVISION' => 'Revisión necesaria',
+    ];
+    $estado = match ($res) {
+        'CORRECTA' => 'OK',
+        'FALLO_GRAVE' => 'ERROR',
+        default => 'REVISION',
+    };
+    $etiqueta = $etiquetas[$res] ?? 'Resultado sin clasificar';
 
     $p = ingesta_parsear_asunto($asunto);
 
@@ -159,7 +169,7 @@ function ingesta_adaptar($it)
     $nombre = $p['nombre'] ?? ($equipo !== '' ? $equipo : ($cliente !== '' ? $cliente : $asunto));
 
     $motivo = trim((string) ($it['motivo'] ?? ''));
-    $desc = $estado === 'ERROR' ? $etiqueta . ': ' . ($motivo !== '' ? $motivo : $asunto) : null;
+    $desc = $estado !== 'OK' ? $etiqueta . ': ' . ($motivo !== '' ? $motivo : $asunto) : null;
 
     return [
         'message_id' => $it['message_id'] ?? null,
@@ -196,8 +206,8 @@ function ingesta_normalizar($it): array
         throw new InvalidArgumentException("'software' debe ser: " . implode(', ', INGESTA_SOFTWARE));
 
     $estado = strtoupper((string) ($it['estado'] ?? ''));
-    if (!in_array($estado, ['OK', 'ERROR'], true))
-        throw new InvalidArgumentException("'estado' debe ser OK o ERROR");
+    if (!in_array($estado, ['OK', 'ERROR', 'REVISION'], true))
+        throw new InvalidArgumentException("'estado' debe ser OK, ERROR o REVISION");
 
     $nombre = ingesta_texto($it['nombre'] ?? null, 200, true, 'nombre');
 
@@ -229,7 +239,7 @@ function ingesta_normalizar($it): array
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
         // Mantener estos límites alineados con correo_copias y copias en database/.
-        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
+        'desc_error' => $estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
         'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
         'destino' => ingesta_texto($it['destino'] ?? null, 120),
         'tamano' => ingesta_texto($it['tamano'] ?? null, 40),

@@ -43,7 +43,7 @@ Los archivos PHP de la raiz son puntos de entrada de compatibilidad. La logica n
 3. `IngestEndpoint.php` valida metodo, tamano, JSON, limite de elementos y token.
 4. `IngestionService.php` adapta el formato n8n, aplica reglas conocidas del asunto, normaliza campos y rechaza valores invalidos.
 5. `ingesta_guardar()` usa una transaccion: crea o reutiliza el equipo, asigna cliente solo si la sugerencia coincide con un unico cliente activo e inserta el aviso en staging.
-6. `message_key` es unico. Reintentar el mismo mensaje no duplica la copia.
+6. `message_key` es unico. Reintentar el mismo mensaje no duplica la copia. `REVISION` conserva resultados ambiguos sin contarlos como error; `ERROR` se reserva para fallos confirmados.
 7. Los avisos en staging se muestran en el panel. Al asignar el equipo, `EquipmentService.php` importa las copias pendientes al historial definitivo.
 
 La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocable; las personas usan sesion web y proteccion CSRF.

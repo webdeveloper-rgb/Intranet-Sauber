@@ -5,9 +5,11 @@
 // ERR: error sin revisar | REV: EN REVISIÓN (arreglo descrito, en vigilancia) | OK: copia OK o error con vigilancia cerrada
 export const MIN_PALABRAS = 15;
 
-export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN" };
+export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN", INC: "POR CLASIFICAR" };
 
 export const ef = (c) =>
+    c.estado === "REVISION" ?
+    "INC" :
     c.estado === "OK" ?
     "OK" :
     c.revisado ?
@@ -60,6 +62,7 @@ export const FILTROS = [
     ["sin", "Sin copia recibida"],
     ["rep", "Errores repetidos"],
     ["rev", "En revisión"],
+    ["inc", "Por clasificar"],
     ["ok", "OK"],
     ["notas", "Con notas"],
     ["tras", "OK tras arreglo"],
@@ -73,6 +76,7 @@ export const TEST = {
     sin: (c) => c.codigo === "SIN_COPIA",
     rep: (c, h, rep) => c.estado === "ERROR" && c.codigo !== "SIN_COPIA" && (rep?.[claveEquipo(c)] || 0) > 1,
     rev: (c) => ef(c) === "REV",
+    inc: (c) => ef(c) === "INC",
     ok: (c) => ef(c) === "OK",
     notas: (c) => (c.notas || []).length > 0,
     tras: (c) => c.estado === "ERROR" && ef(c) === "OK",
@@ -81,7 +85,7 @@ export const TEST = {
 };
 
 // Filtros que muestran contador (clave del contador) y los que avisan en rojo
-export const EXTRA = { sin: "sc", rep: "rr", notas: "c", tras: "r", venc: "v", atr: "a" };
+export const EXTRA = { sin: "sc", rep: "rr", inc: "inc", notas: "c", tras: "r", venc: "v", atr: "a" };
 export const ALERTA = { sin: 1, venc: 1, atr: 1 };
 
 export function contadores(data, horas) {
@@ -92,6 +96,7 @@ export function contadores(data, horas) {
         sc: data.filter(TEST.sin).length,
         rr: copias.filter((c) => TEST.rep(c, horas, rep)).length,
         w: copias.filter(TEST.rev).length,
+        inc: copias.filter(TEST.inc).length,
         r: copias.filter(TEST.tras).length,
         o: copias.filter(TEST.ok).length,
         c: copias.filter(TEST.notas).length,

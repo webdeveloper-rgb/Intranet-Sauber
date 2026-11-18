@@ -427,6 +427,11 @@ tr.pen td:first-child {
   background: var(--wab);
   color: var(--wa);
 }
+.tag.INC {
+  border: 1px solid #f0d483;
+  color: #754c00;
+  background: #fff2cc;
+}
 .nb {
   display: inline-block;
   margin: 2px 0 0 6px;
@@ -480,6 +485,10 @@ tr.pen td:first-child {
   padding: 10px 12px;
   margin: 12px 0;
   font-size: 14px;
+}
+.errbox.revision {
+  background: #fff2cc;
+  color: #754c00;
 }
 .note {
   color: var(--mut);

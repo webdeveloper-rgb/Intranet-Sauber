@@ -29,7 +29,7 @@ export default function Detalle({ c, onClose, acciones, modo = 'drawer', manejar
         <button className="x" onClick={onClose} aria-label="Cerrar">Cerrar</button>
         <h2>Copia #{c.id}</h2>
         <Tag c={c} />
-        {c.desc_error && <div className="errbox"><b>{c.codigo || 'Error'}</b> · {c.desc_error}</div>}
+        {c.desc_error && <div className={`errbox${c.estado === 'REVISION' ? ' revision' : ''}`}><b>{c.codigo || (c.estado === 'REVISION' ? 'Pendiente de clasificación' : 'Error')}</b> · {c.desc_error}</div>}
         <dl>
           <Campo t="Fecha" v={c.fecha} />
           <Campo t="Cliente" v={c.cliente} />
