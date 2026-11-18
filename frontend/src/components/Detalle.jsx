@@ -3,9 +3,6 @@
  */
 import { useEffect } from 'react';
 import Tag from './Tag';
-import Revision from './Revision';
-import Seguimiento from './Seguimiento';
-import Notas from './Notas';
 import { etiquetaTipo } from '../logic';
 
 function Campo({ t, v }) {
@@ -13,7 +10,7 @@ function Campo({ t, v }) {
   return (<><dt>{t}</dt><dd>{v}</dd></>);
 }
 
-export default function Detalle({ c, onClose, acciones, modo = 'drawer', manejarEscape = true }) {
+export default function Detalle({ c, onClose, modo = 'drawer', manejarEscape = true }) {
   useEffect(() => {
     if (!manejarEscape) return undefined;
     const k = (e) => e.key === 'Escape' && onClose();
@@ -21,7 +18,6 @@ export default function Detalle({ c, onClose, acciones, modo = 'drawer', manejar
     return () => removeEventListener('keydown', k);
   }, [onClose, manejarEscape]);
 
-  const esError = c.estado === 'ERROR';
   return (
     <>
       <div className={`ov${modo === 'dialog' ? ' ov-detalle' : ''}`} onClick={onClose} />
@@ -40,12 +36,7 @@ export default function Detalle({ c, onClose, acciones, modo = 'drawer', manejar
           <Campo t="Tamaño" v={c.tamano} />
           <Campo t="Duración" v={c.duracion} />
           <Campo t="Reintentos" v={c.intentos} />
-          <Campo t="Revisado por" v={c.revisado ? c.revisado_por : null} />
-          <Campo t="Fecha revisión" v={c.revisado ? c.revisado_fecha : null} />
         </dl>
-        {esError && <Revision c={c} onRevisar={acciones.revisar} onReabrir={acciones.reabrir} />}
-        {esError && c.revisado === 1 && <Seguimiento c={c} onSeg={acciones.seguimiento} />}
-        {esError && c.revisado === 1 && <Notas c={c} onNote={acciones.nota} />}
       </aside>
     </>
   );

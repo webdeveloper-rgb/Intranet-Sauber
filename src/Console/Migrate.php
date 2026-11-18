@@ -123,6 +123,27 @@ try {
                 }
             }
         },
+        13 => static function (PDO $pdo): void {
+            $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                WHERE table_schema=DATABASE() AND table_name='equipos'")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('error_reviewed_at', $columns, true)) {
+                $pdo->exec('ALTER TABLE equipos ADD COLUMN error_reviewed_at DATETIME NULL');
+            }
+            if (!in_array('error_reviewed_by', $columns, true)) {
+                $pdo->exec('ALTER TABLE equipos ADD COLUMN error_reviewed_by VARCHAR(50) NULL');
+            }
+            if (!in_array('error_review_desc', $columns, true)) {
+                $pdo->exec('ALTER TABLE equipos ADD COLUMN error_review_desc TEXT NULL');
+            }
+        },
+        14 => static function (PDO $pdo): void {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS correo_copias_eliminadas (
+                message_key CHAR(40) NOT NULL PRIMARY KEY,
+                equipo_id INT UNSIGNED NOT NULL,
+                deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_correo_eliminadas_equipo (equipo_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

@@ -2223,6 +2223,22 @@ header {
 .equipo-resumen-grid > div { display: grid; align-content: start; gap: 4px; min-width: 0; }
 .equipo-resumen-grid > div > span { color: var(--mut); font-size: 11px; }
 .equipo-resumen-grid strong { overflow-wrap: anywhere; font-size: 12px; font-weight: 650; }
+.equipo-error-revision {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #f0d483;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fffaf0;
+}
+.equipo-error-revision h3,
+.equipo-error-revision p { margin: 0; }
+.equipo-error-revision h3 { font-size: 15px; }
+.equipo-error-revision form { display: grid; gap: 8px; }
+.equipo-error-revision textarea { width: 100%; min-height: 76px; }
+.equipo-error-revision blockquote { margin: 0; color: #604a1c; font-size: 13px; }
+.equipo-error-revision-acciones { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.equipo-error-revision-acciones span { color: var(--mut); font-size: 12px; }
 .equipo-fuentes { display: flex; flex-wrap: wrap; gap: 5px; }
 .equipo-fuente { padding: 3px 7px; border: 1px solid var(--bd); border-radius: 999px; background: var(--card); }
 .equipo-vinculacion-sugerida {

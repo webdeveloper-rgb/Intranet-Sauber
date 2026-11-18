@@ -253,8 +253,26 @@ function ingesta_guardar(PDO $pdo, array $d): array
     // Equipo, asignacion y copia se guardan en una transaccion para evitar datos parciales.
     $pdo->beginTransaction();
     try {
+        $deletedMessage = $pdo->prepare('SELECT equipo_id FROM correo_copias_eliminadas WHERE message_key=? FOR UPDATE');
+        $deletedMessage->execute([$d['message_key']]);
+        $deletedEquipmentId = $deletedMessage->fetchColumn();
+        if ($deletedEquipmentId !== false && $deletedEquipmentId !== null) {
+            $assignment = $pdo->prepare('SELECT e.cliente_id,c.nombre AS cliente FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id WHERE e.id=?');
+            $assignment->execute([(int) $deletedEquipmentId]);
+            $existing = $assignment->fetch() ?: [];
+            $pdo->commit();
+            return [
+                'nuevo' => false,
+                'equipo' => $d['nombre'],
+                'software' => $d['software'],
+                'asignado' => !empty($existing['cliente_id']),
+                'cliente' => $existing['cliente'] ?? null,
+                'errores_eliminados' => 0,
+            ];
+        }
+
         $st = $pdo->prepare('SELECT id,cliente_id FROM equipos
-            WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2');
+            WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2 FOR UPDATE');
         $st->execute([$d['nombre']]);
         $monitorMatches = $st->fetchAll();
         if (count($monitorMatches) === 1) {
@@ -305,8 +323,30 @@ function ingesta_guardar(PDO $pdo, array $d): array
             $d['duracion']
         ]);
         $nuevo = $ins->rowCount() > 0;
+        $erroresEliminados = 0;
         if ($nuevo) {
             correo_importar_equipo((int) $eq['id'], $eq['cliente_id'] !== null ? (int) $eq['cliente_id'] : null, $pdo);
+            if ($d['estado'] === 'OK') {
+                $review = $pdo->prepare('SELECT error_reviewed_at FROM equipos WHERE id=? FOR UPDATE');
+                $review->execute([(int) $eq['id']]);
+                $reviewedAt = $review->fetchColumn();
+                if ($reviewedAt !== false && $reviewedAt !== null) {
+                    $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
+                        SELECT message_key,equipo_id FROM correo_copias WHERE equipo_id=? AND estado='ERROR'
+                        UNION
+                        SELECT huella,equipo_id FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL");
+                    $rememberDeleted->execute([(int) $eq['id'], (int) $eq['id']]);
+                    $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'");
+                    $deleteHistory->execute([(int) $eq['id']]);
+                    $erroresEliminados = $deleteHistory->rowCount();
+
+                    // Retira también staging para que errores aún no importados no reaparezcan.
+                    $deleteStaging = $pdo->prepare("DELETE FROM correo_copias WHERE equipo_id=? AND estado='ERROR'");
+                    $deleteStaging->execute([(int) $eq['id']]);
+                    $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')
+                        ->execute([(int) $eq['id']]);
+                }
+            }
         }
         $clienteNombre = null;
         if ($eq['cliente_id'] !== null) {
@@ -320,7 +360,8 @@ function ingesta_guardar(PDO $pdo, array $d): array
             'equipo' => $d['nombre'],
             'software' => $d['software'],
             'asignado' => $eq['cliente_id'] !== null,
-            'cliente' => $clienteNombre
+            'cliente' => $clienteNombre,
+            'errores_eliminados' => $erroresEliminados,
         ];
     } catch (Throwable $e) {
         // Si algo falla, revierte tambien equipo y asignacion creados en esta transaccion.

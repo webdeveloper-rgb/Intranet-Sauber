@@ -24,7 +24,7 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, tot
     setF({ cli: '', tipo: '', software: '', desde: '', hasta: '' });
   };
   const filtroAlerta = ALERTA[filtro] && n[EXTRA[filtro]] > 0;
-  const alertas = (n.sc || 0) + (n.v || 0) + (n.a || 0);
+  const alertas = (n.sc || 0) + (n.a || 0);
   return (
       <div className="fil">
         <label className="fil-estado" htmlFor="filtro-copias">
@@ -40,7 +40,7 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, tot
           </select>
         </label>
         <span className={`aviso-cuenta${alertas ? ' activa' : ''}`}
-          title={`Avisos: ${n.sc || 0} sin copia, ${n.v || 0} recordatorios vencidos y ${n.a || 0} errores atrasados`}
+          title={`Avisos: ${n.sc || 0} sin copia y ${n.a || 0} errores atrasados`}
           aria-label={`Avisos: ${alertas}`}>
           Avisos <strong>{alertas}</strong>
         </span>

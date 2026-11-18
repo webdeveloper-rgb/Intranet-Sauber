@@ -190,7 +190,7 @@ export default function App() {
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : <div className="eventos-estado" role="status">Comprobando sesión…</div>
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
-            clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} acciones={copias} />
+            clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} />
         ) : (
           <>
             {copias.fallo && (
@@ -219,7 +219,7 @@ export default function App() {
         )}
       </main>
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} acciones={copias} />
+        <Detalle c={cur} onClose={cerrar} />
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
       {sesion && notificacionesAbiertas && <Notificaciones onClose={() => setNotificacionesAbiertas(false)}

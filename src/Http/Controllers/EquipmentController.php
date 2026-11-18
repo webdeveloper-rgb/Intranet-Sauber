@@ -9,6 +9,29 @@ final class EquipmentController
 {
     public static function handle(string $action, array $input, array $user): bool
     {
+        if ($action === 'equipo_revisar_errores') {
+            $equipoId = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
+            if ($equipoId === false || $equipoId < 1) {
+                fail('Equipo no válido.');
+            }
+            $description = txt($input['desc'] ?? '', 2000);
+            if (palabras($description) < MIN_PALABRAS) {
+                fail('La descripción debe tener al menos ' . MIN_PALABRAS . ' palabras.');
+            }
+            try {
+                $errors = equipos_revisar_errores($equipoId, (string) $user['usuario'], $description);
+                out([
+                    'ok' => true,
+                    'errores_pendientes' => $errors,
+                    'error_reviewed_at' => date('Y-m-d H:i:s'),
+                    'error_reviewed_by' => $user['usuario'],
+                    'error_review_desc' => $description,
+                ]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_asignar') {
             exigir_admin($user);
             try {

@@ -3,7 +3,7 @@
  */
 import { memo } from 'react';
 import Tag from './Tag';
-import { ef, vencido, atrasado, etiquetaTipo } from '../logic';
+import { ef, atrasado, etiquetaTipo } from '../logic';
 import { rutaHref } from '../routes';
 
 const Fila = memo(function Fila({ c, onOpen, r, h }) {
@@ -30,15 +30,11 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
       <td className="estado-celda">
         <Tag c={c} />
         {notas > 0 && <span className="nb" title="Tiene notas de seguimiento">Notas: {notas}</span>}
-        {vencido(c) && <span className="nb al" title="Recordatorio vencido">Recordatorio vencido</span>}
         {c.codigo === 'SIN_COPIA' && <span className="nb al" title="No ha llegado ninguna copia de este equipo">Sin copia recibida</span>}
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
         {!sinCopia && r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
-      <td className="c-desc">{c.desc_error || '—'}</td>
-      <td className="c-fix">{c.revisado ? c.revision_desc : '—'}</td>
-      <td className="c-rev">{c.estado === 'ERROR' ? (c.revisado ? 'Sí' : 'No') : '—'}</td>
-    </tr>
+      <td className="c-desc">{c.desc_error || '—'}</td>    </tr>
   );
 });
 
@@ -75,9 +71,7 @@ export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, 
         <thead>
           <tr>
             <th>Fecha</th><th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Estado</th>
-            <th className="c-desc">Descripción error</th>
-            <th className="c-fix">Descripción del arreglo</th>
-            <th className="c-rev">Rev.</th>
+            <th className="c-desc">Detalle del resultado</th>
           </tr>
         </thead>
         <tbody>
@@ -85,7 +79,7 @@ export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, 
             <Fila key={c.id} c={c} onOpen={onOpen} r={rep[claveEquipo(c)] || 0} h={horas} />
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : error ? 'No se pudo comprobar si hay resultados.' : 'No hay resultados para estos filtros.'}</td></tr>
+            <tr><td colSpan="6" className="vacio">{cargando ? 'Cargando…' : error ? 'No se pudo comprobar si hay resultados.' : 'No hay resultados para estos filtros.'}</td></tr>
           )}
         </tbody>
       </table>

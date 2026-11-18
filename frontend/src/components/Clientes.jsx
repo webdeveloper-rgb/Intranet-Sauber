@@ -7,6 +7,7 @@ import { norm, TIPOS } from '../logic';
 import Tag from './Tag';
 import Detalle from './Detalle';
 import MonitorDetalle from './MonitorDetalle';
+import RevisionEquipo from './RevisionEquipo';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
 import FiltrosActivos from './FiltrosActivos';
@@ -245,7 +246,7 @@ function sugerirCliente(clientes, sugerido) {
   return parciales.length === 1 ? parciales[0] : undefined;
 }
 
-export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteId = null, equipoId = null, onNavigate }) {
+export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, onNavigate }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
@@ -547,6 +548,19 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
     setEquipos(actualizar);
   };
 
+  const actualizarRevisionEquipo = (id, revision) => {
+    const actualizar = (lista) => lista.map((item) => item.id === id ? {
+      ...item,
+      errores_pendientes: revision.errores_pendientes,
+      error_reviewed_at: revision.error_reviewed_at,
+      error_reviewed_by: revision.error_reviewed_by,
+      error_review_desc: revision.error_review_desc,
+    } : item);
+    cargaActual.current += 1;
+    equiposActuales.current = actualizar(equiposActuales.current);
+    setEquipos(actualizar);
+  };
+
   const volverAClientes = () => {
     onNavigate('/clientes');
     setBusqueda('');
@@ -780,6 +794,8 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
               </div>
             </section>
 
+            <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
+
             {!equipoActual.cliente_id && equipoSugerencia && <div className="equipo-vinculacion-sugerida" role="status">
               <div><strong>Posible cliente: {equipoSugerencia.nombre}</strong>
                 <span>La referencia recibida «{equipoActual.sugerido}» coincide con este cliente. Revisa la sugerencia antes de vincular.</span>
@@ -856,6 +872,6 @@ export default function Clientes({ sesion, acciones, refreshSignal = 0, clienteI
       )}
     </section>
     {copiaSeleccionada && <Detalle modo="dialog" c={copiaSeleccionada}
-      onClose={() => setCopiaSeleccionada(null)} acciones={acciones} />}
+      onClose={() => setCopiaSeleccionada(null)} />}
   </div>;
 }

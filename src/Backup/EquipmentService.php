@@ -63,6 +63,12 @@ function asegurar_tablas_equipos(PDO $pdo): void
         $pdo->exec('ALTER TABLE equipos ADD COLUMN vigilar TINYINT(1) NOT NULL DEFAULT 1');
     if (!in_array('dias_copia', $columns, true))
         $pdo->exec("ALTER TABLE equipos ADD COLUMN dias_copia CHAR(7) NOT NULL DEFAULT '1111111'");
+    if (!in_array('error_reviewed_at', $columns, true))
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN error_reviewed_at DATETIME NULL');
+    if (!in_array('error_reviewed_by', $columns, true))
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN error_reviewed_by VARCHAR(50) NULL');
+    if (!in_array('error_review_desc', $columns, true))
+        $pdo->exec('ALTER TABLE equipos ADD COLUMN error_review_desc TEXT NULL');
     $pdo->exec("UPDATE equipos SET dias_copia='1111111'
         WHERE dias_copia IS NULL OR dias_copia NOT REGEXP '^[01]{7}$' OR dias_copia NOT LIKE '%1%'");
     $pdo->exec('CREATE TABLE IF NOT EXISTS tareas_estado (nombre VARCHAR(50) NOT NULL PRIMARY KEY, ultima DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
@@ -104,6 +110,9 @@ function equipos_listado(): array
     $pdo = db();
     asegurar_tablas_equipos($pdo);
     $rows = $pdo->query("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.tipo_manual,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
+        e.error_reviewed_at,e.error_reviewed_by,e.error_review_desc,
+        ((SELECT COUNT(*) FROM copias review_cp WHERE review_cp.equipo_id=e.id AND review_cp.estado='ERROR')
+            + (SELECT COUNT(*) FROM correo_copias review_cc WHERE review_cc.equipo_id=e.id AND review_cc.importada=0 AND review_cc.estado='ERROR')) AS errores_pendientes,
         DATE_FORMAT(e.creado,'%Y-%m-%d') AS fecha_creacion,
         (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
         (EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)
@@ -114,6 +123,7 @@ function equipos_listado(): array
         $row['id'] = (int) $row['id'];
         $row['cliente_id'] = $row['cliente_id'] !== null ? (int) $row['cliente_id'] : null;
         $row['pendientes'] = (int) $row['pendientes'];
+        $row['errores_pendientes'] = (int) $row['errores_pendientes'];
         $row['vigilar'] = (int) $row['vigilar'];
         $row['tiene_monitor'] = (bool) $row['tiene_monitor'];
         $row['tiene_copias'] = (bool) $row['tiene_copias'];
@@ -145,6 +155,37 @@ function equipos_listado(): array
         ];
     }
     return ['equipos' => $rows, 'correo' => $mailRun];
+}
+
+function equipos_revisar_errores(int $equipoId, string $usuario, string $descripcion): int
+{
+    $pdo = db();
+    asegurar_tablas_equipos($pdo);
+    $pdo->beginTransaction();
+    try {
+        $lock = $pdo->prepare('SELECT id FROM equipos WHERE id=? FOR UPDATE');
+        $lock->execute([$equipoId]);
+        if (!$lock->fetchColumn()) {
+            throw new ApiError('Equipo no encontrado.');
+        }
+        $count = $pdo->prepare("SELECT
+            (SELECT COUNT(*) FROM copias WHERE equipo_id=? AND estado='ERROR')
+            + (SELECT COUNT(*) FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR')");
+        $count->execute([$equipoId, $equipoId]);
+        $errors = (int) $count->fetchColumn();
+        if ($errors < 1) {
+            throw new ApiError('Este equipo no tiene errores de copia pendientes de revisión.');
+        }
+        $save = $pdo->prepare('UPDATE equipos SET error_reviewed_at=NOW(),error_reviewed_by=?,error_review_desc=? WHERE id=?');
+        $save->execute([$usuario, $descripcion, $equipoId]);
+        $pdo->commit();
+        return $errors;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function equipos_asignar_cliente(int $equipoId, int $clienteId): int
