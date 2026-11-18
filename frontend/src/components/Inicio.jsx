@@ -1,12 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { rutaHref } from '../routes';
+
+const normalizar = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 
 export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onNavigate }) {
   const [equipos, setEquipos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [actualizar, setActualizar] = useState(0);
+  const [busqueda, setBusqueda] = useState('');
+  const [clienteFiltro, setClienteFiltro] = useState('todos');
+  const [softwareFiltro, setSoftwareFiltro] = useState('todos');
+  const [incidenciaFiltro, setIncidenciaFiltro] = useState('todos');
+  const [orden, setOrden] = useState('incidencias');
 
   useEffect(() => {
     let activo = true;
@@ -55,20 +62,103 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   }
   const totalCopias = equipos.reduce((n, item) => n + Number(item.errores_pendientes || 0), 0);
   const totalEventos = equipos.reduce((n, item) => n + Number(item.total_errores_evento || 0), 0);
+  const sinAsignar = equipos.filter((item) => !item.cliente_id).length;
+  const clientesAfectados = new Set(equipos.filter((item) => item.cliente_id).map((item) => String(item.cliente_id))).size;
+  const clientes = useMemo(() => [...new Map(equipos.filter((item) => item.cliente_id)
+    .map((item) => [String(item.cliente_id), item.cliente || `Cliente ${item.cliente_id}`])).entries()]
+    .map(([id, nombre]) => ({ id, nombre }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })), [equipos]);
+  const softwares = useMemo(() => [...new Set(equipos.map((item) => item.software).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })), [equipos]);
+  const equiposFiltrados = useMemo(() => {
+    const consulta = normalizar(busqueda.trim());
+    return equipos.filter((item) => {
+      const copias = Number(item.errores_pendientes || 0);
+      const eventos = Number(item.total_errores_evento || 0);
+      if (incidenciaFiltro === 'copias' && !copias) return false;
+      if (incidenciaFiltro === 'eventos' && !eventos) return false;
+      if (incidenciaFiltro === 'ambos' && (!copias || !eventos)) return false;
+      if (clienteFiltro === 'sin-asignar' && item.cliente_id) return false;
+      if (clienteFiltro !== 'todos' && clienteFiltro !== 'sin-asignar'
+        && String(item.cliente_id) !== clienteFiltro) return false;
+      if (softwareFiltro !== 'todos' && item.software !== softwareFiltro) return false;
+      if (consulta && !normalizar([
+        item.nombre, item.monitor_alias, item.cliente, item.software, item.programa,
+        ...(item.errores_evento || []).map((evento) => evento.titulo),
+      ].join(' ')).includes(consulta)) return false;
+      return true;
+    }).sort((a, b) => {
+      const copiasA = Number(a.errores_pendientes || 0);
+      const copiasB = Number(b.errores_pendientes || 0);
+      const eventosA = Number(a.total_errores_evento || 0);
+      const eventosB = Number(b.total_errores_evento || 0);
+      if (orden === 'copias') return copiasB - copiasA || String(a.nombre).localeCompare(String(b.nombre), 'es');
+      if (orden === 'eventos') return eventosB - eventosA || String(a.nombre).localeCompare(String(b.nombre), 'es');
+      if (orden === 'nombre') return String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity: 'base' });
+      return (copiasB + eventosB) - (copiasA + eventosA) || String(a.nombre).localeCompare(String(b.nombre), 'es');
+    });
+  }, [equipos, busqueda, clienteFiltro, softwareFiltro, incidenciaFiltro, orden]);
+  const filtrosActivos = Boolean(busqueda || clienteFiltro !== 'todos' || softwareFiltro !== 'todos' || incidenciaFiltro !== 'todos');
+  const limpiarFiltros = () => {
+    setBusqueda('');
+    setClienteFiltro('todos');
+    setSoftwareFiltro('todos');
+    setIncidenciaFiltro('todos');
+    setOrden('incidencias');
+  };
   return <section className="inicio-page" aria-labelledby="inicio-titulo">
     <div className="page-heading">
       <div><span className="eyebrow">Centro de operaciones</span><h2 id="inicio-titulo">Estado de los equipos</h2>
         <p>Incidencias pendientes de copias y eventos de Windows clasificados como error o crítico.</p></div>
       <button className="btn sec" type="button" onClick={reintentar} disabled={cargando}>Actualizar</button>
     </div>
-    <div className="inicio-resumen">
+    <div className="inicio-resumen" aria-label="Métricas de incidencias">
+      <article className="inicio-metrica"><span>Equipos con incidencias</span><strong>{equipos.length}</strong></article>
       <article className="inicio-metrica error"><span>Errores de copias</span><strong>{totalCopias}</strong></article>
       <article className="inicio-metrica critical"><span>Errores y eventos críticos</span><strong>{totalEventos}</strong></article>
-      <article className="inicio-metrica"><span>Equipos afectados</span><strong>{equipos.length}</strong></article>
+      <article className="inicio-metrica"><span>Clientes afectados</span><strong>{clientesAfectados}</strong></article>
+      <article className="inicio-metrica"><span>Equipos sin asignar</span><strong>{sinAsignar}</strong></article>
     </div>
+    <section className="inicio-filtros" aria-label="Filtros del dashboard">
+      <div className="inicio-filtros-heading">
+        <div><h3>Filtrar equipos</h3><p>Busca y ordena las incidencias que requieren atención.</p></div>
+        <span className="inicio-filtros-conteo">{equiposFiltrados.length} de {equipos.length} equipos</span>
+      </div>
+      <div className="inicio-filtros-campos">
+        <label className="inicio-busqueda"><span>Buscar</span>
+          <input type="search" value={busqueda} onChange={(event) => setBusqueda(event.target.value)}
+            placeholder="Equipo, cliente, software o evento" />
+        </label>
+        <label><span>Incidencia</span>
+          <select value={incidenciaFiltro} onChange={(event) => setIncidenciaFiltro(event.target.value)}>
+            <option value="todos">Todas</option><option value="copias">Errores de copias</option>
+            <option value="eventos">Errores/eventos</option><option value="ambos">Copias y eventos</option>
+          </select>
+        </label>
+        <label><span>Cliente</span>
+          <select value={clienteFiltro} onChange={(event) => setClienteFiltro(event.target.value)}>
+            <option value="todos">Todos los clientes</option><option value="sin-asignar">Sin asignar</option>
+            {clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}
+          </select>
+        </label>
+        <label><span>Programa</span>
+          <select value={softwareFiltro} onChange={(event) => setSoftwareFiltro(event.target.value)}>
+            <option value="todos">Todos los programas</option>
+            {softwares.map((software) => <option key={software} value={software}>{software}</option>)}
+          </select>
+        </label>
+        <label><span>Ordenar por</span>
+          <select value={orden} onChange={(event) => setOrden(event.target.value)}>
+            <option value="incidencias">Más incidencias</option><option value="copias">Más errores de copias</option>
+            <option value="eventos">Más errores/eventos</option><option value="nombre">Nombre del equipo</option>
+          </select>
+        </label>
+        {filtrosActivos && <button className="btn sec inicio-filtros-limpiar" type="button" onClick={limpiarFiltros}>Limpiar filtros</button>}
+      </div>
+    </section>
     {error && <div className="errbox" role="alert">{error} <button className="btn sec" onClick={reintentar}>Reintentar</button></div>}
-    {cargando ? <div className="empty-state" role="status">Cargando el estado de los equipos…</div> : equipos.length ? <div className="inicio-equipos">
-      {equipos.map((item) => {
+    {cargando ? <div className="empty-state" role="status">Cargando el estado de los equipos…</div> : equiposFiltrados.length ? <div className="inicio-equipos">
+      {equiposFiltrados.map((item) => {
         const grupo = item.cliente_id
           ? `/clientes/${encodeURIComponent(String(item.cliente_id))}`
           : '/clientes/sin-asignar';
@@ -85,6 +175,9 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         {item.errores_evento?.length > 0 && <p className="inicio-ultimo-error">Último evento: {item.errores_evento[0].titulo}</p>}
       </a>;
       })}
-    </div> : <div className="empty-state"><strong>Todo al día</strong><span>No hay equipos con errores de copias ni eventos de Windows críticos o de error.</span></div>}
+    </div> : equipos.length ? <div className="empty-state"><strong>No hay equipos coincidentes</strong>
+      <span>Ajusta los filtros para ver otros equipos con incidencias.</span>
+      <button className="btn sec" type="button" onClick={limpiarFiltros}>Limpiar filtros</button></div>
+      : <div className="empty-state"><strong>Todo al día</strong><span>No hay equipos con errores de copias ni eventos de Windows críticos o de error.</span></div>}
   </section>;
 }
