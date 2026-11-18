@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { api } from '../api';
 
 function bytes(value) {
@@ -143,7 +141,11 @@ function agregarSeccionPdf(doc, titulo, rows, y) {
   return doc.lastAutoTable.finalY + 10;
 }
 
-function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
+async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
@@ -354,11 +356,11 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         ? { texto: 'Informe demorado', clase: 'demorado' }
         : { texto: 'Sin informes en las últimas 24 h', clase: 'atrasado' };
   const erroresColeccion = Array.isArray(monitor.collectionErrors) ? monitor.collectionErrors : null;
-  const descargarPdf = () => {
+  const descargarPdf = async () => {
     setErrorPdf('');
     setGenerandoPdf(true);
     try {
-      generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts });
+      await generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts });
     } catch (e) {
       setErrorPdf(e.message || 'No se pudo generar el PDF.');
     } finally {

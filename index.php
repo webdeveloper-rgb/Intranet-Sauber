@@ -29,7 +29,7 @@ $compilado = is_file($js) && is_file($css);
 <body>
     <div id="root"></div>
     <?php if ($compilado): ?>
-        <script src="build/app.js?v=<?= filemtime($js) ?>"></script>
+        <script type="module" src="build/app.js?v=<?= filemtime($js) ?>"></script>
     <?php else: ?>
         <p style="font:16px system-ui;padding:24px">Falta compilar el frontend: ejecuta
             <code>npm install &amp;&amp; npm run build</code> en la carpeta <code>frontend/</code> (ver LEEME.md).</p>

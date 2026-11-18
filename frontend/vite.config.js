@@ -25,10 +25,12 @@ export default defineConfig({
     rollupOptions: {
       input: 'src/main.jsx',
       output: {
-        format: 'iife',
-        inlineDynamicImports: true,
         entryFileNames: 'app.js',
         assetFileNames: 'app[extname]',
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules\\react')
+            || id.includes('node_modules/scheduler') || id.includes('node_modules\\scheduler')) return 'react-vendor';
+        },
       },
     },
   },

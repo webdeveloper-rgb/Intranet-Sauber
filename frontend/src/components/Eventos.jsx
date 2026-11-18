@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { api } from '../api';
 import Paginacion from './Paginacion';
 import FiltrosActivos from './FiltrosActivos';
@@ -157,6 +155,10 @@ export default function Eventos({ equipoId = null, onVolver }) {
     setExportando(true);
     setErrorPdf('');
     try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
       const tamano = resultado?.porPagina || POR_PAGINA;
       const query = (page) => `monitor_eventos&page=${page}&q=&nivel=all&equipo_id=${equipoId}${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
       const primera = await api(query(1));
