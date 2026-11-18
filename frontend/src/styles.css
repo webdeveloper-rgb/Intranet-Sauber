@@ -3352,7 +3352,9 @@ main { width: min(100%, 1728px); padding: 26px clamp(16px, 2.4vw, 36px) 42px; }
 main {
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: 14px;
+  max-width: 1696px;
+  padding: 23px 28px 36px;
 }
 .inicio-page, .informe-page, .eventos-page, .clientes-page { gap: 16px; }
 .page-heading, .eventos-heading, .mapeo-heading, .directorio-heading {
@@ -3376,7 +3378,7 @@ header.app-header {
   border-bottom: 1px solid var(--bd);
   box-shadow: 0 2px 12px rgba(20, 30, 50, .045);
 }
-.header-bar { gap: 18px; min-height: 72px; }
+.header-bar { gap: 18px; min-height: 70px; max-width: 1640px; }
 .primary-nav { gap: 3px; }
 .primary-nav .linkbtn { border-radius: 7px; padding: 7px 9px; font-size: 13px; }
 .primary-nav .linkbtn[aria-current="page"] { border-color: transparent; box-shadow: inset 0 -2px var(--brand); }
@@ -3433,8 +3435,19 @@ header.app-header {
   box-shadow: none;
 }
 .kpi { padding: 12px 15px; }
+.kpis { margin: 0; }
 .kpi b, .inicio-metrica strong { font-size: 25px; letter-spacing: -.025em; }
 .kpi span, .inicio-metrica span { font-size: 11px; font-weight: 650; }
+.informe-resumen { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+.informe-resumen span {
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--card);
+  font-size: 11px;
+}
+.informe-resumen strong { font-size: 17px; }
 
 .wrap, .eventos-tabla-wrap, .informe-tabla-wrap {
   overflow: auto;
@@ -3469,6 +3482,80 @@ header.app-header {
 .mapeo-panel, .directorio-panel { padding: 18px; box-shadow: none; }
 .clientes-page { gap: 14px; }
 .cliente-filtros { margin: 10px 0; }
+.clientes-page > .mapeo-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.mapeo-toolbar {
+  gap: 9px;
+  margin: 11px 0 0;
+  padding: 11px;
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--card);
+}
+.mapeo-toolbar .mapeo-filtro select, .mapeo-toolbar .mapeo-busqueda input { min-height: 40px; }
+.equipo-filtros {
+  margin: 10px 0 0;
+  padding: 11px;
+  border-radius: var(--r);
+  background: var(--card);
+}
+.equipo-filtros .cnt { align-self: end; margin: 0 2px 10px auto; }
+.cliente-filtros {
+  gap: 9px 14px;
+  margin: 10px 0 0;
+  padding: 11px 12px;
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--card);
+}
+.cliente-filtros > small { flex-basis: 100%; margin-left: 0; }
+.equipo-panel-detalle .equipo-resumen-compacto {
+  margin-top: 11px;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--bd);
+  border-radius: 0;
+  background: transparent;
+}
+.equipo-panel-detalle .equipo-asignacion {
+  margin-top: 13px;
+  border-left: 3px solid var(--brand);
+  background: var(--card);
+}
+.equipo-panel-detalle .equipo-editores { margin-top: 10px; }
+.equipo-panel-detalle .mapeo-toolbar { margin-top: 10px; }
+.equipo-panel-detalle .equipo-historial-vista { margin-top: 12px; }
+.equipo-historial-columnas.con-monitor { grid-template-columns: minmax(0, 1fr) minmax(300px, .85fr); }
+.equipo-panel-detalle .equipo-error-revision { border-left: 3px solid var(--er); }
+
+.token-form input, .token-form select, .token-copy-row input,
+.notificaciones-filtros input, .notificaciones-filtros select {
+  min-height: 40px;
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--tx);
+  font-size: 13px;
+}
+aside[role="dialog"]:not(.detalle-modal) {
+  width: min(620px, 100%);
+  padding: 22px 24px;
+  border-left: 1px solid var(--bd);
+}
+aside[role="dialog"]:not(.detalle-modal) > h2 { margin: 2px 50px 18px 0; font-size: 21px; }
+aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border: 0; }
+.ucard h3 { font-size: 15px; }
+.token-form { grid-template-columns: minmax(0, 1fr) 170px auto; align-items: end; }
+.token-form button { grid-column: auto; }
+.token-list { display: grid; gap: 0; margin-top: 15px; border-top: 1px solid var(--bd); }
+.urow { padding: 12px 0; }
+.urow .btn { flex: 0 0 auto; }
+.token-created { border-color: color-mix(in srgb, var(--brand) 45%, var(--bd)); border-radius: var(--r); }
+.notificaciones-drawer { width: min(600px, 100%); gap: 13px; }
+.notificacion-item { border-left-width: 3px; border-radius: var(--r); }
+
 .empty-state, .eventos-estado {
   min-height: 140px;
   border-radius: var(--r);
@@ -3476,21 +3563,28 @@ header.app-header {
 }
 .empty-state strong { font-size: 16px; }
 .errbox { margin: 0; border: 1px solid color-mix(in srgb, var(--er) 25%, var(--bd)); border-radius: var(--r); }
-.paginacion { gap: 6px; }
+.paginacion { gap: 6px; margin: 0; }
+.sin-copia-resumen { margin: 0; }
+.mapeo-kpi { min-width: 94px; border-radius: var(--r); background: var(--card); }
 
 @media (max-width: 760px) {
-  main { gap: 13px; }
+  main { gap: 13px; padding: 18px 16px 30px; }
   .page-heading, .eventos-heading, .mapeo-heading, .directorio-heading { gap: 12px; }
   .eventos-heading { flex-direction: column; }
   .eventos-actualizacion { white-space: normal; font-size: 12px; }
   .fil, .eventos-controles, .informe-filtros { padding: 11px; }
   .fil > *, .eventos-controles > *, .informe-filtros > * { min-width: 0; }
+  .informe-resumen { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .equipo-historial-columnas.con-monitor { grid-template-columns: minmax(0, 1fr); }
+  .token-form { grid-template-columns: minmax(0, 1fr) 150px; }
+  .token-form button { grid-column: 1 / -1; justify-self: start; }
 }
 @media (max-width: 560px) {
   .mapeo-panel, .directorio-panel { padding: 13px; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .kpi { min-height: 64px; padding: 10px 12px; }
   .kpi b { font-size: 22px; }
+  .informe-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inicio-metrica { align-items: flex-start; flex-direction: column-reverse; gap: 5px; padding: 10px; }
   .inicio-metrica strong { font-size: 22px; }
   .cliente-grid, .inicio-equipos { grid-template-columns: minmax(0, 1fr); }
