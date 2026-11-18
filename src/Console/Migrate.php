@@ -174,6 +174,17 @@ try {
                 }
             }
         },
+        17 => static function (PDO $pdo): void {
+            $indexes = $pdo->query("SELECT index_name FROM information_schema.statistics
+                WHERE table_schema=DATABASE() AND index_name IN ('idx_copias_equipo_estado','idx_correo_equipo_estado_importada')")
+                ->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('idx_copias_equipo_estado', $indexes, true)) {
+                $pdo->exec('ALTER TABLE copias ADD KEY idx_copias_equipo_estado (equipo_id,estado)');
+            }
+            if (!in_array('idx_correo_equipo_estado_importada', $indexes, true)) {
+                $pdo->exec('ALTER TABLE correo_copias ADD KEY idx_correo_equipo_estado_importada (equipo_id,estado,importada)');
+            }
+        },
     ];
 
     foreach ($migrations as $version => $migration) {

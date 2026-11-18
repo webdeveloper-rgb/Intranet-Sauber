@@ -70,6 +70,11 @@ try {
     $user['rol'] = $currentUser['rol'];
     $user['nombre'] = $currentUser['nombre'];
 
+    // Libera el bloqueo de sesión para que las lecturas paralelas del panel no se serialicen.
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $action !== 'sesion') {
+        session_write_close();
+    }
+
     if (ReadController::handle($action, $user)) {
         exit;
     }
@@ -80,6 +85,7 @@ try {
     if (!csrf_ok($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) {
         fail('Token de seguridad no válido, recarga la página', 403);
     }
+    session_write_close();
 
     $handlers = [
         HistoryController::class,
