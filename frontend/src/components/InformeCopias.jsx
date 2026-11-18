@@ -81,6 +81,31 @@ export default function InformeCopias({ onNavigate }) {
   const total = Number(resultado?.total || 0);
   const porPagina = Number(resultado?.por_pagina || 100);
   const resumen = resultado?.resumen || {};
+  const filtrosActivos = [
+    ...(consulta.desde ? [{ clave: 'desde', etiqueta: `Desde: ${consulta.desde}` }] : []),
+    ...(consulta.hasta ? [{ clave: 'hasta', etiqueta: `Hasta: ${consulta.hasta}` }] : []),
+    ...(consulta.estado !== 'all' ? [{
+      clave: 'estado',
+      etiqueta: `Resultado: ${[['OK', 'Correcta'], ['ERROR', 'Error confirmado'], ['WARNING', 'Advertencia'],
+        ['RUNNING', 'En curso'], ['REVISION', 'Por clasificar']].find(([value]) => value === consulta.estado)?.[1] || consulta.estado}`,
+    }] : []),
+  ];
+  const quitarFiltro = (clave) => {
+    const siguiente = { ...consulta, [clave]: clave === 'estado' ? 'all' : '' };
+    setConsulta(siguiente);
+    setDesde(siguiente.desde);
+    setHasta(siguiente.hasta);
+    setEstado(siguiente.estado);
+    setPagina(1);
+  };
+  const limpiarFiltros = () => {
+    const vacios = { desde: '', hasta: '', estado: 'all' };
+    setDesde(vacios.desde);
+    setHasta(vacios.hasta);
+    setEstado(vacios.estado);
+    setConsulta(vacios);
+    setPagina(1);
+  };
 
   return <section className="informe-page" aria-labelledby="informe-titulo">
     <PageHeading id="informe-titulo" eyebrow="Auditoría" title="Informe de copias"
@@ -98,7 +123,8 @@ export default function InformeCopias({ onNavigate }) {
             ['WARNING', 'Advertencia'], ['RUNNING', 'En curso'], ['REVISION', 'Por clasificar']] },
       ]}
       actions={<button className="btn sec" type="submit">Aplicar filtros</button>}
-      count={`${total.toLocaleString('es-ES')} registros`} onSubmit={aplicar} />
+      count={`${total.toLocaleString('es-ES')} registros`} onSubmit={aplicar}
+      activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />
     <div className="informe-resumen" aria-live="polite">
       <span>Correctas <strong>{resumen.OK || 0}</strong></span><span>Errores confirmados <strong>{resumen.ERROR || 0}</strong></span>
       <span>Advertencias <strong>{resumen.WARNING || 0}</strong></span><span>En curso <strong>{resumen.RUNNING || 0}</strong></span>
