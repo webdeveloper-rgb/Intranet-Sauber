@@ -5,12 +5,13 @@
 // Si algún día cambias el backend (Node JS u otro), solo tocas este fichero.
 let csrf = '';
 
-async function call(action, body) {
+async function call(action, body, signal) {
   const r = await fetch('api.php?action=' + action, {
     method: body ? 'POST' : 'GET',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'same-origin',
+    signal,
   });
   if (r.status === 401) {
     location.href = 'login.php';

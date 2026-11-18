@@ -3593,6 +3593,46 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
 .paginacion { gap: 6px; margin: 0; }
 .sin-copia-resumen { margin: 0; }
 .mapeo-kpi { min-width: 94px; border-radius: var(--r); background: var(--card); }
+.inicio-equipo {
+  grid-template-rows: 78px 28px 24px;
+  min-height: 176px;
+  height: 176px;
+  gap: 8px;
+}
+.inicio-equipo-titulo { height: 78px; overflow: hidden; }
+.inicio-equipo-titulo > div { min-width: 0; }
+.inicio-equipo-titulo .eyebrow { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inicio-equipo h3, .notificacion-item strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.inicio-equipo h3 { font-size: 16px; line-height: 1.2; }
+.inicio-equipo-titulo p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inicio-ultimo-error {
+  display: -webkit-box;
+  min-height: 24px;
+  margin: 0;
+  padding-top: 3px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+.inicio-ultimo-error-placeholder { min-height: 24px; visibility: hidden; }
+.notificaciones-lista { min-height: 120px; align-content: start; }
+.notificacion-item {
+  grid-template-rows: 18px 36px 42px 16px 16px;
+  gap: 4px;
+  height: 170px;
+  min-height: 170px;
+  padding: 10px;
+}
+.notificacion-nivel { max-width: max-content; overflow: hidden; white-space: nowrap; }
+.notificacion-item strong { height: 36px; line-height: 18px; }
+.notificacion-detalle { height: 42px; font-size: 12px; line-height: 14px; -webkit-line-clamp: 3; }
+.notificacion-meta, .notificacion-item time { width: 100%; overflow: hidden; font-size: 11px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.notificaciones-vacio { display: grid; min-height: 92px; place-items: center; padding: 14px; border: 1px dashed var(--bd); border-radius: var(--r); }
 
 @media (max-width: 760px) {
   main { gap: 13px; padding: 18px 16px 30px; }

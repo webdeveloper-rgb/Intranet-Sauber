@@ -32,8 +32,6 @@ export default function Detalle({ c, onClose, modo = 'drawer', manejarEscape = t
           <Campo t="Equipo" v={c.equipo} />
           <Campo t="Tipo" v={c.tipo ? etiquetaTipo(c) : null} />
           <Campo t="Software" v={c.software} />
-          <Campo t="Resultado del clasificador" v={c.resultado_original} />
-          <Campo t="Fuente de clasificación" v={c.clasificacion_fuente} />
           <Campo t="Evidencia registrada" v={c.clasificacion_evidencia} />
           <Campo t="Destino" v={c.destino} />
           <Campo t="Tamaño" v={c.tamano} />

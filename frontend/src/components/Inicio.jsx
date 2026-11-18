@@ -154,6 +154,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
           ? `/clientes/${encodeURIComponent(String(item.cliente_id))}`
           : '/clientes/sin-asignar';
         const destino = `${grupo}/equipos/${item.id}`;
+        const ultimoEvento = item.errores_evento?.[0]?.titulo;
         return <a className="inicio-equipo" key={item.id} href={rutaHref(destino)}
         onClick={(event) => { event.preventDefault(); onNavigate(destino); }}>
         <div className="inicio-equipo-titulo"><div><span className="eyebrow">{item.cliente || 'Sin asignar'}</span>
@@ -163,7 +164,8 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
           <span className={Number(item.errores_pendientes) ? 'badge error' : 'badge'}>{item.errores_pendientes} errores de copia</span>
           <span className={Number(item.total_errores_evento) ? 'badge critical' : 'badge'}>{item.total_errores_evento} errores/eventos</span>
         </div>
-        {item.errores_evento?.length > 0 && <p className="inicio-ultimo-error">Último evento: {item.errores_evento[0].titulo}</p>}
+        {ultimoEvento ? <p className="inicio-ultimo-error">Último evento: {ultimoEvento}</p>
+          : <span className="inicio-ultimo-error-placeholder" aria-hidden="true" />}
       </a>;
       })}
     </div> : equipos.length ? <div className="empty-state"><strong>No hay equipos coincidentes</strong>

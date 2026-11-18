@@ -52,9 +52,12 @@ export default function Notificaciones({ onClose, onAbrir }) {
 
   useEffect(() => {
     let activa = true;
+    const controller = new AbortController();
     setCargando(true);
     setError('');
-    api(`notificaciones&page=${pagina}&q=${encodeURIComponent(q)}&tipo=${encodeURIComponent(tipo)}&nivel=${encodeURIComponent(nivel)}`)
+    setResultado(null);
+    api(`notificaciones&page=${pagina}&q=${encodeURIComponent(q)}&tipo=${encodeURIComponent(tipo)}&nivel=${encodeURIComponent(nivel)}`,
+      undefined, controller.signal)
       .then((data) => {
         if (!activa) return;
         setResultado({
@@ -70,7 +73,10 @@ export default function Notificaciones({ onClose, onAbrir }) {
       .finally(() => {
         if (activa) setCargando(false);
       });
-    return () => { activa = false; };
+    return () => {
+      activa = false;
+      controller.abort();
+    };
   }, [pagina, q, tipo, nivel, actualizar]);
 
   useEffect(() => {
@@ -127,6 +133,7 @@ export default function Notificaciones({ onClose, onAbrir }) {
         )}
 
         <div className="notificaciones-lista" aria-live="polite" aria-busy={cargando}>
+          {cargando && <p className="notificaciones-vacio" role="status">Cargando notificaciones…</p>}
           {!cargando && !error && notificaciones.length === 0 && (
             <p className="notificaciones-vacio">No hay notificaciones que coincidan con estos filtros.</p>
           )}
