@@ -118,36 +118,42 @@ function TipoEquipoEditor({ equipo, admin, onSaved }) {
 }
 
 function RustDeskAcceso({ equipo, monitor, admin }) {
-  const [password, setPassword] = useState('');
-  const [mostrar, setMostrar] = useState(false);
   const [cargandoPassword, setCargandoPassword] = useState(false);
+  const [copiada, setCopiada] = useState(false);
   const [error, setError] = useState('');
   const rustDeskId = monitor?.rustDeskId || '';
 
   useEffect(() => {
-    setPassword('');
-    setMostrar(false);
+    setCopiada(false);
     setError('');
   }, [equipo.id, rustDeskId]);
 
-  const alternarPassword = async () => {
-    if (mostrar) {
-      setMostrar(false);
-      return;
-    }
-    if (password) {
-      setMostrar(true);
-      return;
-    }
+  const copiarPassword = async () => {
     setCargandoPassword(true);
+    setCopiada(false);
     setError('');
     try {
       const result = await api('equipo_rustdesk_password', { id: equipo.id });
       if (!result.password) throw new Error('Este equipo aún no ha enviado una contraseña. Vuelve a ejecutar el instalador actualizado en ese equipo.');
-      setPassword(result.password);
-      setMostrar(true);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(result.password);
+      } else {
+        const campo = document.createElement('textarea');
+        campo.value = result.password;
+        campo.setAttribute('readonly', '');
+        campo.style.position = 'fixed';
+        campo.style.opacity = '0';
+        document.body.appendChild(campo);
+        campo.select();
+        let copiadaAlPortapapeles = false;
+        try { copiadaAlPortapapeles = document.execCommand('copy'); }
+        finally { campo.remove(); }
+        if (!copiadaAlPortapapeles) throw new Error('El navegador no permitió copiar la contraseña.');
+      }
+      setCopiada(true);
+      window.setTimeout(() => setCopiada(false), 3000);
     } catch (e) {
-      setError(e.message || 'No se pudo consultar la contraseña.');
+      setError(e.message || 'No se pudo copiar la contraseña.');
     } finally {
       setCargandoPassword(false);
     }
@@ -158,16 +164,16 @@ function RustDeskAcceso({ equipo, monitor, admin }) {
       <span>ID de RustDesk</span>
       <code>{rustDeskId || 'Aún no recibido'}</code>
     </div>
-    {rustDeskId && <a className="btn rustdesk-conectar" href={`rustdesk://connection/new/${encodeURIComponent(rustDeskId)}`}>
-      Conectar con RustDesk
-    </a>}
-    {admin && <div className="rustdesk-password">
-      <button type="button" className="btn sec" onClick={alternarPassword} disabled={cargandoPassword}>
-        {cargandoPassword ? 'Consultando…' : mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña permanente'}
-      </button>
-      {mostrar && <code>{password}</code>}
-      {error && <span role="alert">{error}</span>}
-    </div>}
+    <div className="equipo-rustdesk-acciones">
+      {rustDeskId && <a className="btn rustdesk-conectar" href={`rustdesk://connection/new/${encodeURIComponent(rustDeskId)}`}>
+        Conectar con RustDesk
+      </a>}
+      {admin && <button type="button" className="btn sec equipo-rustdesk-copiar"
+        onClick={copiarPassword} disabled={cargandoPassword}>
+        {cargandoPassword ? 'Copiando…' : copiada ? 'Contraseña copiada' : 'Copiar contraseña permanente'}
+      </button>}
+    </div>
+    {error && <span className="equipo-rustdesk-error" role="alert">{error}</span>}
   </div>;
 }
 
@@ -605,7 +611,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           <h2 id="titulo-mapeo">{equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</> : clienteActual ? clienteActual.nombre : 'Clientes'}</h2>
           {clienteActual && !equipoActual && <p>{equiposCliente.length} equipos · {totalServidores} servidores</p>}
           {equipoActual && <p>{unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
-            equipoActual.tiene_monitor ? 'Agente Monitor-Equipos' : null,
+            equipoActual.tiene_monitor ? 'Agente de Monitorización' : null,
             equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')}</p>}
           {equipoActual?.tiene_monitor && <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />}
         </div>
@@ -613,7 +619,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
           <div><span>Datos recibidos</span><strong className="equipo-fuentes">
             {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
-            {equipoActual.tiene_monitor && <span className="equipo-fuente">Monitor-Equipos</span>}
+            {equipoActual.tiene_monitor && <span className="equipo-fuente">Agente de Monitorización</span>}
             {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos</span>}
           </strong></div>
           <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
@@ -626,6 +632,36 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           <span>sin asignar</span>
         </div>}
       </div>
+
+      {equipoActual && <section className="equipo-asignacion" aria-labelledby="titulo-asignacion-equipo">
+        <div className="equipo-asignacion-heading">
+          <div><h3 id="titulo-asignacion-equipo">Asignación de cliente</h3>
+            <p>{equipoActual.cliente_id ? 'Cliente vinculado a este equipo.' : 'Selecciona el cliente al que pertenece este equipo.'}</p></div>
+          {clienteAsignadoActual && <span className="equipo-asignacion-actual">{clienteAsignadoActual.nombre}</span>}
+        </div>
+        {asignacionSinSatbk && <div className="estado-alertas compacto" role="status">
+          <p>Este equipo ya tiene copias y está asignado a {clienteAsignadoActual.nombre}, que no tiene SATBK. La asignación actual se conserva; elige un cliente con SATBK para cambiarla.</p>
+        </div>}
+        {equipoActual.tiene_copias && !clientesAsignables.length && <div className="estado-alertas compacto" role="status">
+          <p>No hay clientes con SATBK en el catálogo. Actualiza la lista de clientes antes de asignar este equipo.</p>
+        </div>}
+        {!equipoActual.cliente_id && equipoSugerencia && <p className="equipo-asignacion-sugerencia">
+          Posible cliente: <strong>{equipoSugerencia.nombre}</strong>. Revisa la sugerencia antes de vincular.
+        </p>}
+        <div className="equipo-asignacion-campos">
+          <label htmlFor={`cliente-equipo-${equipoActual.id}`}>{equipoActual.cliente_id ? 'Cambiar cliente' : 'Buscar cliente'}</label>
+          <SelectorCliente id={`cliente-equipo-${equipoActual.id}`} clientes={clientesAsignables}
+            value={clienteElegido}
+            onChange={(value) => setAsignaciones((actual) => ({ ...actual, [equipoActual.id]: value }))}
+            disabled={!clientesAsignables.length} />
+          <button className="btn" disabled={guardando === equipoActual.id || !clientesAsignables.length || !hayCambioAsignacion} onClick={asignar}>
+            {guardando === equipoActual.id ? 'Guardando…' : !equipoActual.cliente_id && equipoSugerencia ? `Vincular con ${equipoSugerencia.nombre}` : equipoActual.cliente_id ? 'Cambiar cliente' : 'Asignar equipo'}
+          </button>
+          {equipoActual.cliente_id && <button className="btn sec" disabled={guardando === equipoActual.id} onClick={desasignar}>
+            {guardando === equipoActual.id ? 'Guardando…' : 'Desasignar'}
+          </button>}
+        </div>
+      </section>}
 
       {equipoActual && admin && <div className="equipo-editores">
         <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />
@@ -795,15 +831,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           {equipoActual && <div className="equipo-historial-vista">
             <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
 
-            {!equipoActual.cliente_id && equipoSugerencia && <div className="equipo-vinculacion-sugerida" role="status">
-              <div><strong>Posible cliente: {equipoSugerencia.nombre}</strong>
-                <span>La referencia recibida «{equipoActual.sugerido}» coincide con este cliente. Revisa la sugerencia antes de vincular.</span>
-              </div>
-              <button className="btn" disabled={guardando === equipoActual.id || !hayCambioAsignacion} onClick={asignar}>
-                {guardando === equipoActual.id ? 'Vinculando…' : 'Vincular con este cliente'}
-              </button>
-            </div>}
-
             {otrosMismoNombre.length > 0 && <details className="equipo-coincidencias">
               <summary>{otrosMismoNombre.length} posible{otrosMismoNombre.length === 1 ? '' : 's'} duplicado{otrosMismoNombre.length === 1 ? '' : 's'} por nombre; comprobar antes de combinar</summary>
               <div>{otrosMismoNombre.map((otro) => <button type="button" key={otro.id} onClick={() => abrirEquipoRelacionado(otro)}>
@@ -811,26 +838,9 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
               </button>)}</div>
             </details>}
 
-            <details className="equipo-gestion">
-              <summary>Asignación y avisos</summary>
-              <div className="equipo-accion">
-                {asignacionSinSatbk && <div className="estado-alertas" role="status">
-                  <p>Este equipo ya tiene copias y está asignado a {clienteAsignadoActual.nombre}, que no tiene SATBK. Se mantiene la asignación actual; elige un cliente con SATBK para cambiarla.</p>
-                </div>}
-                {equipoActual.tiene_copias && !clientesAsignables.length && <div className="estado-alertas" role="status">
-                  <p>No hay clientes con SATBK en el catálogo. Actualiza la lista de clientes antes de asignar este equipo.</p>
-                </div>}
-                <label htmlFor={`cliente-equipo-${equipoActual.id}`}>{equipoActual.cliente_id ? 'Cliente asociado' : 'Asignar a un cliente'}</label>
-                <SelectorCliente id={`cliente-equipo-${equipoActual.id}`} clientes={clientesAsignables}
-                  value={clienteElegido}
-                  onChange={(value) => setAsignaciones((actual) => ({ ...actual, [equipoActual.id]: value }))}
-                  disabled={!clientesAsignables.length} />
-                <button className="btn" disabled={guardando === equipoActual.id || !clientesAsignables.length || !hayCambioAsignacion} onClick={asignar}>
-                  {guardando === equipoActual.id ? 'Guardando…' : equipoActual.cliente_id ? 'Cambiar cliente' : 'Asignar equipo'}
-                </button>
-                {equipoActual.cliente_id && <button className="btn sec" disabled={guardando === equipoActual.id} onClick={desasignar}>
-                  {guardando === equipoActual.id ? 'Guardando…' : 'Desasignar'}
-                </button>}
+            <details className="equipo-vigilancia">
+              <summary><span>Avisos por falta de copias</span><strong>{equipoActual.vigilar !== 0 ? 'Activos' : 'Desactivados'}</strong></summary>
+              <div className="equipo-vigilancia-contenido">
                 <label className="equipo-vigilar">
                   <input type="checkbox" checked={equipoActual.vigilar !== 0} disabled={guardando === equipoActual.id}
                     onChange={(e) => vigilar(equipoActual, e.target.checked)} /> Avisar si no llegan copias
@@ -838,7 +848,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                 {equipoActual.vigilar !== 0 && <HorarioSemana equipo={equipoActual} onSaved={actualizarHorario} />}
               </div>
             </details>
-
             <div className={`equipo-historial-columnas${equipoActual.tiene_monitor ? ' con-monitor' : ''}`}>
               <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
                 <div className="historial-equipo-heading">
