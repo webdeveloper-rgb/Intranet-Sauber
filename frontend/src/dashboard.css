@@ -149,6 +149,32 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .dashboard-context { order: 2; }
 .dashboard-metrics { order: 1; }
 .dashboard-page > .errbox { order: 0; }
+.dashboard-health { order: 1; min-width: 0; display: grid; background: var(--card); border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.dashboard-health .dashboard-metrics { border: 0; border-radius: 0; background: transparent; }
+.dashboard-health .dashboard-metric { padding: 19px 20px 16px; gap: 12px; }
+.dashboard-health .dashboard-metric strong { font-size: 29px; }
+.dashboard-health .dashboard-context { margin: 0; padding: 12px 20px; gap: 10px 26px; border-top: 1px solid var(--bd); background: var(--bg); }
+.dashboard-health .dashboard-overview { gap: 0; border-top: 1px solid var(--bd); }
+.dashboard-health .dashboard-overview > .dashboard-panel { padding: 20px; border: 0; border-radius: 0; background: transparent; }
+.dashboard-health .dashboard-overview > .dashboard-panel + .dashboard-panel { border-left: 1px solid var(--bd); }
+.dashboard-health .dashboard-panel-heading { margin-bottom: 14px; }
+.dashboard-health .dashboard-panel-heading h2 { margin: 0; font-size: 14px; }
+.dashboard-health .backup-headline { margin-top: 12px; }
+.dashboard-health .backup-headline > strong { font-size: 30px; }
+.dashboard-health .backup-distribution { margin: 16px 0 18px; }
+.dashboard-health .backup-counts strong { font-size: 17px; }
+.dashboard-health .integration-row { padding: 10px 0; }
+.dashboard-health .integration-row:first-child { padding-top: 0; }
+.dashboard-health .integration-row:last-child { padding-bottom: 0; }
+@media (max-width: 1250px) {
+  .dashboard-health .dashboard-overview { grid-template-columns: 1fr 1fr; }
+  .dashboard-health .integration-row { flex-wrap: wrap; }
+  .dashboard-health .integration-row > small { margin: 0 0 0 17px; max-width: none; text-align: left; }
+}
+@media (max-width: 760px) {
+  .dashboard-health .dashboard-overview { grid-template-columns: 1fr; }
+  .dashboard-health .dashboard-overview > .dashboard-panel + .dashboard-panel { border-left: 0; border-top: 1px solid var(--bd); }
+}
 .backup-headline { display: flex; align-items: center; gap: 14px; margin: 26px 0 0; }
 .backup-headline > strong { font-size: 36px; letter-spacing: -.04em; font-weight: 600; }
 .backup-headline > span { color: var(--tx); font-size: 13px; }

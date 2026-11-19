@@ -77,6 +77,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
       actions={<div className="dashboard-refresh"><span>{datos ? `Actualizado a las ${new Date(datos.actualizado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Esperando datos'}</span>
         <button className="btn sec" disabled={cargando} onClick={() => setRevision((n) => n + 1)}><Icon name="refresh" size={15} />{cargando ? 'Actualizando…' : 'Actualizar'}</button></div>} />
     {error && <div className="errbox" role="alert">{error}. {datos ? 'Se mantienen los últimos datos recibidos.' : 'No se pudo cargar el resumen.'} <button className="btn sec" onClick={() => setRevision((n) => n + 1)}>Reintentar</button></div>}
+    <div className="dashboard-health" role="group" aria-label="Estado general del parque, copias e integraciones">
     <div className="dashboard-metrics" aria-label="Indicadores del parque completo">
       {metricas.map(([titulo, numero, nota, key, tono]) => <button key={key} type="button" className={`dashboard-metric tone-${tono}`} aria-pressed={key === 'asignar' ? undefined : filtro === key}
         onClick={() => { if (key === 'asignar') onNavigate('/clientes/sin-asignar'); else setFiltro(filtro === key ? 'todos' : key); }}>
@@ -100,6 +101,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
           <span className={`status-dot ${!datos ? 'pending' : aviso ? 'warning' : 'ok'}`} /><div><strong>{nombre}</strong><span>{datos ? estado : 'Cargando estado…'}</span></div><small>{datos ? fecha || 'Sin datos' : '—'}</small>
         </div>)}</div>
       </section>
+    </div>
     </div>
     <section className="dashboard-panel dashboard-queue" aria-labelledby="cola-titulo">
       <div className="dashboard-panel-heading"><div><span className="eyebrow">Seguimiento operativo</span><h2 id="cola-titulo">Equipos que requieren atención</h2><p>Hardware crítico primero; después, servidores con fallos o copias ausentes.</p></div><span className="queue-count">{valor(equipos.filter(conError).length)} con incidencias</span></div>
