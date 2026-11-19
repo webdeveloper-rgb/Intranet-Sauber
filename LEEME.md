@@ -4,6 +4,8 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 
 ## Estructura
 
+La opción administrativa para reunir fichas duplicadas está documentada en [Combinar equipos](docs/COMBINAR-EQUIPOS.md). Esta función requiere ejecutar `php migrate.php` tras actualizar.
+
 Consulta el [mapa de carpetas y criterios de organizacion](docs/ESTRUCTURA.md).
 
 La documentacion tecnica de responsabilidades, rutas de datos, acciones API y reglas para cambios esta en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).

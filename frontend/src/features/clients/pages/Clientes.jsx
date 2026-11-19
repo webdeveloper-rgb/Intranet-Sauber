@@ -2,6 +2,7 @@ import AliasEquipo from '../../equipment/components/AliasEquipo';
 import TipoEquipoEditor from '../../equipment/components/TipoEquipoEditor';
 import RustDeskAcceso from '../../equipment/components/RustDeskAcceso';
 import HorarioSemana from '../../equipment/components/HorarioSemana';
+import CombinarEquipos from '../../equipment/components/CombinarEquipos';
 /**
  * Vistas jerarquicas de clientes, equipos, asignacion y detalle del historial por equipo.
  */
@@ -434,6 +435,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />
         <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />
       </div>}
+    {admin && <CombinarEquipos equipo={equipoActual} equipos={equipos} onSaved={async (destino) => {
+      await cargar(true);
+      await cargarHistorial(destino.id);
+      const grupo = destino.cliente_id ? destino.cliente_id : 'sin-asignar';
+      onNavigate(`/clientes/${grupo}/equipos/${destino.id}?tab=configuracion`, { replace: true });
+    }} />}
     {otrosMismoNombre.length > 0 && <details className="equipo-coincidencias">
               <summary>{otrosMismoNombre.length} posible{otrosMismoNombre.length === 1 ? '' : 's'} duplicado{otrosMismoNombre.length === 1 ? '' : 's'} por nombre; comprobar antes de combinar</summary>
               <div>{otrosMismoNombre.map((otro) => <button type="button" key={otro.id} onClick={() => abrirEquipoRelacionado(otro)}>

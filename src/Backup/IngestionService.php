@@ -333,10 +333,17 @@ function ingesta_guardar(PDO $pdo, array $d): array
             ];
         }
 
+        $alias = $pdo->prepare("SELECT DISTINCT e.id,e.cliente_id FROM equipo_nombres n JOIN equipos e ON e.id=n.equipo_id
+            WHERE n.nombre=? AND (n.software=? OR n.software='MonitorAgent') LIMIT 2 FOR UPDATE");
+        $alias->execute([$d['nombre'], $d['software']]);
+        $aliasMatches = $alias->fetchAll();
+        if (count($aliasMatches) > 1) {
+            throw new RuntimeException('El nombre de recepción coincide con varios equipos combinados.');
+        }
         $st = $pdo->prepare('SELECT id,cliente_id FROM equipos
             WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2 FOR UPDATE');
         $st->execute([$d['nombre']]);
-        $monitorMatches = $st->fetchAll();
+        $monitorMatches = $aliasMatches ?: $st->fetchAll();
         if (count($monitorMatches) === 1) {
             $eq = $monitorMatches[0];
             $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(?,sugerido),

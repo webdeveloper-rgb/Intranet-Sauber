@@ -9,6 +9,24 @@ final class EquipmentController
 {
     public static function handle(string $action, array $input, array $user): bool
     {
+        if (in_array($action, ['equipo_combinar_prever', 'equipo_combinar'], true)) {
+            exigir_admin($user);
+            $destinoId = filter_var($input['destino_id'] ?? null, FILTER_VALIDATE_INT);
+            $origenIds = $input['origen_ids'] ?? null;
+            if (!$destinoId || !is_array($origenIds)) fail('Selección de equipos no válida.');
+            try {
+                if ($action === 'equipo_combinar_prever') {
+                    $plan = equipos_combinar_plan(db(), $destinoId, $origenIds);
+                    unset($plan['_rows'], $plan['_counts'], $plan['_monitor']);
+                    out($plan);
+                }
+                if (!is_string($input['token'] ?? null)) fail('Primero revisa la combinación.');
+                out(equipos_combinar(db(), $destinoId, $origenIds, $input['token'], (string) $user['usuario']));
+            } catch (ApiError $ex) {
+                fail($ex->getMessage(), 409);
+            }
+        }
+
         if ($action === 'equipo_revisar_errores') {
             $equipoId = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
             if ($equipoId === false || $equipoId < 1) {

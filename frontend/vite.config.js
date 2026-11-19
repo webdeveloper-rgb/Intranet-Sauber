@@ -10,6 +10,8 @@ import previewDemo from './dev/preview/server';
 const PHP = process.env.PHP_URL || 'http://localhost:8000';
 
 export default defineConfig(({ mode, command }) => ({
+  // Los recursos se sirven desde build/, incluso si la intranet esta en una subcarpeta.
+  base: './',
   plugins: [react(), ...(mode === 'demo' && command === 'serve' ? [previewDemo()] : [])],
   publicDir: false,
   server: {

@@ -83,7 +83,8 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
     $sourceProducts = is_array($sourceReport['software']['backupProducts'] ?? null)
         ? array_map(static fn($value): string => mb_strtolower((string) $value), $sourceReport['software']['backupProducts']) : [];
 
-    $findByName = $pdo->prepare('SELECT id FROM equipos WHERE LOWER(nombre)=LOWER(?) ORDER BY id LIMIT 2');
+    $findByName = $pdo->prepare('SELECT DISTINCT e.id FROM equipos e LEFT JOIN equipo_nombres n ON n.equipo_id=e.id
+        WHERE LOWER(e.nombre)=LOWER(?) OR LOWER(n.nombre)=LOWER(?) ORDER BY e.id LIMIT 2');
     $findByReportHostname = $pdo->prepare("SELECT id FROM equipos WHERE monitor_report IS NOT NULL AND JSON_VALID(monitor_report)
         AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(monitor_report,'$.hostname')))=LOWER(?) ORDER BY id LIMIT 2");
     $equipmentByTarget = [];
@@ -102,7 +103,7 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
         if ($startTime === false || $startTime > time() + 300) $startTime = $observed;
         $hostKey = mb_strtolower(trim($target));
         if (!array_key_exists($hostKey, $equipmentByTarget)) {
-            $findByName->execute([$target]);
+            $findByName->execute([$target, $target]);
             $matches = array_map('intval', $findByName->fetchAll(PDO::FETCH_COLUMN));
             if (count($matches) !== 1) {
                 $findByReportHostname->execute([$target]);
@@ -718,6 +719,32 @@ function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSa
     return $scores[0]['client'];
 }
 
+/** El nombre puede cambiar; la identidad del agente y el historial se conservan. */
+function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname): void
+{
+    $st = $pdo->prepare('SELECT nombre,software FROM equipos WHERE id=? FOR UPDATE');
+    $st->execute([$equipmentId]);
+    $equipment = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$equipment || $equipment['nombre'] === $hostname) {
+        return;
+    }
+
+    // La clave unica es (software,nombre). Un homonimo no debe fusionar dos equipos.
+    $exists = $pdo->prepare('SELECT id FROM equipos WHERE software=? AND nombre=? AND id<>?');
+    $name = $hostname;
+    $attempt = 0;
+    do {
+        $exists->execute([$equipment['software'], $name, $equipmentId]);
+        if (!$exists->fetchColumn()) {
+            break;
+        }
+        $suffix = ' [' . $equipmentId . (++$attempt > 1 ? '-' . $attempt : '') . ']';
+        $name = mb_substr($hostname, 0, 200 - mb_strlen($suffix)) . $suffix;
+    } while (true);
+
+    $pdo->prepare('UPDATE equipos SET nombre=? WHERE id=?')->execute([$name, $equipmentId]);
+}
+
 function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null): int
 {
     $events = $report['events'] ?? [];
@@ -747,6 +774,12 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
                     ->execute([$name, $report['machineId']]);
                 $equipmentId = (int) $pdo->lastInsertId();
             }
+        }
+
+        $combined = $pdo->prepare('SELECT id FROM equipo_combinaciones WHERE destino_id=? LIMIT 1');
+        $combined->execute([(int) $equipmentId]);
+        if (!$combined->fetchColumn()) {
+            monitor_actualizar_nombre($pdo, (int) $equipmentId, $report['hostname']);
         }
 
         if (!empty($report['clientNote'])) {

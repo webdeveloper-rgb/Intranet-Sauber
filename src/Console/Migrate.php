@@ -205,6 +205,13 @@ try {
         },
     ];
 
+    $migrations[19] = static function (PDO $pdo): void {
+        $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/equipment-merge.sql');
+        foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+            migracion_ejecutar_sql($pdo, $statement, 'database/equipment-merge.sql');
+        }
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

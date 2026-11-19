@@ -8,6 +8,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../Integration/ClientApi.php';
 require_once __DIR__ . '/../Backup/IngestionService.php';
 require_once __DIR__ . '/../Monitoring/MonitorService.php';
+require_once __DIR__ . '/MergeService.php';
 
 function asegurar_tablas_equipos(PDO $pdo): void
 {
@@ -133,6 +134,15 @@ function equipos_listado(): array
         $row['vigilar'] = (int) $row['vigilar'];
         $row['tiene_monitor'] = (bool) $row['tiene_monitor'];
         $row['tiene_copias'] = (bool) $row['tiene_copias'];
+    }
+    unset($row);
+    $names = $pdo->query('SELECT equipo_id,software,nombre FROM equipo_nombres ORDER BY nombre')->fetchAll();
+    $namesByEquipment = [];
+    foreach ($names as $name) {
+        $namesByEquipment[(int) $name['equipo_id']][] = ['software' => $name['software'], 'nombre' => $name['nombre']];
+    }
+    foreach ($rows as &$row) {
+        $row['nombres_recepcion'] = $namesByEquipment[$row['id']] ?? [];
     }
     unset($row);
     $mailRun = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,nuevos,ignorados,mensaje,origen,

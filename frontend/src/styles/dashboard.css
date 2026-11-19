@@ -1,4 +1,18 @@
 /* Dashboard shell and operational summary. Shared views keep their existing styles. */
+.equipo-combinar { padding: 20px; border: 1px solid var(--bd); border-radius: 8px; display: grid; gap: 14px; min-width: 0; }
+.equipo-combinar h3, .equipo-combinar h4, .equipo-combinar p { margin: 0; }
+.equipo-combinar p, .equipo-combinar small { color: var(--mut); }
+.equipo-combinar fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
+.equipo-combinar select, .equipo-combinar input[type="search"] { width: 100%; min-width: 0; }
+.combinar-lista { max-height: 280px; overflow-y: auto; border: 1px solid var(--bd); border-radius: 6px; }
+.combinar-origen { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--bd); cursor: pointer; }
+.combinar-origen:last-child { border-bottom: 0; }
+.combinar-origen span { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.combinar-origen input, .combinar-confirmacion input { flex-shrink: 0; width: auto; }
+.combinar-origen:has(input:disabled) { opacity: .65; }
+.combinar-preview { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--brand); border-radius: 6px; background: var(--brand-s); }
+.combinar-confirmacion { display: flex; gap: 10px; align-items: flex-start; }
+.equipo-combinar .btn { justify-self: start; }
 :root { --sidebar-width: 224px; --bg: #f7f8fa; --tx: #202b3c; --mut: #68758a; --bd: #e5e9ef; --brand: #3376c5; --brand-t: #245c9c; --brand-s: #eef4fc; }
 body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px; }
 @media (prefers-color-scheme: dark) { :root { --bg: #14171b; --tx: #e6e8ec; --mut: #98a2b0; --bd: #2c323a; --brand: #6db5ff; --brand-t: #8cc5ff; --brand-s: #1b2e44; } }
