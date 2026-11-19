@@ -445,7 +445,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
 
     <Seccion titulo="Eventos del Visor de Windows">
       <div className="monitor-modo-eventos">
-        <p>El modo determina qué eventos nuevos envía el agente. El visor conserva y muestra todo el historial que ya está almacenado, aunque cambies el modo. Selecciona una tarjeta y pulsa «Guardar modo» para aplicar el cambio.</p>
+        <p>El modo decide qué eventos nuevos envía el agente.</p>
         <div className="monitor-modo-aplicado" aria-live="polite">
           <span>Configurado: <strong>{modoGuardado === 'full' ? 'Auditoría Completa' : 'Estándar'}</strong></span>
           <span>Aplicado por el agente: <strong>{modoAgente === 'full' ? 'Auditoría Completa' : 'Estándar'}</strong></span>
@@ -461,10 +461,9 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
             onKeyDown={(event) => navegarModosEventos(event, 'standard')}>
             <h4>Estándar</h4>
             <ul>
-              <li><strong>Canales:</strong> System y Application.</li>
-              <li><strong>Niveles:</strong> Error y Crítico.</li>
-              <li><strong>Histórico inicial:</strong> últimos 30 días; después recoge eventos nuevos con el cursor del agente.</li>
-              <li><strong>Uso:</strong> incidencias relevantes con menos volumen.</li>
+              <li>System y Application.</li>
+              <li>Error y Crítico.</li>
+              <li>Menos volumen.</li>
             </ul>
           </article>
           <article className={`monitor-modo-opcion${modoEventos === 'full' ? ' seleccionado' : ''}${modoAgente === 'full' ? ' aplicado' : ''}`}
@@ -474,10 +473,9 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
             onKeyDown={(event) => navegarModosEventos(event, 'full')}>
             <h4>Auditoría Completa</h4>
             <ul>
-              <li><strong>Canales:</strong> todos los registros de Windows disponibles para el agente.</li>
-              <li><strong>Niveles:</strong> Crítico, Error, Advertencia, Información y Detallado.</li>
-              <li><strong>Histórico:</strong> eventos retenidos en el equipo y, después, nuevos eventos.</li>
-              <li><strong>Volumen:</strong> máximo 500 eventos por informe; si hay mucho histórico, el agente lo recorre en varios informes.</li>
+              <li>Todos los canales disponibles.</li>
+              <li>Crítico, Error, Advertencia, Información y Detallado.</li>
+              <li>Hasta 500 eventos por informe.</li>
             </ul>
           </article>
         </div>

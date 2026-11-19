@@ -210,8 +210,8 @@ export default function App() {
             <PageHeading id="copias-titulo" eyebrow="Operaciones"
               title={filtro === 'sin' ? 'Equipos sin copia recibida' : 'Historial de copias'}
               description={filtro === 'sin'
-                ? 'Equipos vigilados que no han enviado una copia en el último día programado.'
-                : 'Consulta los resultados, revisa fallos confirmados y localiza las copias por clasificar.'}
+                ? 'Equipos vigilados sin copia en el último día programado.'
+                : 'Resultados, fallos y copias por clasificar.'}
               actions={<span className="page-heading-status">{rows.length.toLocaleString('es-ES')} resultados</span>} />
             {copias.fallo && (
               <div className="errbox">

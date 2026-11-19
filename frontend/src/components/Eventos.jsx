@@ -289,13 +289,13 @@ export default function Eventos({ equipoId = null, onVolver }) {
       <PageHeading id="eventos-title" className="eventos-heading" eyebrow="Monitor de equipos"
         title={equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}
         description={equipoId
-          ? 'Se muestra todo el historial almacenado para este equipo. Estándar recoge errores y críticos; Auditoría Completa incluye los niveles y canales habilitados.'
-          : 'Se muestra todo el historial almacenado. Estándar recoge errores y críticos; Auditoría Completa incluye todos los niveles y canales habilitados.'}
+          ? 'Historial del equipo, con filtros por fecha, nivel y origen.'
+          : 'Historial de eventos, filtrable por equipo, nivel y origen.'}
         actions={<>
           {equipoId && <button type="button" className="btn sec eventos-volver" onClick={onVolver}>← Volver</button>}
           <div className="eventos-actualizacion" aria-live="polite">
             <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
-            {cargando ? 'Actualizando…' : 'Actualizado automáticamente cada minuto'}
+            {cargando ? 'Actualizando…' : 'Auto cada minuto'}
           </div>
         </>} />
 

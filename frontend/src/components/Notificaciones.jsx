@@ -110,7 +110,7 @@ export default function Notificaciones({ onClose, onAbrir }) {
       <div className="ov" onClick={onClose} />
       <aside className="notificaciones-drawer" role="dialog" aria-modal="true" aria-labelledby="notificaciones-titulo">
         <PageHeading level={2} id="notificaciones-titulo" eyebrow="Centro de incidencias" title="Notificaciones"
-          description="Alertas activas, eventos de Windows y fallos recientes de copias."
+          description="Alertas, eventos y fallos recientes."
           actions={<button className="x" onClick={onClose} aria-label="Cerrar notificaciones">×</button>} />
         <BarraFiltros className="filter-bar-drawer" title="Filtrar notificaciones"
           search={{ id: 'notificaciones-buscar', value: buscar, placeholder: 'Cliente, equipo o descripción',

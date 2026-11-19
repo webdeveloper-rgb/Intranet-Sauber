@@ -664,6 +664,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           <SelectorCliente id={`cliente-equipo-${equipoActual.id}`} clientes={clientesAsignables}
             value={clienteElegido}
             onChange={(value) => setAsignaciones((actual) => ({ ...actual, [equipoActual.id]: value }))}
+            mostrarFiltros={!equipoActual.cliente_id}
             disabled={!clientesAsignables.length} />
           <button className="btn" disabled={guardando === equipoActual.id || !clientesAsignables.length || !hayCambioAsignacion} onClick={asignar}>
             {guardando === equipoActual.id ? 'Guardando…' : !equipoActual.cliente_id && equipoSugerencia ? `Vincular con ${equipoSugerencia.nombre}` : equipoActual.cliente_id ? 'Cambiar cliente' : 'Asignar equipo'}

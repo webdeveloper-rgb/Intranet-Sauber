@@ -8,7 +8,7 @@ const etiqueta = (cliente) => cliente
   ? `${cliente.nombre || '(sin nombre)'}${cliente.codigo ? ` · ${cliente.codigo}` : ''} · ${cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}`
   : '';
 
-export default function SelectorCliente({ clientes, value, onChange, disabled = false, id }) {
+export default function SelectorCliente({ clientes, value, onChange, disabled = false, id, mostrarFiltros = true }) {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [filtroSatbk, setFiltroSatbk] = useState('todos');
@@ -53,7 +53,7 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
   };
 
   return <div className="selector-cliente">
-    <div className="selector-cliente-filtros" role="group" aria-label="Elegir listado de clientes">
+    {mostrarFiltros && <div className="selector-cliente-filtros" role="group" aria-label="Elegir listado de clientes">
       <span>Listado</span>
       <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''}
         aria-pressed={filtroSatbk === 'todos'} disabled={disabled}
@@ -70,7 +70,7 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
         onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('sin')}>
         Sin SATBK <span>{totalSinSatbk}</span>
       </button>
-    </div>
+    </div>}
     <input
       id={id}
       type="search"
