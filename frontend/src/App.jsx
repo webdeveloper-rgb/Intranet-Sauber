@@ -16,6 +16,7 @@ import Eventos from './components/Eventos';
 import Notificaciones from './components/Notificaciones';
 import Inicio from './components/Inicio';
 import Resumen from './components/Resumen';
+import Equipos from './components/Equipos';
 import InformeCopias from './components/InformeCopias';
 import PageHeading from './components/PageHeading';
 import Paginacion from './components/Paginacion';
@@ -50,12 +51,12 @@ export default function App() {
     ? <div className="empty-state" role="alert"><strong>No se pudo cargar el panel</strong><span>{falloSesion}</span><button className="btn sec" onClick={cargarSesion}>Reintentar</button></div>
     : <div className="empty-state" role="status">Comprobando sesión…</div>;
 
-  const navegar = useCallback((path) => {
+  const navegar = useCallback((path, { replace = false } = {}) => {
     const href = rutaHref(path);
     const actual = `${window.location.pathname}${window.location.search}`;
     if (actual !== href) {
-      historialInterno.current.push(actual);
-      window.history.pushState({ panelSauber: true }, '', href);
+      if (!replace) historialInterno.current.push(actual);
+      window.history[replace ? 'replaceState' : 'pushState']({ panelSauber: true }, '', href);
       hrefActual.current = href;
     }
     setRuta(leerRuta());
@@ -203,6 +204,8 @@ export default function App() {
             refreshSignal={actualizacionEquipos} onNavigate={navegar} />
             : <Resumen refreshSignal={actualizacionEquipos} onNavigate={navegar} />)
             : estadoSesion
+        ) : vista === 'equipos' ? (
+          <Equipos filtros={ruta.filtros} refreshSignal={actualizacionEquipos} onNavigate={navegar} />
         ) : vista === 'informes' ? (
           sesion ? <InformeCopias onNavigate={navegar} /> : estadoSesion
         ) : vista === 'eventos' ? (

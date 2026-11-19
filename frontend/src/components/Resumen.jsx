@@ -79,8 +79,8 @@ export default function Resumen({ refreshSignal, onNavigate }) {
     {error && <div className="errbox" role="alert">{error}. {datos ? 'Se mantienen los últimos datos recibidos.' : 'No se pudo cargar el resumen.'} <button className="btn sec" onClick={() => setRevision((n) => n + 1)}>Reintentar</button></div>}
     <div className="dashboard-health" role="group" aria-label="Estado general de equipos, copias e integraciones">
     <div className="dashboard-metrics" aria-label="Indicadores de todos los equipos">
-      {metricas.map(([titulo, numero, nota, key, tono]) => <button key={key} type="button" className={`dashboard-metric tone-${tono}`} aria-pressed={key === 'asignar' ? undefined : filtro === key}
-        onClick={() => { if (key === 'asignar') onNavigate('/clientes/sin-asignar'); else setFiltro(filtro === key ? 'todos' : key); }}>
+      {metricas.map(([titulo, numero, nota, key, tono]) => <button key={key} type="button" className={`dashboard-metric tone-${tono}`}
+        onClick={() => onNavigate(`/equipos?estado=${key === 'asignar' ? 'sin-asignar' : key}`)}>
         <span>{titulo}<Icon name="arrow" size={14} /></span><strong>{valor(numero)}</strong><small>{nota}</small>
       </button>)}
     </div>

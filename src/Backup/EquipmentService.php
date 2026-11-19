@@ -114,11 +114,17 @@ function equipos_listado(): array
         ((SELECT COUNT(*) FROM copias review_cp WHERE review_cp.equipo_id=e.id AND review_cp.estado='ERROR')
             + (SELECT COUNT(*) FROM correo_copias review_cc WHERE review_cc.equipo_id=e.id AND review_cc.importada=0 AND review_cc.estado='ERROR')) AS errores_pendientes,
         DATE_FORMAT(e.creado,'%Y-%m-%d') AS fecha_creacion,
+        DATE_FORMAT(ult.ultima_copia,'%Y-%m-%d %H:%i') AS ultima_copia,
         (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
         (EXISTS (SELECT 1 FROM correo_copias cc WHERE cc.equipo_id=e.id)
             OR EXISTS (SELECT 1 FROM copias cp WHERE cp.equipo_id=e.id)) AS tiene_copias,
         (SELECT COUNT(*) FROM correo_copias cc WHERE cc.equipo_id=e.id AND (cc.importada=0 OR e.cliente_id IS NULL)) AS pendientes
-        FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id ORDER BY e.nombre,e.software")->fetchAll();
+        FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id
+        LEFT JOIN (SELECT equipo_id,MAX(fecha) AS ultima_copia FROM (
+            SELECT equipo_id,fecha FROM copias WHERE equipo_id IS NOT NULL
+            UNION ALL SELECT equipo_id,fecha FROM correo_copias WHERE importada=0
+        ) fechas GROUP BY equipo_id) ult ON ult.equipo_id=e.id
+        ORDER BY e.nombre,e.software")->fetchAll();
     foreach ($rows as &$row) {
         $row['id'] = (int) $row['id'];
         $row['cliente_id'] = $row['cliente_id'] !== null ? (int) $row['cliente_id'] : null;

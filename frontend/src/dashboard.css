@@ -96,6 +96,29 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .dashboard-table a.queue-open { color: var(--brand-t); font-size: 12px; white-space: nowrap; }
 .dashboard-queue-note { color: var(--mut); font-size: 11px; margin: 15px 0 0; line-height: 1.7; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.equipos-page { display: grid; gap: 20px; min-width: 0; }
+.equipos-filtros .filter-bar-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.equipos-filtros .filter-bar-search { grid-column: span 2; }
+.equipos-listado { padding: 18px; }
+.equipos-table-wrap { overflow: auto; position: relative; }
+.equipos-table { width: 100%; min-width: 1100px; table-layout: fixed; border-collapse: collapse; font-size: 13px; text-align: left; }
+.equipos-table th { background: var(--bg); color: var(--mut); font-size: 12px; font-weight: 600; padding: 12px; border-bottom: 1px solid var(--bd); white-space: normal; text-transform: none; line-height: 1.5; }
+.equipos-table th:nth-child(1) { width: 16%; }
+.equipos-table th:nth-child(2) { width: 17%; }
+.equipos-table th:nth-child(3) { width: 21%; }
+.equipos-table th:nth-child(4) { width: 18%; }
+.equipos-table th:nth-child(5) { width: 20%; }
+.equipos-table th:nth-child(6) { width: 8%; }
+.equipos-table td { padding: 15px 12px; border-bottom: 1px solid var(--bd); vertical-align: middle; max-width: 260px; overflow-wrap: anywhere; }
+.equipos-table tbody tr:hover { background: var(--bg); }
+.equipos-table a { color: var(--tx); font-weight: 600; text-decoration: none; }
+.equipos-table a:hover { text-decoration: underline; }
+.equipos-table small { display: block; font-size: 11px; color: var(--mut); margin-top: 5px; }
+.equipos-table .equipos-open { color: var(--brand-t); white-space: nowrap; font-size: 12px; }
+.equipos-muted { color: var(--mut); font-size: 12px; }
+.equipos-warning { color: var(--wa); }
+@media (max-width: 1000px) { .equipos-filtros .filter-bar-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .equipos-listado { padding: 12px; } .equipos-filtros .filter-bar-controls { grid-template-columns: 1fr; } .equipos-filtros .filter-bar-search { grid-column: auto; } }
 @media (min-width: 1800px) { .dashboard-page { max-width: 1700px; width: 100%; margin: auto; } }
 @media (max-width: 1250px) { :root { --sidebar-width: 205px; } .dashboard-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .dashboard-overview { grid-template-columns: 1fr; } }
 @media (max-width: 900px) {

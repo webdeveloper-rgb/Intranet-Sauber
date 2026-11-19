@@ -28,8 +28,12 @@ export function leerRuta() {
 
   if (partes[0] === 'equipos') {
     const equipoId = /^\d+$/.test(partes[1] || '') ? Number(partes[1]) : null;
-    return { vista: 'inicio', clienteId: null, equipoId: equipoId || null, copiaId: null,
-      path: equipoId ? `/equipos/${equipoId}` : '/' };
+    const params = new URLSearchParams(window.location.search);
+    const filtros = Object.fromEntries(['q', 'cliente', 'tipo', 'estado', 'agente', 'copias', 'orden']
+      .map((key) => [key, params.get(key) || '']));
+    const query = new URLSearchParams(Object.entries(filtros).filter(([, value]) => value)).toString();
+    return { vista: equipoId ? 'inicio' : 'equipos', clienteId: null, equipoId, copiaId: null, filtros,
+      path: equipoId ? `/equipos/${equipoId}` : `/equipos${query ? `?${query}` : ''}` };
   }
 
   // Canonicaliza enlaces antiguos sin romper marcadores guardados.

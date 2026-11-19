@@ -119,6 +119,19 @@ El estado de n8n aplica `ingest_alert_hours`; el de clientes muestra la última 
 El resumen se actualiza con las novedades globales, cada minuto con la pestaña visible
 y manualmente. Un error conserva los datos anteriores y muestra un aviso.
 
+## Listado global de equipos
+
+La sección `/equipos` usa `components/Equipos.jsx`, combina el listado `equipos` con
+los estados de `dashboard_resumen` y conserva búsqueda, cliente, tipo, estado,
+cobertura y orden en parámetros de URL. Los filtros no crean una entrada de historial
+por cada pulsación; abrir una ficha sí permite volver al listado filtrado. La ficha sigue
+siendo `/clientes/:cliente/equipos/:id`, también para equipos sin asignar. Los enlaces
+anteriores `/equipos/:id` conservan su redirección. Los indicadores del resumen enlazan
+al listado global con su filtro de estado. Si falla la consulta de estados, se mantiene
+el inventario y se avisa de que el estado es parcial; los filtros que dependen del resumen
+no presentan resultados como si fueran completos. El listado añade la última copia
+del historial y del staging pendiente sin combinar columnas de texto con distintas colaciones.
+
 ## Reglas para cambios
 
 - No pongas secretos en frontend, Git, logs ni el workflow exportado. `config/config.php` es local y no debe subirse al repositorio.
