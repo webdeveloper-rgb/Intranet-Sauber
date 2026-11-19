@@ -77,6 +77,8 @@ export default function App() {
       else if (actual.clienteId) destino = '/clientes';
     } else if (actual.vista === 'eventos' && actual.equipoId) {
       destino = '/clientes';
+    } else if (actual.vista === 'copias' && actual.copiaId) {
+      destino = '/copias';
     }
     navegar(destino);
   }, [navegar]);
@@ -191,6 +193,7 @@ export default function App() {
   return (
     <>
       <Header nombre={sesion ? sesion.nombre : ''} vista={vista} onNavegar={navegar}
+        onVolver={volver} mostrarVolver={vista !== 'inicio' || Boolean(ruta.equipoId)}
         esAdmin={sesion?.rol === 'admin'}
         onCuenta={() => { setNotificacionesAbiertas(false); setCuentaAbierta(true); }}
         onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
@@ -203,7 +206,7 @@ export default function App() {
         ) : vista === 'informes' ? (
           sesion ? <InformeCopias onNavigate={navegar} /> : estadoSesion
         ) : vista === 'eventos' ? (
-          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} onVolver={volver} /> : estadoSesion
+          sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : estadoSesion
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} />

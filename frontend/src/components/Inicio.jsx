@@ -59,8 +59,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   if (equipoId) {
     return <section className="inicio-page" aria-labelledby="inicio-titulo">
       <PageHeading id="inicio-titulo" eyebrow="Ficha del equipo" title={`Equipo #${equipoId}`}
-        description="Abriendo la ficha paginada del equipo…"
-        actions={<button className="btn sec" type="button" onClick={() => onNavigate('/')}>← Volver al inicio</button>} />
+        description="Abriendo la ficha paginada del equipo…" />
       {error && <div className="errbox" role="alert">{error} <button className="btn sec" onClick={reintentar}>Reintentar</button></div>}
       {cargando && <div className="empty-state" role="status">Localizando equipo…</div>}
     </section>;

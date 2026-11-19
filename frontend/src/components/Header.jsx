@@ -5,7 +5,7 @@ import Icon from './Icon';
 const NAV = [['inicio', 'Resumen'], ['clientes', 'Clientes'], ['copias', 'Copias'], ['eventos', 'Eventos'], ['informes', 'Informes']];
 const navPath = (key) => key === 'inicio' ? '/' : `/${key}`;
 
-export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones }) {
+export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones, onVolver, mostrarVolver = false }) {
   const [abierto, setAbierto] = useState(false);
   const toggle = useRef(null);
   useEffect(() => { setAbierto(false); }, [vista]);
@@ -46,6 +46,9 @@ export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, on
       <div className="dashboard-topbar-title">
         <button ref={toggle} type="button" className="sidebar-toggle btn sec" aria-label={abierto ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={abierto} aria-controls="dashboard-navigation" onClick={() => setAbierto(!abierto)}><Icon name="menu" /></button>
+        {nombre && mostrarVolver && <button className="topbar-back" type="button" onClick={onVolver}>
+          <Icon name="arrow" className="back-arrow" size={17} />Volver
+        </button>}
         <span>Intranet <span className="topbar-divider">/</span> <strong>{NAV.find(([key]) => key === vista)?.[1] || 'Resumen'}</strong></span>
       </div>
       <div className="dashboard-topbar-actions">

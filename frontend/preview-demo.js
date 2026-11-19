@@ -45,7 +45,10 @@ export default function previewDemo() {
   return {
     name: 'sauber-local-demo',
     transformIndexHtml() {
-      return [{ tag: 'div', attrs: { role: 'status', style: 'position:fixed;bottom:12px;right:16px;z-index:1000;padding:8px 14px;background:#fff1d9;color:#774600;border:1px solid #e0b65c;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0002;pointer-events:none' }, children: 'PREVIEW LOCAL · Datos ficticios', injectTo: 'body' }];
+      return [
+        { tag: 'base', attrs: { href: '/' }, injectTo: 'head-prepend' },
+        { tag: 'div', attrs: { role: 'status', style: 'position:fixed;bottom:12px;right:16px;z-index:1000;padding:8px 14px;background:#fff1d9;color:#774600;border:1px solid #e0b65c;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0002;pointer-events:none' }, children: 'PREVIEW LOCAL · Datos ficticios', injectTo: 'body' },
+      ];
     },
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {

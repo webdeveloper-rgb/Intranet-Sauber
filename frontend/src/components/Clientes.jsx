@@ -571,18 +571,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     setEquipos(actualizar);
   };
 
-  const volverAClientes = () => {
-    onNavigate('/clientes');
-    setBusqueda('');
-    setFallo('');
-    setMensaje('');
-  };
-  const volverAEquipos = () => {
-    onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}`);
-    setBusqueda('');
-    setFallo('');
-    setMensaje('');
-  };
   const quitarFiltroCliente = (clave) => {
     if (clave === 'busqueda') setBusqueda('');
     else if (clave === 'satbk') setFiltroSatbk('todos');
@@ -695,7 +683,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         count={`${clientesFiltrados.length} de ${clientes.length} clientes`}
         activeFilters={filtrosActivosClientes} onRemoveFilter={quitarFiltroCliente} onClear={limpiarFiltrosClientes}>
         <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por SATBK">
-          <span className="cliente-filtros-label">SATBK</span>
+          <span className="cliente-filtros-label">Tipo SAT</span>
           <div className="cliente-filtros-opciones">
             <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'todos'}
               onClick={() => setFiltroSatbk('todos')}>Todos <span>{clientes.length}</span></button>
@@ -733,14 +721,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, hasta: event.target.value })) },
         ]}
         actions={<>
-          <button className="btn sec" type="button" onClick={volverAClientes}>← Volver</button>
           {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
         </>}
         count={`${equiposFiltrados.length} equipos`} activeFilters={filtrosActivosEquipos}
         onRemoveFilter={quitarFiltroEquipo} onClear={limpiarFiltrosEquipo} />}
 
       {equipoActual && <div className="mapeo-toolbar">
-        <button className="btn sec" type="button" onClick={volverAEquipos}>← Volver a equipos</button>
         {equipoActual.tiene_monitor && <button className="btn" type="button" onClick={() => onNavigate(`/eventos?equipo_id=${equipoActual.id}`)}>Ver eventos de Windows</button>}
         {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
       </div>}

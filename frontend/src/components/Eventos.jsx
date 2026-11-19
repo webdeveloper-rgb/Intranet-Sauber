@@ -36,7 +36,7 @@ function Nivel({ nivel }) {
   return <span className={`evento-nivel ${estilo}`}>{etiqueta}</span>;
 }
 
-export default function Eventos({ equipoId = null, onVolver }) {
+export default function Eventos({ equipoId = null }) {
   const [buscar, setBuscar] = useState('');
   const [q, setQ] = useState('');
   const [nivel, setNivel] = useState('all');
@@ -292,7 +292,6 @@ export default function Eventos({ equipoId = null, onVolver }) {
           ? 'Historial del equipo, con filtros por fecha, nivel y origen.'
           : 'Historial de eventos, filtrable por equipo, nivel y origen.'}
         actions={<>
-          {equipoId && <button type="button" className="btn sec eventos-volver" onClick={onVolver}>← Volver</button>}
           <div className="eventos-actualizacion" aria-live="polite">
             <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
             {cargando ? 'Actualizando…' : 'Auto cada minuto'}
