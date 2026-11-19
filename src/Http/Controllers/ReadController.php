@@ -410,10 +410,15 @@ final class ReadController
                     $cola[$id]['eventos_windows'] = max(0, (int) $cola[$id]['total_errores_evento'] - ($criticos[$id] ?? 0));
                 }
             }
+            // Normaliza la colación como en informe_copias: instalaciones antiguas pueden
+            // tener distintas colaciones en ambas tablas y MySQL rechaza su UNION.
             // Cuenta el historial y solo el staging pendiente para evitar duplicar avisos importados.
             $copias = $pdo->query("SELECT estado,COUNT(*) AS total FROM (
-                SELECT estado FROM copias WHERE fecha >= NOW() - INTERVAL 24 HOUR
-                UNION ALL SELECT estado FROM correo_copias WHERE importada=0 AND fecha >= NOW() - INTERVAL 24 HOUR
+                SELECT CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado
+                    FROM copias WHERE fecha >= NOW() - INTERVAL 24 HOUR
+                UNION ALL
+                SELECT CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado
+                    FROM correo_copias WHERE importada=0 AND fecha >= NOW() - INTERVAL 24 HOUR
                 ) ultimas GROUP BY estado")->fetchAll();
             $ingesta = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,
                 TIMESTAMPDIFF(HOUR,inicio,NOW()) AS horas FROM correo_sync_log WHERE origen='n8n' ORDER BY id DESC LIMIT 1")->fetch() ?: null;
