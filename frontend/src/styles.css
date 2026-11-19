@@ -3876,6 +3876,122 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
 .estado-alertas {
   border-left-width: 3px;
 }
+.tag,
+.badge,
+.nb,
+.cliente-satbk,
+.equipo-fuente,
+.equipo-tipo-pill,
+.estado-chip,
+.filter-bar-count {
+  min-height: 24px;
+  border-radius: 999px;
+  font-weight: 720;
+  line-height: 1;
+}
+.estado-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid var(--bd);
+  background: var(--bg);
+  color: var(--mut);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.estado-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .7;
+}
+.estado-chip.ok {
+  border-color: color-mix(in srgb, var(--ok) 34%, var(--bd));
+  background: var(--okb);
+  color: var(--ok);
+}
+.equipo-navegable-estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+.equipo-asignacion-reglas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.equipo-asignacion-reglas span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--tx);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.equipo-asignacion-reglas strong {
+  color: var(--mut);
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.inicio-equipo {
+  grid-template-rows: 78px minmax(28px, auto) 24px 22px;
+  min-height: 202px;
+  height: auto;
+  border-left: 3px solid var(--bd);
+}
+.inicio-equipo.prioridad-error {
+  border-left-color: var(--er);
+}
+.inicio-equipo.prioridad-running {
+  border-left-color: #15945b;
+}
+.inicio-equipo-titulo {
+  height: 78px;
+}
+.inicio-equipo-conteos {
+  min-height: 28px;
+  overflow: hidden;
+}
+.inicio-equipo-accion {
+  align-self: end;
+  justify-self: start;
+  color: var(--brand-t);
+  font-size: 12px;
+  font-weight: 760;
+}
+.inicio-equipo:hover .inicio-equipo-accion,
+.inicio-equipo:focus-visible .inicio-equipo-accion {
+  text-decoration: underline;
+}
+.badge {
+  max-width: 100%;
+}
+.badge.running {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wrap tbody tr.err td:first-child,
+.wrap tbody tr.pen td:first-child,
+.wrap tbody tr.warn td:first-child,
+.wrap tbody tr.run td:first-child,
+.wrap tbody tr.por-clasificar td:first-child {
+  box-shadow: inset 3px 0 0 var(--bd);
+}
+.wrap tbody tr.err td:first-child { box-shadow: inset 3px 0 0 var(--er); }
+.wrap tbody tr.pen td:first-child,
+.wrap tbody tr.warn td:first-child,
+.wrap tbody tr.por-clasificar td:first-child { box-shadow: inset 3px 0 0 var(--wa); }
+.wrap tbody tr.run td:first-child { box-shadow: inset 3px 0 0 var(--brand-t); }
 
 @media (max-width: 760px) {
   main { gap: 13px; padding: 18px 16px 30px; }
@@ -3890,6 +4006,7 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   .filter-bar-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .filter-bar-controls .filter-bar-search { grid-column: span 2; }
   .filter-bar-actions { grid-column: span 2; }
+  .equipo-asignacion-reglas { grid-template-columns: minmax(0, 1fr); }
   .informe-resumen { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .equipo-historial-columnas.con-monitor { grid-template-columns: minmax(0, 1fr); }
   .token-form { grid-template-columns: minmax(0, 1fr) 150px; }
@@ -3908,8 +4025,22 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   .filter-bar-controls .filter-bar-search { grid-column: 1 / -1; }
   .filter-bar-actions { grid-column: 1 / -1; }
   .cliente-grid { grid-template-columns: minmax(0, 1fr); }
+  .filter-bar-controls { grid-template-columns: minmax(0, 1fr); }
   .equipo-asignacion-campos { grid-template-columns: minmax(0, 1fr); }
   .equipo-asignacion-campos .btn { width: 100%; }
+  .filter-bar-controls .filter-bar-search,
+  .filter-bar-actions { grid-column: 1 / -1; }
+  .inicio-equipo {
+    grid-template-rows: auto auto auto auto;
+    min-height: 0;
+  }
+  .inicio-equipo-titulo {
+    height: auto;
+    min-height: 72px;
+  }
+  .inicio-equipo-conteos {
+    min-height: 0;
+  }
   .page-heading h1, .page-heading h2, .eventos-heading h1, .eventos-heading h2, .mapeo-heading h2, .directorio-heading h2 { font-size: 21px; }
 }
 @media print {

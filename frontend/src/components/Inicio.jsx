@@ -133,7 +133,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
   };
   return <section className="inicio-page" aria-labelledby="inicio-titulo">
     <PageHeading id="inicio-titulo" eyebrow="Centro de operaciones" title="Estado de los equipos"
-      description="Errores pendientes y copias que se están realizando en los equipos."
+      description="Incidencias abiertas y copias en curso."
       actions={<button className="btn sec" type="button" onClick={reintentar} disabled={cargando}>Actualizar</button>} />
     <div className="inicio-resumen" aria-label="Métricas de incidencias">
       <article className="inicio-metrica"><span>Equipos con errores</span><strong>{equiposConErrores}</strong></article>
@@ -143,7 +143,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
       <article className="inicio-metrica"><span>Clientes afectados</span><strong>{clientesAfectados}</strong></article>
       <article className="inicio-metrica"><span>Equipos sin asignar</span><strong>{sinAsignar}</strong></article>
     </div>
-    <BarraFiltros title="Filtrar equipos" description="Prioriza las incidencias que requieren atención."
+    <BarraFiltros title="Filtrar equipos"
       search={{ id: 'inicio-busqueda', value: busqueda, placeholder: 'Equipo, cliente, software o evento',
         onChange: (event) => setBusqueda(event.target.value) }}
       fields={[
@@ -171,18 +171,23 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         const destino = `${grupo}/equipos/${item.id}`;
         const ultimoEvento = item.errores_evento?.[0]?.titulo;
         const productosEnCurso = item.productos_copia_en_curso || [];
-        return <a className="inicio-equipo" key={item.id} href={rutaHref(destino)}
+        const tieneCopias = Number(item.errores_pendientes || 0) > 0;
+        const tieneEventos = Number(item.total_errores_evento || 0) > 0;
+        const tieneCurso = Number(item.copias_en_curso || 0) > 0;
+        const prioridad = tieneCopias || tieneEventos ? 'error' : tieneCurso ? 'running' : 'normal';
+        return <a className={`inicio-equipo prioridad-${prioridad}`} key={item.id} href={rutaHref(destino)}
         onClick={(event) => { event.preventDefault(); onNavigate(destino); }}>
         <div className="inicio-equipo-titulo"><div><span className="eyebrow">{item.cliente || 'Sin asignar'}</span>
           <h3>{item.monitor_alias || item.nombre}</h3><p>{[item.software, item.programa, item.tipo === 'servidor' ? 'Servidor' : item.tipo === 'usuario' ? 'Equipo' : null].filter(Boolean).join(' · ')}</p></div>
           <span aria-hidden="true" className="inicio-equipo-flecha">›</span></div>
         <div className="inicio-equipo-conteos">
-          <span className={Number(item.errores_pendientes) ? 'badge error' : 'badge'}>{item.errores_pendientes} errores de copia</span>
-          <span className={Number(item.total_errores_evento) ? 'badge critical' : 'badge'}>{item.total_errores_evento} errores/eventos</span>
-          {Number(item.copias_en_curso) > 0 && <span className="badge running">{item.copias_en_curso} en curso{productosEnCurso.length ? ` · ${productosEnCurso.join(', ')}` : ''}</span>}
+          <span className={tieneCopias ? 'badge error' : 'badge'}>Copias: {item.errores_pendientes}</span>
+          <span className={tieneEventos ? 'badge critical' : 'badge'}>Eventos: {item.total_errores_evento}</span>
+          {tieneCurso && <span className="badge running">En curso: {item.copias_en_curso}{productosEnCurso.length ? ` · ${productosEnCurso.join(', ')}` : ''}</span>}
         </div>
         {ultimoEvento ? <p className="inicio-ultimo-error">Último evento: {ultimoEvento}</p>
           : <span className="inicio-ultimo-error-placeholder" aria-hidden="true" />}
+        <span className="inicio-equipo-accion">Revisar ficha</span>
       </a>;
       })}
     </div> : equipos.length ? <div className="empty-state"><strong>No hay equipos coincidentes</strong>

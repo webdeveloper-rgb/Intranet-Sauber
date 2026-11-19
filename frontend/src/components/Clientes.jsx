@@ -363,10 +363,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   }, [equipoAbierto, cargarHistorial]);
 
   const clientes = cat?.clientes || [];
+  const clientesConSatbk = clientes.filter((cliente) => cliente.tiene_satbk);
+  const clientesSinSatbk = clientes.filter((cliente) => !cliente.tiene_satbk);
   const softwaresEquipo = [...new Set(equipos.map((equipo) => equipo.software).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
   const idsClientesActivos = new Set(clientes.map((cliente) => Number(cliente.id)));
-  const idsClientesSinSatbk = new Set(clientes.filter((cliente) => !cliente.tiene_satbk).map((cliente) => Number(cliente.id)));
+  const idsClientesSinSatbk = new Set(clientesSinSatbk.map((cliente) => Number(cliente.id)));
   const equiposClienteInactivo = equipos.filter((equipo) => equipo.cliente_id && !idsClientesActivos.has(Number(equipo.cliente_id)));
   const equiposClienteSinSatbk = equipos.filter((equipo) => equipo.cliente_id && idsClientesSinSatbk.has(Number(equipo.cliente_id)));
   const clienteActual = clienteAbierto === 'sin-asignar'
@@ -471,6 +473,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const clienteElegido = seleccionGuardadaValida
     ? seleccionGuardada
     : asignacionSinSatbk ? '' : clienteActualElegible ? equipoActual?.cliente_id : equipoSugerencia?.id ?? '';
+  const clienteElegidoInfo = clientes.find((cliente) => Number(cliente.id) === Number(clienteElegido));
   const hayCambioAsignacion = Number(clienteElegido) > 0 && Number(clienteElegido) !== Number(equipoActual?.cliente_id || 0);
   const u = cat?.ultima;
 
@@ -617,7 +620,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             equipoActual.tiene_monitor ? 'Agente de Monitorización' : null,
             equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')
           : clienteActual ? `${equiposCliente.length} equipos · ${totalServidores} servidores`
-            : 'Clientes SATBK, asignaciones y estado de los equipos.'}
+            : 'Clientes, asignaciones y equipos.'}
         actions={equipoActual?.tiene_monitor
           ? <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />
           : !equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
@@ -639,17 +642,22 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       {equipoActual && <section className="equipo-asignacion" aria-labelledby="titulo-asignacion-equipo">
         <div className="equipo-asignacion-heading">
           <div><h3 id="titulo-asignacion-equipo">Asignación de cliente</h3>
-            <p>{equipoActual.cliente_id ? 'Cliente vinculado a este equipo.' : 'Selecciona el cliente al que pertenece este equipo.'}</p></div>
+            <p>{equipoActual.cliente_id ? 'Cliente actual y cambio de asignación.' : 'Elige el cliente destino.'}</p></div>
           {clienteAsignadoActual && <span className="equipo-asignacion-actual">{clienteAsignadoActual.nombre}</span>}
         </div>
+        <div className="equipo-asignacion-reglas" aria-label="Resumen de asignación">
+          <span><strong>Regla</strong>{equipoActual.tiene_copias ? 'Solo clientes con SATBK' : 'SATBK opcional'}</span>
+          <span><strong>Origen</strong>{equipoActual.tiene_copias ? 'Copias recibidas' : 'Sin copias'}</span>
+          <span><strong>Selección</strong>{clienteElegidoInfo ? `${clienteElegidoInfo.nombre} · ${clienteElegidoInfo.tiene_satbk ? 'SATBK' : 'Sin SATBK'}` : 'Pendiente'}</span>
+        </div>
         {asignacionSinSatbk && <div className="estado-alertas compacto" role="status">
-          <p>Este equipo ya tiene copias y está asignado a {clienteAsignadoActual.nombre}, que no tiene SATBK. La asignación actual se conserva; elige un cliente con SATBK para cambiarla.</p>
+          <p>Asignación conservada: el cliente actual no tiene SATBK. Para cambiar, elige un cliente con SATBK.</p>
         </div>}
         {equipoActual.tiene_copias && !clientesAsignables.length && <div className="estado-alertas compacto" role="status">
           <p>No hay clientes con SATBK en el catálogo. Actualiza la lista de clientes antes de asignar este equipo.</p>
         </div>}
         {!equipoActual.cliente_id && equipoSugerencia && <p className="equipo-asignacion-sugerencia">
-          Posible cliente: <strong>{equipoSugerencia.nombre}</strong>. Revisa la sugerencia antes de vincular.
+          Sugerencia: <strong>{equipoSugerencia.nombre}</strong>
         </p>}
         <div className="equipo-asignacion-campos">
           <label htmlFor={`cliente-equipo-${equipoActual.id}`}>{equipoActual.cliente_id ? 'Cambiar cliente' : 'Buscar cliente'}</label>
@@ -691,11 +699,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'todos'}
               onClick={() => setFiltroSatbk('todos')}>Todos <span>{clientes.length}</span></button>
             <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''} aria-pressed={filtroSatbk === 'con'}
-              onClick={() => setFiltroSatbk('con')}>Con SATBK <span>{clientes.filter((cliente) => cliente.tiene_satbk).length}</span></button>
+              onClick={() => setFiltroSatbk('con')}>Con SATBK <span>{clientesConSatbk.length}</span></button>
             <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sin'}
-              onClick={() => setFiltroSatbk('sin')}>Sin SATBK <span>{clientes.filter((cliente) => !cliente.tiene_satbk).length}</span></button>
+              onClick={() => setFiltroSatbk('sin')}>Sin SATBK <span>{clientesSinSatbk.length}</span></button>
           </div>
-          <small>El filtro solo cambia la vista; no modifica clientes ni asignaciones.</small>
         </div>
       </BarraFiltros>}
 
@@ -801,6 +808,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                     <span className="equipo-navegable-info">
                       <strong>{equipo.nombre}{equipo.monitor_alias && <small className="equipo-alias-lista"> · {equipo.monitor_alias}</small>}</strong>
                       <span>{unir(equipo.software, equipo.programa || TIPOS[equipo.tipo], equipo.fecha_creacion ? `Alta ${equipo.fecha_creacion}` : null)}</span>
+                      <span className="equipo-navegable-estados">
+                        <span className={`estado-chip${equipo.tiene_copias ? ' ok' : ''}`}>{equipo.tiene_copias ? 'Copias' : 'Sin copias'}</span>
+                        <span className={`estado-chip${equipo.tiene_monitor ? ' ok' : ''}`}>{equipo.tiene_monitor ? 'Agente' : 'Sin agente'}</span>
+                      </span>
                     </span>
                     <span className="equipo-tipo-pill">{equipo.tipo === 'servidor' ? 'Servidor' : 'Equipo'}</span>
                     <span className="equipo-tarjeta-flecha">›</span>
