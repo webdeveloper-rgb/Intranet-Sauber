@@ -1,0 +1,3 @@
+/* Preserve the shared cascade before the dashboard overrides. */
+@import './base.css';
+@import './dashboard.css';

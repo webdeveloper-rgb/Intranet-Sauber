@@ -3,7 +3,7 @@
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import previewDemo from './preview-demo';
+import previewDemo from './dev/preview/server';
 
 // Para desarrollar: arranca PHP (php -S localhost:8000 en la raíz del repo),
 // inicia sesión en http://localhost:8000/login.php y luego `npm run dev`.

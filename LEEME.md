@@ -4,6 +4,8 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 
 ## Estructura
 
+Consulta el [mapa de carpetas y criterios de organizacion](docs/ESTRUCTURA.md).
+
 La documentacion tecnica de responsabilidades, rutas de datos, acciones API y reglas para cambios esta en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
 Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL del panel, n8n ni las tareas de Plesk. Su implementación está agrupada por responsabilidad dentro de `src/`:
@@ -13,10 +15,13 @@ api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
 monitor-enroll.php, monitor-ingest.php, monitor-token.php Alta y recepción de informes de Monitor-Equipos
 sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
 index.php, login.php, clientes.php Páginas del panel
-src/Http/                          Implementaciones de endpoints y respuesta JSON común
+src/Http/Endpoints/                Implementaciones de endpoints HTTP
+src/Http/Pages/                    Páginas de entrada, login y redirecciones
+src/Http/JsonResponse.php          Respuesta JSON común
 src/Http/Controllers/              Acciones de lectura, historial, clientes, usuarios, equipos y revisión
 src/Console/                       Comandos de sincronización, migración y limpieza
-src/Backup/                        Ingesta de avisos, equipos y copias
+src/Backup/                        Ingesta de avisos y consulta de copias
+src/Equipment/                     Gestión y asignación de equipos
 src/Monitoring/                    Informes de hardware y alertas de salud
 src/Integration/ClientApi.php      Sincronización e inicio de sesión con la API de clientes
 src/Security/ApiTokens.php          Creación y validación de tokens de integración

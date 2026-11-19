@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli') {
 define('SCHEMA_MIGRATING', true);
 require __DIR__ . '/../bootstrap.php';
 require __DIR__ . '/../Integration/ClientApi.php';
-require __DIR__ . '/../Backup/EquipmentService.php';
+require __DIR__ . '/../Equipment/EquipmentService.php';
 require_once __DIR__ . '/../Monitoring/MonitorService.php';
 require __DIR__ . '/../Security/ApiTokens.php';
 

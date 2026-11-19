@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/src/Http/MonitorBackupStatusEndpoint.php';
+require __DIR__ . '/src/Http/Endpoints/MonitorBackupStatusEndpoint.php';

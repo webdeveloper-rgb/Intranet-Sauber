@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/src/Http/MonitorTokenEndpoint.php';
+require __DIR__ . '/src/Http/Endpoints/MonitorTokenEndpoint.php';
