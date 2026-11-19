@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "preview:demo": "vite --mode demo --host 127.0.0.1",
     "build": "vite build"
   },
   "dependencies": {

@@ -99,6 +99,16 @@ frontend/src/
   components/           Header, Kpis, Filtros, Tabla, Detalle, Revision, Seguimiento, Notas, Historial, Usuarios
 ```
 
+## Preview local de diseño
+
+Sin PHP ni base de datos, ejecuta `npm.cmd run preview:demo` desde `frontend/`
+y abre la URL local indicada por Vite (normalmente `http://127.0.0.1:5173/`).
+La preview muestra datos ficticios y un aviso permanente. Permite revisar el resumen,
+la navegación y las vistas principales; las modificaciones y las integraciones reales
+están desactivadas. Para detenerla, pulsa `Ctrl+C` en la terminal.
+Este modo solo se activa en el servidor de desarrollo con `--mode demo` y no cambia
+el comportamiento del panel compilado para producción.
+
 ## Usuarios
 El acceso se valida con las credenciales personales en la API y los usuarios configurados en `api_sync.usuarios_permitidos`. La primera vez que alguien inicia sesión se crea un único perfil local ligado al ID de usuario de la API; iniciar con DNI o correo no crea cuentas separadas. Configura en `admins` el DNI o correo exacto de cada administrador. Los intentos fallidos se limitan persistentemente por IP y usuario. Las contraseñas se gestionan en la API.
 

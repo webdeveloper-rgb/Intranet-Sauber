@@ -97,6 +97,28 @@ Los cambios de esquema deben hacerse mediante migracion versionada en `src/Conso
 
 La lista diaria consulta las ultimas 24 horas. Los historiales se cargan con cursor estable (fecha e ID) para paginar sin saltos. `App.jsx` comprueba novedades mientras la sesion esta activa.
 
+## Resumen operativo
+
+La portada usa `components/Resumen.jsx` y la acción de lectura autenticada `dashboard_resumen`.
+La estructura común se compone del menú lateral y la cabecera de `Header.jsx`; sus estilos
+y los del resumen están en `frontend/src/dashboard.css`, importado después de `styles.css`.
+`Inicio.jsx` conserva la redirección de enlaces antiguos de equipo hacia la ficha de Clientes.
+
+El resumen calcula el total de equipos y los equipos sin asignar sobre todo el parque.
+Incluye en la cola las incidencias existentes, las copias en curso, los equipos sin copia
+esperada según su calendario y los agentes con informe previo que no informan desde hace
+más de 24 horas. Este último indicador no confirma que el equipo esté desconectado.
+La prioridad distingue hardware crítico, servidores con fallos o copias ausentes, otras
+incidencias y copias en curso. Los eventos de Windows y las alertas críticas de hardware
+se muestran por separado. La cola se filtra y pagina en el navegador.
+
+La distribución de copias cubre las últimas 24 horas y suma el historial y únicamente el
+staging sin importar, evitando duplicados. Describe los registros conservados, no una
+serie histórica inmutable: la resolución de una revisión puede eliminar errores antiguos.
+El estado de n8n aplica `ingest_alert_hours`; el de clientes muestra la última sincronización.
+El resumen se actualiza con las novedades globales, cada minuto con la pestaña visible
+y manualmente. Un error conserva los datos anteriores y muestra un aviso.
+
 ## Reglas para cambios
 
 - No pongas secretos en frontend, Git, logs ni el workflow exportado. `config/config.php` es local y no debe subirse al repositorio.

@@ -3,13 +3,14 @@
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import previewDemo from './preview-demo';
 
 // Para desarrollar: arranca PHP (php -S localhost:8000 en la raíz del repo),
 // inicia sesión en http://localhost:8000/login.php y luego `npm run dev`.
 const PHP = process.env.PHP_URL || 'http://localhost:8000';
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode, command }) => ({
+  plugins: [react(), ...(mode === 'demo' && command === 'serve' ? [previewDemo()] : [])],
   publicDir: false,
   server: {
     proxy: {
@@ -34,4 +35,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

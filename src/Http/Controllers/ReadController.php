@@ -371,6 +371,61 @@ final class ReadController
             out(monitor_eventos_listar(db(), $page, $search, $level, $equipoId, $dateFrom ?: null, $dateTo ?: null));
         }
 
+        if ($action === 'dashboard_resumen') {
+            $pdo = db();
+            asegurar_tablas_equipos($pdo);
+            asegurar_tablas_sync($pdo);
+            $parque = $pdo->query("SELECT e.id,e.nombre,e.monitor_alias,e.tipo,e.cliente_id,c.nombre AS cliente,
+                (e.monitor_report IS NOT NULL) AS tiene_monitor,
+                (e.monitor_report IS NOT NULL AND (e.monitor_last_seen IS NULL
+                    OR e.monitor_last_seen < UTC_TIMESTAMP() - INTERVAL 24 HOUR)) AS sin_informe
+                FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id")->fetchAll();
+            $cola = [];
+            foreach (dashboard_inicio_listar($pdo) as $equipo) $cola[(int) $equipo['id']] = $equipo;
+            $sinCopia = [];
+            foreach (copias_sin_recibir_cache($pdo) as $copia) {
+                $id = (int) str_replace('sin-copia-', '', (string) $copia['id']);
+                $sinCopia[$id] = true;
+            }
+            $criticos = [];
+            foreach ($pdo->query("SELECT equipo_id,COUNT(*) AS total FROM monitor_alertas WHERE activo=1 AND severidad='critical' GROUP BY equipo_id")->fetchAll() as $alerta) {
+                $criticos[(int) $alerta['equipo_id']] = (int) $alerta['total'];
+            }
+            $sinAsignar = 0;
+            $sinInforme = 0;
+            $agentes = 0;
+            foreach ($parque as $equipo) {
+                $id = (int) $equipo['id'];
+                $sinAsignar += $equipo['cliente_id'] === null ? 1 : 0;
+                $sinInforme += (int) $equipo['sin_informe'];
+                $agentes += (int) $equipo['tiene_monitor'];
+                if (!isset($cola[$id]) && (isset($sinCopia[$id]) || $equipo['sin_informe'])) {
+                    $cola[$id] = $equipo + ['errores_pendientes' => 0, 'total_errores_evento' => 0, 'copias_en_curso' => 0];
+                }
+                if (isset($cola[$id])) {
+                    $cola[$id]['sin_copia'] = isset($sinCopia[$id]);
+                    $cola[$id]['sin_informe'] = (bool) $equipo['sin_informe'];
+                    $cola[$id]['critico'] = isset($criticos[$id]);
+                    $cola[$id]['alertas_hardware'] = $criticos[$id] ?? 0;
+                    $cola[$id]['eventos_windows'] = max(0, (int) $cola[$id]['total_errores_evento'] - ($criticos[$id] ?? 0));
+                }
+            }
+            // Cuenta el historial y solo el staging pendiente para evitar duplicar avisos importados.
+            $copias = $pdo->query("SELECT estado,COUNT(*) AS total FROM (
+                SELECT estado FROM copias WHERE fecha >= NOW() - INTERVAL 24 HOUR
+                UNION ALL SELECT estado FROM correo_copias WHERE importada=0 AND fecha >= NOW() - INTERVAL 24 HOUR
+                ) ultimas GROUP BY estado")->fetchAll();
+            $ingesta = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok,
+                TIMESTAMPDIFF(HOUR,inicio,NOW()) AS horas FROM correo_sync_log WHERE origen='n8n' ORDER BY id DESC LIMIT 1")->fetch() ?: null;
+            $sync = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha,ok FROM sync_log ORDER BY id DESC LIMIT 1")->fetch() ?: null;
+            if ($ingesta) $ingesta['retrasada'] = (int) $ingesta['horas'] >= max(1, (int) cfg('ingest_alert_hours', 24));
+            out(['equipos' => array_values($cola), 'resumen' => [
+                'total_equipos' => count($parque), 'sin_asignar' => $sinAsignar,
+                'sin_informe' => $sinInforme, 'agentes' => $agentes, 'sin_copia' => count($sinCopia),
+            ], 'copias' => $copias, 'integraciones' => ['ingesta' => $ingesta, 'clientes' => $sync],
+                'actualizado' => gmdate('c')]);
+        }
+
         if ($action === 'panel_inicio') {
             out(['equipos' => dashboard_inicio_listar(db())]);
         }

@@ -15,6 +15,7 @@ import Usuarios from './components/Usuarios';
 import Eventos from './components/Eventos';
 import Notificaciones from './components/Notificaciones';
 import Inicio from './components/Inicio';
+import Resumen from './components/Resumen';
 import InformeCopias from './components/InformeCopias';
 import PageHeading from './components/PageHeading';
 import Paginacion from './components/Paginacion';
@@ -195,8 +196,9 @@ export default function App() {
         onNotificaciones={() => { setCuentaAbierta(false); setNotificacionesAbiertas(true); }} />
       <main>
         {!sesion && vista !== 'copias' ? estadoSesion : vista === 'inicio' ? (
-          sesion ? <Inicio key={`inicio-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} sesion={sesion}
+          sesion ? (ruta.equipoId ? <Inicio key={`inicio-${ruta.equipoId}`} equipoId={ruta.equipoId} sesion={sesion}
             refreshSignal={actualizacionEquipos} onNavigate={navegar} />
+            : <Resumen refreshSignal={actualizacionEquipos} onNavigate={navegar} />)
             : estadoSesion
         ) : vista === 'informes' ? (
           sesion ? <InformeCopias onNavigate={navegar} /> : estadoSesion
