@@ -11,6 +11,50 @@ declare(strict_types=1);
 
 const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'MicroFocus', 'Veeam', 'VMware', 'Otro'];
 const INGESTA_MAX_ITEMS = 100;
+
+/** Detecta avisos de prueba sin confundir nombres de equipos o pruebas de restauracion. */
+function ingesta_es_prueba($item): bool
+{
+    if (!is_array($item)) {
+        return false;
+    }
+    foreach (['es_prueba', 'is_test', 'test_message'] as $field) {
+        if (in_array($item[$field] ?? null, [true, 1, '1', 'true'], true)) {
+            return true;
+        }
+    }
+    foreach (['resultado', 'resultado_original', 'tipo_mensaje', 'message_type'] as $field) {
+        $value = $item[$field] ?? null;
+        if (is_string($value) && in_array(strtoupper(trim($value)), ['TEST', 'PRUEBA', 'TEST_MESSAGE', 'TEST_EMAIL', 'TEST_NOTIFICATION'], true)) {
+            return true;
+        }
+    }
+    // El asunto original debe llegar desde n8n, incluso si la IA indica CORRECTA.
+    foreach (['asunto', 'subject', 'origen', 'cuerpo', 'body', 'texto', 'text', 'html', 'textPlain', 'textHtml', 'evidencia', 'clasificacion_evidencia', 'motivo', 'desc_error'] as $field) {
+        if (!isset($item[$field]) || !is_string($item[$field])) {
+            continue;
+        }
+        $text = html_entity_decode(strip_tags($item[$field]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\s+/u', ' ', $text);
+        if (preg_match('/\b(?:mensaje|correo|email|e-mail|notificaci(?:[oó]|\x{FFFD}|Ã³)n|env[ií]o)\s+(?:de\s+)?prueba\b|\btest\s+(?:e-?mail|message|notification)\b|\b(?:e-?mail|message|notification)\s+test\b/iu', $text)) {
+            return true;
+        }
+        if (in_array($field, ['asunto', 'subject', 'origen'], true)
+            && preg_match('/^\s*(?:\[(?:TEST|PRUEBA)\]|(?:TEST|PRUEBA)\s*:)|^\s*(?:TEST|PRUEBA)\s*$|(?:^|\s)[|–—-]\s*(?:TEST|PRUEBA)\s*$/iu', $text)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Filtra antes de normalizar o abrir una transaccion: una prueba nunca genera datos. */
+function ingesta_recibir(PDO $pdo, $item): array
+{
+    if (ingesta_es_prueba($item)) {
+        return ['ignorado' => true, 'motivo' => 'mensaje_de_prueba'];
+    }
+    return ingesta_guardar($pdo, ingesta_normalizar(ingesta_adaptar($item)));
+}
 // Programas (software de gestión del cliente) que se copian aparte de los equipos de usuario y los servidores.
 const INGESTA_PROGRAMAS = ['EuroAgro', 'EuroPos', 'EuroExtintor', 'EuroMetrics', 'DivaCon', 'DivaGes', 'BDP'];
 

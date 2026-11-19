@@ -60,12 +60,17 @@ try {
     $pdo = db();
     asegurar_tablas_equipos($pdo);
 
-    $nuevos = $duplicados = $erroresEliminados = 0;
+    $nuevos = $duplicados = $erroresEliminados = $pruebasIgnoradas = 0;
     $errores = [];
     $detalle = [];
     foreach ($items as $i => $item) {
         try {
-            $r = ingesta_guardar($pdo, ingesta_normalizar(ingesta_adaptar($item)));
+            $r = ingesta_recibir($pdo, $item);
+            if (!empty($r['ignorado'])) {
+                $pruebasIgnoradas++;
+                $detalle[] = ['indice' => $i, 'ignorado' => true, 'motivo' => $r['motivo']];
+                continue;
+            }
             $r['nuevo'] ? $nuevos++ : $duplicados++;
             $erroresEliminados += (int) ($r['errores_eliminados'] ?? 0);
             $detalle[] = [
@@ -99,10 +104,11 @@ try {
     // Registro de la última recepción (lo muestra la pantalla de equipos)
     try {
         $msg = mb_substr("token «{$token['nombre']}» · recibidos " . count($items) . " · duplicados $duplicados"
+            . ($pruebasIgnoradas > 0 ? " · mensajes de prueba ignorados $pruebasIgnoradas" : '')
             . ($erroresEliminados > 0 ? " · errores eliminados tras copia OK $erroresEliminados" : '')
             . ($errores ? ' · rechazados ' . count($errores) . ': ' . $errores[0]['error'] : ''), 0, 500);
         $pdo->prepare("INSERT INTO correo_sync_log (inicio,fin,ok,nuevos,ignorados,mensaje,origen) VALUES (NOW(),NOW(),?,?,?,?,'n8n')")
-            ->execute([$errores ? 0 : 1, $nuevos, count($errores), $msg]);
+            ->execute([$errores ? 0 : 1, $nuevos, count($errores) + $pruebasIgnoradas, $msg]);
     } catch (Throwable $e) {
         error_log('[copias] log ingesta: ' . $e->getMessage());
     }
@@ -112,6 +118,7 @@ try {
         'recibidos' => count($items),
         'nuevos' => $nuevos,
         'duplicados' => $duplicados,
+        'ignorados' => $pruebasIgnoradas,
         'detalle' => $detalle,
         'errores' => $errores
     ], $nuevos + $duplicados > 0 || !$errores ? 200 : 422);
