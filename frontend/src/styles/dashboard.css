@@ -1,4 +1,6 @@
 /* Dashboard shell and operational summary. Shared views keep their existing styles. */
+.clientes-actualizar { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 176px; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .clientes-actualizar .fa-spin { animation: none; } }
 .equipo-combinar { padding: 20px; border: 1px solid var(--bd); border-radius: 8px; display: grid; gap: 14px; min-width: 0; }
 .equipo-combinar h3, .equipo-combinar h4, .equipo-combinar p { margin: 0; }
 .equipo-combinar p, .equipo-combinar small { color: var(--mut); }

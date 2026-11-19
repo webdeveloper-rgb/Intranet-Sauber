@@ -1,3 +1,4 @@
+import Icon from '../../../shared/ui/Icon';
 import AliasEquipo from '../../equipment/components/AliasEquipo';
 import TipoEquipoEditor from '../../equipment/components/TipoEquipoEditor';
 import RustDeskAcceso from '../../equipment/components/RustDeskAcceso';
@@ -449,7 +450,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                 <strong>{otro.nombre}</strong><span>{otro.cliente || 'Sin asignar'} · {unir(otro.software, otro.programa, otro.tipo ? TIPOS[otro.tipo] : null) || 'Sin tipo'}</span>
               </button>)}</div>
             </details>}
-    {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
+    {admin && <button className="btn sec clientes-actualizar" type="button" disabled={sync} aria-busy={sync} onClick={sincronizar}>
+      <Icon name="refresh" size={14} className={sync ? 'fa-spin' : ''} />
+      <span>{sync ? 'Actualizando…' : 'Actualizar clientes'}</span>
+    </button>}
   </>;
   const copiasFicha = equipoActual && <div className="ficha-copias">
     <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
@@ -517,7 +521,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           { id: 'clientes-programa', label: 'Programa de copia', type: 'select', value: softwareCliente,
             onChange: (event) => setSoftwareCliente(event.target.value), options: [['', 'Todos'], ...softwaresEquipo.map((nombre) => [nombre, nombre])] },
         ]}
-        actions={admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
+        actions={admin && <button className="btn sec clientes-actualizar" type="button" disabled={sync} aria-busy={sync} onClick={sincronizar}>
+      <Icon name="refresh" size={14} className={sync ? 'fa-spin' : ''} />
+      <span>{sync ? 'Actualizando…' : 'Actualizar clientes'}</span>
+    </button>}
         count={`${clientesFiltrados.length} de ${clientes.length} clientes`}
         activeFilters={filtrosActivosClientes} onRemoveFilter={quitarFiltroCliente} onClear={limpiarFiltrosClientes}>
         <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por SATBK">
@@ -559,7 +566,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             onChange: (event) => setFiltrosEquipo((actual) => ({ ...actual, hasta: event.target.value })) },
         ]}
         actions={<>
-          {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
+          {admin && <button className="btn sec clientes-actualizar" type="button" disabled={sync} aria-busy={sync} onClick={sincronizar}>
+      <Icon name="refresh" size={14} className={sync ? 'fa-spin' : ''} />
+      <span>{sync ? 'Actualizando…' : 'Actualizar clientes'}</span>
+    </button>}
         </>}
         count={`${equiposFiltrados.length} equipos`} activeFilters={filtrosActivosEquipos}
         onRemoveFilter={quitarFiltroEquipo} onClear={limpiarFiltrosEquipo} />}
@@ -574,7 +584,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       </div>}
       {fallo && <div className="errbox" role="alert">{fallo} <button className="btn sec" onClick={() => cargar()}>Reintentar</button></div>}
       {mensaje && <div className="okmsg" role="status">{mensaje}</div>}
-      {sync && <p className="sync-estado" role="status" aria-live="polite">Actualizando los clientes.</p>}
+      {sync && <span className="sr-only" role="status" aria-live="polite">Actualizando los clientes.</span>}
       {admin && cat && !cat.configurado && <div className="errbox">La API de clientes no está configurada en <code>config/config.php</code>.</div>}
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
