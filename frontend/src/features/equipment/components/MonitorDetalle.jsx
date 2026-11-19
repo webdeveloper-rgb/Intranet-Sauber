@@ -114,7 +114,7 @@ function agregarListaPdf(rows, items, prefix, fields) {
   });
 }
 
-function agregarSeccionPdf(doc, titulo, rows, y) {
+function agregarSeccionPdf(doc, autoTable, titulo, rows, y) {
   if (!rows.length) return y;
   if (y > doc.internal.pageSize.getHeight() - 38) {
     doc.addPage();
@@ -176,7 +176,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   let y = 59 + (lineasNombre.length - 1) * 6;
   const identificacion = [];
   agregarDatoPdf(identificacion, 'Cliente', clienteNombre);
-  y = agregarSeccionPdf(doc, 'Resumen del equipo', identificacion, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Resumen del equipo', identificacion, y);
 
   const sistema = [];
   agregarDatoPdf(sistema, 'ID de RustDesk', monitor.rustDeskId);
@@ -188,18 +188,18 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   agregarDatoPdf(sistema, 'Memoria total', bytes(monitor.system?.totalRamBytes));
   agregarDatoPdf(sistema, 'Último arranque de Windows', fecha(monitor.system?.lastBootUtc));
   agregarDatoPdf(sistema, 'Tiempo encendido del PC al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
-  y = agregarSeccionPdf(doc, 'Sistema', sistema, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Sistema', sistema, y);
 
   const software = [];
   agregarDatoPdf(software, 'Antivirus detectado', productosSoftware(monitor.software, 'antivirusProducts'));
   agregarDatoPdf(software, 'Software de copias detectado', productosSoftware(monitor.software, 'backupProducts'));
   agregarDatoPdf(software, 'Licencia de Windows', licenciaWindows(monitor.software));
-  y = agregarSeccionPdf(doc, 'Protección, copias y licencia', software, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Protección, copias y licencia', software, y);
 
   const placa = [];
   agregarDatoPdf(placa, 'Placa base', [monitor.board?.manufacturer, monitor.board?.product].filter(Boolean).join(' · '));
   agregarDatoPdf(placa, 'BIOS', [monitor.board?.biosVendor, monitor.board?.biosVersion, monitor.board?.biosDate].filter(Boolean).join(' · '));
-  y = agregarSeccionPdf(doc, 'Placa base y BIOS', placa, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Placa base y BIOS', placa, y);
 
   const procesadores = [];
   agregarListaPdf(procesadores, monitor.cpus, 'Procesador', [
@@ -207,7 +207,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
     ['Núcleos / procesadores lógicos', (cpu) => [cpu.cores, cpu.logicalProcessors].filter((value) => value != null).join(' / ')],
     ['Frecuencia máxima', (cpu) => cpu.maxClockMHz != null ? `${cpu.maxClockMHz} MHz` : null],
   ]);
-  y = agregarSeccionPdf(doc, 'Procesadores', procesadores, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Procesadores', procesadores, y);
 
   const memoria = [];
   agregarListaPdf(memoria, monitor.ram, 'Módulo', [
@@ -216,14 +216,14 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
     ['Tipo / velocidad', (module) => [module.type, module.speedMHz != null ? `${module.speedMHz} MHz` : null].filter(Boolean).join(' · ')],
     ['Fabricante / referencia', (module) => [module.manufacturer, module.partNumber].filter(Boolean).join(' · ')],
   ]);
-  y = agregarSeccionPdf(doc, 'Memoria RAM', memoria, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Memoria RAM', memoria, y);
 
   const graficas = [];
   agregarListaPdf(graficas, graficasFisicas(monitor.gpus), 'Gráfica', [
     ['Modelo', (gpu) => gpu.name],
     ['Memoria', (gpu) => bytes(gpu.adapterRamBytes)],
   ]);
-  y = agregarSeccionPdf(doc, 'Gráficas', graficas, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Gráficas', graficas, y);
 
   const discos = [];
   agregarListaPdf(discos, monitor.disks, 'Disco', [
@@ -233,7 +233,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
     ['Capacidad física / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
     ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
   ]);
-  y = agregarSeccionPdf(doc, 'Discos', discos, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Discos', discos, y);
 
   const volumenes = [];
   agregarListaPdf(volumenes, monitor.volumes, 'Volumen', [
@@ -241,7 +241,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
     ['Espacio libre / capacidad', espacioVolumen],
     ['Sistema de archivos', (volume) => volume.fileSystem],
   ]);
-  y = agregarSeccionPdf(doc, 'Volúmenes', volumenes, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Volúmenes', volumenes, y);
 
   const baterias = [];
   agregarListaPdf(baterias, monitor.batteries, 'Batería', [
@@ -250,7 +250,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
     ['Salud', (battery) => battery.healthPercent != null ? `${battery.healthPercent}%` : null],
     ['Capacidad de diseño / actual', (battery) => [bytes(battery.designCapacity), bytes(battery.fullChargeCapacity)].filter(Boolean).join(' / ')],
   ]);
-  y = agregarSeccionPdf(doc, 'Baterías', baterias, y);
+  y = agregarSeccionPdf(doc, autoTable, 'Baterías', baterias, y);
 
   const alertasPdf = alertas.filter((alerta) => !(alerta.severidad === 'warning' && alerta.titulo === 'Poco espacio libre'));
   if (alertasPdf.length) {
@@ -258,7 +258,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
       `${alerta.severidad === 'critical' ? 'Crítica' : 'Advertencia'} · ${alerta.titulo || 'Alerta'}`,
       alerta.detalle || 'Sin detalle',
     ]);
-    agregarSeccionPdf(doc, 'Alertas activas', filasAlertas, y);
+    agregarSeccionPdf(doc, autoTable, 'Alertas activas', filasAlertas, y);
   }
 
   const paginas = doc.internal.getNumberOfPages();
