@@ -1,6 +1,6 @@
 // Nodo Code de n8n, modo Run Once for All Items, antes de clasificar con IA.
 // No se inspeccionan nombres de equipos, tareas ni direcciones de correo.
-return $input.all().filter(({ json: item }) => {
+return $input.all().map((item, index) => ({ ...item, pairedItem: { item: index } })).filter(({ json: item }) => {
   const fields = ['subject', 'asunto', 'textPlain', 'textHtml', 'text', 'html', 'body', 'cuerpo'];
   return !fields.some((field) => {
     if (typeof item[field] !== 'string') return false;
