@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 final class ClientController
 {
-    public static function handle(string $action, array $user): bool
+    public static function handle(string $action, array $input, array $user): bool
     {
         if ($action === 'sync') {
             exigir_admin($user);
