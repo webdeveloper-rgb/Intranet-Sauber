@@ -1,5 +1,9 @@
 /* Dashboard shell and operational summary. Shared views keep their existing styles. */
-.clientes-actualizar { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 176px; white-space: nowrap; }
+.clientes-actualizar { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: min(176px, 100%); max-width: 100%; white-space: normal; }
+.filter-bar:has(.clientes-actualizar) .filter-bar-controls { display: flex; flex-wrap: wrap; align-items: end; }
+.filter-bar:has(.clientes-actualizar) .filter-bar-controls > label { flex: 1 1 150px; }
+.filter-bar:has(.clientes-actualizar) .filter-bar-controls > .filter-bar-search { flex: 2 1 240px; }
+.filter-bar:has(.clientes-actualizar) .filter-bar-actions { flex: 0 1 auto; max-width: 100%; margin-left: auto; }
 @media (prefers-reduced-motion: reduce) { .clientes-actualizar .fa-spin { animation: none; } }
 .equipo-combinar { padding: 20px; border: 1px solid var(--bd); border-radius: 8px; display: grid; gap: 14px; min-width: 0; }
 .equipo-combinar h3, .equipo-combinar h4, .equipo-combinar p { margin: 0; }
