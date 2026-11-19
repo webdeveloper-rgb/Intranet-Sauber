@@ -7,6 +7,8 @@ import { norm, TIPOS } from '../logic';
 import Tag from './Tag';
 import Detalle from './Detalle';
 import MonitorDetalle from './MonitorDetalle';
+import FichaEquipo from './FichaEquipo';
+import Eventos from './Eventos';
 import RevisionEquipo from './RevisionEquipo';
 import Paginacion from './Paginacion';
 import SelectorCliente from './SelectorCliente';
@@ -253,7 +255,7 @@ function sugerirCliente(clientes, sugerido) {
   return parciales.length === 1 ? parciales[0] : undefined;
 }
 
-export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, onNavigate }) {
+export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, pestana = 'resumen', onNavigate }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
@@ -508,7 +510,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     setMensaje('');
     try {
       const r = await api('equipo_asignar', { id: equipoActual.id, cliente_id });
-      onNavigate(`/clientes/${cliente_id}/equipos/${equipoActual.id}`);
+      onNavigate(`/clientes/${cliente_id}/equipos/${equipoActual.id}?tab=configuracion`, { replace: true });
       setMensaje(`Asignación guardada. ${r.copias_importadas} copia${r.copias_importadas === 1 ? '' : 's'} incorporada${r.copias_importadas === 1 ? '' : 's'}.`);
       await cargar(true);
     } catch (e) { setFallo(e.message); }
@@ -522,7 +524,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     setMensaje('');
     try {
       const r = await api('equipo_desasignar', { id: equipoActual.id });
-      onNavigate(`/clientes/sin-asignar/equipos/${equipoActual.id}`);
+      onNavigate(`/clientes/sin-asignar/equipos/${equipoActual.id}?tab=configuracion`, { replace: true });
       setMensaje(`Equipo desasignado. ${r.copias_desasignadas} copia${r.copias_desasignadas === 1 ? '' : 's'} actualizada${r.copias_desasignadas === 1 ? '' : 's'}.`);
       await cargar(true);
     } catch (e) { setFallo(e.message); }
@@ -596,25 +598,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     onNavigate(`${grupo}/equipos/${otro.id}`);
   };
 
-  return <div className="clientes-page">
-    <section className={`mapeo-panel${equipoActual ? ' equipo-panel-detalle' : ''}`} aria-labelledby="titulo-mapeo">
-      <PageHeading id="titulo-mapeo" className={equipoActual
-        ? `equipo-detalle-heading${equipoActual.tiene_monitor ? ' con-rustdesk' : ''}` : ''}
-        eyebrow={equipoActual ? 'Equipo' : clienteActual ? 'Cliente' : 'Directorio de clientes'}
-        title={equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</>
-          : clienteActual ? clienteActual.nombre : 'Clientes'}
-        description={equipoActual
-          ? unir(equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null,
-            equipoActual.tiene_monitor ? 'Agente de Monitorización' : null,
-            equipoActual.tiene_copias ? 'Con copias' : 'Sin copias recibidas')
-          : clienteActual ? `${equiposCliente.length} equipos · ${totalServidores} servidores`
-            : 'Clientes, asignaciones y equipos.'}
-        actions={equipoActual?.tiene_monitor
-          ? <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />
-          : !equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
-            <strong>{equiposSinAsignar.length}</strong><span>sin asignar</span>
-          </div>} />
-      {equipoActual && <div className="equipo-resumen-grid equipo-resumen-compacto" aria-label="Resumen del equipo">
+  const resumenFicha = equipoActual && (<div className="equipo-resumen-grid equipo-resumen-compacto" aria-label="Resumen del equipo">
         <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
         <div><span>Datos recibidos</span><strong className="equipo-fuentes">
           {equipoActual.tiene_copias && <span className="equipo-fuente">Copias</span>}
@@ -622,12 +606,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           {!equipoActual.tiene_copias && !equipoActual.tiene_monitor && <span>Sin datos</span>}
         </strong></div>
         <div><span>Tipo / programa</span><strong>{unir(equipoActual.tipo ? TIPOS[equipoActual.tipo] : null, equipoActual.programa, equipoActual.software) || 'No especificado'}</strong></div>
-        <div><span>Última copia</span><strong>{historial[0]?.fecha || (cargandoHistorial ? 'Consultando…' : 'Sin copias')}</strong></div>
+        <div><span>Última copia</span><strong>{equipoActual.ultima_copia || historial[0]?.fecha || (historialFallo ? 'No disponible' : cargandoHistorial ? 'Consultando…' : 'Sin copias recibidas')}</strong></div>
         {equipoActual.tiene_monitor && <div><span>Último informe del agente</span><strong>{detalleMonitor?.monitor?.timestampUtc
           ? fechaLocal(detalleMonitor.monitor.timestampUtc) : cargandoMonitor ? 'Consultando…' : falloMonitor ? 'No disponible' : 'Sin informes'}</strong></div>}
-      </div>}
-
-      {equipoActual && <section className="equipo-asignacion" aria-labelledby="titulo-asignacion-equipo">
+      </div>);
+  const configuracionFicha = equipoActual && <>
+    <section className="equipo-asignacion" aria-labelledby="titulo-asignacion-equipo">
         <div className="equipo-asignacion-heading">
           <div><h3 id="titulo-asignacion-equipo">Asignación de cliente</h3>
             <p>{equipoActual.cliente_id ? 'Cliente actual y cambio de asignación.' : 'Elige el cliente destino.'}</p></div>
@@ -661,13 +645,74 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             {guardando === equipoActual.id ? 'Guardando…' : 'Desasignar'}
           </button>}
         </div>
-      </section>}
-
-      {equipoActual && admin && <div className="equipo-editores">
+      </section>
+    {admin && <div className="equipo-editores">
         <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />
         <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />
       </div>}
+    {otrosMismoNombre.length > 0 && <details className="equipo-coincidencias">
+              <summary>{otrosMismoNombre.length} posible{otrosMismoNombre.length === 1 ? '' : 's'} duplicado{otrosMismoNombre.length === 1 ? '' : 's'} por nombre; comprobar antes de combinar</summary>
+              <div>{otrosMismoNombre.map((otro) => <button type="button" key={otro.id} onClick={() => abrirEquipoRelacionado(otro)}>
+                <strong>{otro.nombre}</strong><span>{otro.cliente || 'Sin asignar'} · {unir(otro.software, otro.programa, otro.tipo ? TIPOS[otro.tipo] : null) || 'Sin tipo'}</span>
+              </button>)}</div>
+            </details>}
+    {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
+  </>;
+  const copiasFicha = equipoActual && <div className="ficha-copias">
+    <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
+    <details className="equipo-vigilancia">
+              <summary><span>Avisos por falta de copias</span><strong>{equipoActual.vigilar !== 0 ? 'Activos' : 'Desactivados'}</strong></summary>
+              <div className="equipo-vigilancia-contenido">
+                <label className="equipo-vigilar">
+                  <input type="checkbox" checked={equipoActual.vigilar !== 0} disabled={guardando === equipoActual.id}
+                    onChange={(e) => vigilar(equipoActual, e.target.checked)} /> Avisar si no llegan copias
+                </label>
+                {equipoActual.vigilar !== 0 && <HorarioSemana equipo={equipoActual} onSaved={actualizarHorario} />}
+              </div>
+            </details>
+    <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
+                <div className="historial-equipo-heading">
+                  <h3 id="titulo-historial-equipo">Historial de copias</h3>
+                  <span>{historial.length}{hayMasHistorial ? '+' : ''}</span>
+                </div>
+                {cargandoHistorial && !historial.length ? <div className="mapeo-vacio">Cargando historial…</div>
+                  : historial.length ? <div className="historial-equipo-lista">
+                    {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
+                      onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
+                      <time>{copia.fecha}</time>
+                      <Tag c={copia} />
+                      {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
+                    </button>)}
+                  </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
+                {historialFallo && <div className="errbox" role="alert">{historialFallo}
+                  <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
+                </div>}
+                {hayMasHistorial && <button className="btn sec" disabled={cargandoMas} onClick={() => {
+                  const ultima = historial[historial.length - 1];
+                  cargarHistorial(equipoActual.id, ultima, true);
+                }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
+              </section>
+  </div>;
+  const monitorFicha = equipoActual && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
+                  cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin}
+                  clienteNombre={clienteAsignadoActual?.nombre || ''} />;
 
+  return <div className="clientes-page">
+    <section className={`mapeo-panel${equipoActual ? ' equipo-panel-detalle' : ''}`} aria-labelledby="titulo-mapeo">
+      <PageHeading id="titulo-mapeo" className={equipoActual
+        ? `equipo-detalle-heading${equipoActual.tiene_monitor ? ' con-rustdesk' : ''}` : ''}
+        eyebrow={equipoActual ? 'Equipo' : clienteActual ? 'Cliente' : 'Directorio de clientes'}
+        title={equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</>
+          : clienteActual ? clienteActual.nombre : 'Clientes'}
+        description={equipoActual
+          ? unir(clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar', equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null)
+          : clienteActual ? `${equiposCliente.length} equipos · ${totalServidores} servidores`
+            : 'Clientes, asignaciones y equipos.'}
+        actions={equipoActual?.tiene_monitor
+          ? <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />
+          : !equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
+            <strong>{equiposSinAsignar.length}</strong><span>sin asignar</span>
+          </div>} />
       {!equipoActual && !clienteActual && <BarraFiltros title="Filtrar clientes"
         search={{ id: 'clientes-buscar', value: busqueda, placeholder: 'Buscar cliente…',
           onChange: (event) => setBusqueda(event.target.value) }}
@@ -725,11 +770,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         </>}
         count={`${equiposFiltrados.length} equipos`} activeFilters={filtrosActivosEquipos}
         onRemoveFilter={quitarFiltroEquipo} onClear={limpiarFiltrosEquipo} />}
-
-      {equipoActual && <div className="mapeo-toolbar">
-        {equipoActual.tiene_monitor && <button className="btn" type="button" onClick={() => onNavigate(`/eventos?equipo_id=${equipoActual.id}`)}>Ver eventos de Windows</button>}
-        {admin && <button className="btn sec" type="button" disabled={sync} onClick={sincronizar}>{sync ? 'Sincronizando…' : 'Actualizar clientes'}</button>}
-      </div>}
 
       {(ultimaLectura?.alerta || ultimaLectura?.ok === 0 || u?.ok === 0) && <div className="estado-alertas" role="status">
         {ultimaLectura?.alerta && <p>No se reciben avisos de copias desde hace {ultimaLectura.horas_desde ?? 'más de'} h.</p>}
@@ -814,57 +854,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
               porPagina={paginaEquipos.pageSize} onCambiar={paginaEquipos.setPage} etiqueta="equipos" />
           </>}
 
-          {equipoActual && <div className="equipo-historial-vista">
-            <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
+          {equipoActual && <FichaEquipo key={equipoActual.id} equipo={equipoActual} pestana={pestana}
+            onCambiar={(tab) => onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}/equipos/${equipoActual.id}${tab === 'resumen' ? '' : `?tab=${tab}`}`, { replace: true })}
+            resumen={resumenFicha} copias={copiasFicha} monitor={monitorFicha} configuracion={configuracionFicha}
+            datosMonitor={detalleMonitor} cargandoMonitor={cargandoMonitor} errorMonitor={falloMonitor}
+            eventos={<Eventos key={equipoActual.id} equipoId={equipoActual.id} integrado />} />}
 
-            {otrosMismoNombre.length > 0 && <details className="equipo-coincidencias">
-              <summary>{otrosMismoNombre.length} posible{otrosMismoNombre.length === 1 ? '' : 's'} duplicado{otrosMismoNombre.length === 1 ? '' : 's'} por nombre; comprobar antes de combinar</summary>
-              <div>{otrosMismoNombre.map((otro) => <button type="button" key={otro.id} onClick={() => abrirEquipoRelacionado(otro)}>
-                <strong>{otro.nombre}</strong><span>{otro.cliente || 'Sin asignar'} · {unir(otro.software, otro.programa, otro.tipo ? TIPOS[otro.tipo] : null) || 'Sin tipo'}</span>
-              </button>)}</div>
-            </details>}
-
-            <details className="equipo-vigilancia">
-              <summary><span>Avisos por falta de copias</span><strong>{equipoActual.vigilar !== 0 ? 'Activos' : 'Desactivados'}</strong></summary>
-              <div className="equipo-vigilancia-contenido">
-                <label className="equipo-vigilar">
-                  <input type="checkbox" checked={equipoActual.vigilar !== 0} disabled={guardando === equipoActual.id}
-                    onChange={(e) => vigilar(equipoActual, e.target.checked)} /> Avisar si no llegan copias
-                </label>
-                {equipoActual.vigilar !== 0 && <HorarioSemana equipo={equipoActual} onSaved={actualizarHorario} />}
-              </div>
-            </details>
-            <div className={`equipo-historial-columnas${equipoActual.tiene_monitor ? ' con-monitor' : ''}`}>
-              <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
-                <div className="historial-equipo-heading">
-                  <h3 id="titulo-historial-equipo">Historial de copias</h3>
-                  <span>{historial.length}{hayMasHistorial ? '+' : ''}</span>
-                </div>
-                {cargandoHistorial && !historial.length ? <div className="mapeo-vacio">Cargando historial…</div>
-                  : historial.length ? <div className="historial-equipo-lista">
-                    {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
-                      onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
-                      <time>{copia.fecha}</time>
-                      <Tag c={copia} />
-                      {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
-                    </button>)}
-                  </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
-                {historialFallo && <div className="errbox" role="alert">{historialFallo}
-                  <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
-                </div>}
-                {hayMasHistorial && <button className="btn sec" disabled={cargandoMas} onClick={() => {
-                  const ultima = historial[historial.length - 1];
-                  cargarHistorial(equipoActual.id, ultima, true);
-                }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
-              </section>
-              {equipoActual.tiene_monitor && <details className="equipo-monitor-detalle">
-                <summary>Estado y especificaciones técnicas</summary>
-                <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
-                  cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin}
-                  clienteNombre={clienteAsignadoActual?.nombre || ''} />
-              </details>}
-            </div>
-          </div>}
         </>
       )}
     </section>

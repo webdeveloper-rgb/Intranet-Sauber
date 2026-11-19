@@ -117,6 +117,38 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .equipos-table .equipos-open { color: var(--brand-t); white-space: nowrap; font-size: 12px; }
 .equipos-muted { color: var(--mut); font-size: 12px; }
 .equipos-warning { color: var(--wa); }
+.equipo-panel-detalle .equipo-detalle-heading { position: sticky; top: 65px; z-index: 9; background: var(--bg); padding: 16px 0; border-bottom: 1px solid var(--bd); }
+.ficha-equipo { display: grid; gap: 22px; min-width: 0; }
+.ficha-tabs { display: flex; gap: 22px; overflow-x: auto; border-bottom: 1px solid var(--bd); scrollbar-width: thin; }
+.ficha-tabs > button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; min-height: 48px; padding: 10px 2px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--mut); font-size: 13px; font-weight: 550; cursor: pointer; }
+.ficha-tabs > button:hover { color: var(--tx); }
+.ficha-tabs > button[aria-selected="true"] { color: var(--brand-t); border-bottom-color: var(--brand); }
+.ficha-tab-count { background: var(--erb); color: var(--er); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+.ficha-tab-panel { display: grid; gap: 20px; min-width: 0; }
+.ficha-tab-panel[hidden] { display: none; }
+.ficha-estado-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ficha-card { padding: 22px; border: 1px solid var(--bd); border-radius: 8px; background: var(--card); min-width: 0; }
+.ficha-card-title { display: flex; align-items: center; gap: 10px; color: var(--mut); }
+.ficha-card-title h3 { font-size: 14px; font-weight: 600; margin: 0; color: var(--tx); }
+.ficha-card > p { font-size: 19px; font-weight: 550; margin: 20px 0 7px; }
+.ficha-muted { color: var(--mut); font-size: 12px; }
+.ficha-card > .btn { display: flex; align-items: center; gap: 12px; width: fit-content; margin-top: 24px; font-size: 12px; }
+.ficha-estado-error { color: var(--er); }
+.ficha-alertas { list-style: none; padding: 0; margin: 16px 0 0; }
+.ficha-alertas li { display: flex; align-items: flex-start; gap: 12px; border-top: 1px solid var(--bd); padding: 14px 0; font-size: 13px; }
+.ficha-alertas li:last-child { padding-bottom: 0; }
+.ficha-alertas p { margin: 5px 0 0; color: var(--mut); font-size: 12px; }
+.ficha-copias, .ficha-configuracion { display: grid; gap: 18px; min-width: 0; }
+.ficha-configuracion > .btn { justify-self: start; }
+.ficha-configuracion .equipo-asignacion { margin-top: 0; }
+.ficha-tab-panel .eventos-page { min-width: 0; }
+.ficha-tab-panel .eventos-page .page-heading { border-bottom: 0; padding-bottom: 0; }
+.ficha-tab-panel .eventos-page .page-heading h2 { font-size: 18px; }
+.ficha-tab-panel .historial-equipo { background: var(--card); }
+.equipo-detalle-heading .equipo-rustdesk-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.equipo-detalle-heading .equipo-rustdesk-acciones > .btn { flex: 1 1 auto; width: auto; }
+.equipo-detalle-heading h1 { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .ficha-estado-grid { grid-template-columns: 1fr; gap: 14px; } .ficha-card { padding: 17px; } .ficha-tabs { gap: 17px; } .equipo-panel-detalle .equipo-detalle-heading { padding: 10px 0; gap: 10px; } .equipo-detalle-heading .equipo-rustdesk-acceso { padding: 9px; gap: 7px; } .equipo-detalle-heading h1 { font-size: 21px; } }
 @media (max-width: 1000px) { .equipos-filtros .filter-bar-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .equipos-listado { padding: 12px; } .equipos-filtros .filter-bar-controls { grid-template-columns: 1fr; } .equipos-filtros .filter-bar-search { grid-column: auto; } }
 @media (min-width: 1800px) { .dashboard-page { max-width: 1700px; width: 100%; margin: auto; } }

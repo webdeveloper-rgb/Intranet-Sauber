@@ -132,6 +132,22 @@ el inventario y se avisa de que el estado es parcial; los filtros que dependen d
 no presentan resultados como si fueran completos. El listado añade la última copia
 del historial y del staging pendiente sin combinar columnas de texto con distintas colaciones.
 
+## Ficha de equipo
+
+`Clientes.jsx` conserva los datos y las acciones de la ficha. `FichaEquipo.jsx` organiza
+Resumen, Copias, Monitorización, Eventos y Configuración. El parámetro `tab` se valida
+en `routes.js`; cambiar de pestaña reemplaza la URL sin añadir entradas al historial.
+La identificación, el cliente y RustDesk permanecen en la cabecera visible al desplazarse.
+Las pestañas admiten flechas, Inicio y Fin con roles y relaciones ARIA.
+
+Copias conserva revisión, avisos/calendario e historial paginado. Configuración agrupa
+asignación, alias, tipo y posibles duplicados, manteniendo los permisos y las acciones API
+existentes. Sus formularios se mantienen montados tras la primera visita para conservar
+borradores al alternar pestañas. Eventos monta la vista existente filtrada por equipo solo
+mientras su pestaña está activa, sin mantener consultas de eventos en segundo plano.
+Al guardar una asignación se conserva la pestaña Configuración. Esta reorganización
+no requiere migraciones ni cambios en los endpoints de producción.
+
 ## Reglas para cambios
 
 - No pongas secretos en frontend, Git, logs ni el workflow exportado. `config/config.php` es local y no debe subirse al repositorio.

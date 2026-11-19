@@ -54,9 +54,11 @@ export function leerRuta() {
     if (['sin-asignar', 'sin-satbk', 'cliente-inactivo'].includes(cliente) || /^\d+$/.test(cliente)) {
       const clienteId = /^\d+$/.test(cliente) ? Number(cliente) : cliente;
       const pathCliente = `/clientes/${encodeURIComponent(cliente)}`;
+      const tab = new URLSearchParams(window.location.search).get('tab');
+      const pestana = equipo && ['copias', 'monitor', 'eventos', 'configuracion'].includes(tab) ? tab : 'resumen';
       return {
-        vista: 'clientes', clienteId, equipoId: equipo,
-        path: equipo ? `${pathCliente}/equipos/${equipo}` : pathCliente,
+        vista: 'clientes', clienteId, equipoId: equipo, pestana,
+        path: equipo ? `${pathCliente}/equipos/${equipo}${pestana === 'resumen' ? '' : `?tab=${pestana}`}` : pathCliente,
       };
     }
     return { vista: 'clientes', clienteId: null, equipoId: null, path: '/clientes' };

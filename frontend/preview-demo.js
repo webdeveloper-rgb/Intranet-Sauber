@@ -42,7 +42,7 @@ export default function previewDemo() {
     };
   });
   const eventos = [{ id: 1, equipo_id: 1, equipo: equipos[0].nombre, cliente: clientes[0].nombre,
-    event_time: fecha(1), level: 'Critical', nivel: 'Critical', event_id: 41, log_name: 'System', source: 'Kernel-Power', message: 'Evento de ejemplo para revisar el diseño.' }];
+    fecha: fecha(1), nivel: 'Critical', event_id: 41, canal: 'System', origen: 'Kernel-Power', mensaje: 'Evento de ejemplo para revisar el diseño.' }];
   return {
     name: 'sauber-local-demo',
     transformIndexHtml() {
@@ -85,9 +85,29 @@ export default function previewDemo() {
           const id = JSON.parse(body || '{}').equipo_id;
           return json({ copias: copias.filter((c) => c.equipo_id === Number(id)), hay_mas_historial: false });
         }
-        if (action === 'monitor_equipo') return json({ monitor: null, alertas: [], monitor_last_seen: fecha() });
+        if (action === 'equipo_errores') {
+          let body = ''; for await (const chunk of req) body += chunk;
+          const id = Number(JSON.parse(body || '{}').equipo_id);
+          const errores = copias.filter((c) => c.equipo_id === id && c.estado === 'ERROR').map((c) => ({ ...c, copia_id: c.id }));
+          return json({ errores, total: errores.length });
+        }
+        if (action === 'monitor_equipo') {
+          const id = Number(url.searchParams.get('id'));
+          const equipo = equipos.find((e) => e.id === id);
+          return json({ monitor_last_seen: fecha(), event_extraction_mode: 'standard', copias_en_curso: [],
+            monitor: { hostname: equipo?.nombre, timestampUtc: new Date().toISOString(), rustDeskId: '',
+              system: { osName: 'Windows 11 Pro', osArchitecture: '64 bits', manufacturer: 'Dell', model: 'OptiPlex 7010', totalRamBytes: 17179869184 },
+              cpus: [{ name: 'Intel Core i5', cores: 6, logicalProcessors: 12 }], ram: [], gpus: [], batteries: [],
+              disks: [{ model: 'SSD de demostración', sizeBytes: 512000000000, healthStatus: id === 1 ? 'Unhealthy' : 'Healthy', mediaType: 'SSD' }],
+              volumes: [{ drive: 'C:', sizeBytes: 500000000000, freeBytes: 150000000000 }], software: {},
+            }, alertas: id === 1 ? [{ id: 1, severidad: 'critical', titulo: 'Disco con fallo SMART previsto', detalle: 'Alerta ficticia para revisar el diseño.' }] : [],
+          });
+        }
         if (action === 'monitor_backup_activity') return json({ actividades: [] });
-        if (action === 'monitor_eventos') return json({ eventos: eventos.filter((e) => !url.searchParams.get('equipo_id') || e.equipo_id === Number(url.searchParams.get('equipo_id'))), total: 1, pagina: 1, por_pagina: 25 });
+        if (action === 'monitor_eventos') {
+          const rows = eventos.filter((e) => !url.searchParams.get('equipo_id') || e.equipo_id === Number(url.searchParams.get('equipo_id')));
+          return json({ eventos: rows, total: rows.length, pagina: 1, por_pagina: 25 });
+        }
         if (action === 'notificaciones') return json({ notificaciones: [], total: 0, pagina: 1, por_pagina: 25 });
         if (action === 'tokens') return json({ tokens: [] });
         return json({ error: 'Esta preview utiliza datos ficticios. Las acciones de modificación están desactivadas.' }, 403);

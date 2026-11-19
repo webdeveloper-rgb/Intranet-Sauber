@@ -212,7 +212,7 @@ export default function App() {
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : estadoSesion
         ) : vista === 'clientes' && sesion ? (
           <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
-            clienteId={ruta.clienteId} equipoId={ruta.equipoId} onNavigate={navegar} />
+            clienteId={ruta.clienteId} equipoId={ruta.equipoId} pestana={ruta.pestana} onNavigate={navegar} />
         ) : (
           <>
             <PageHeading id="copias-titulo" eyebrow="Operaciones"

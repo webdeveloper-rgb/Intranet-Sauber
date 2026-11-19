@@ -36,7 +36,7 @@ function Nivel({ nivel }) {
   return <span className={`evento-nivel ${estilo}`}>{etiqueta}</span>;
 }
 
-export default function Eventos({ equipoId = null }) {
+export default function Eventos({ equipoId = null, integrado = false }) {
   const [buscar, setBuscar] = useState('');
   const [q, setQ] = useState('');
   const [nivel, setNivel] = useState('all');
@@ -286,7 +286,7 @@ export default function Eventos({ equipoId = null }) {
 
   return (
     <section className="eventos-page" aria-labelledby="eventos-title">
-      <PageHeading id="eventos-title" className="eventos-heading" eyebrow="Monitor de equipos"
+      <PageHeading id="eventos-title" className="eventos-heading" eyebrow={integrado ? undefined : 'Monitor de equipos'} level={integrado ? 2 : 1}
         title={equipoId ? `Eventos de ${equipoNombre}` : 'Eventos de Windows'}
         description={equipoId
           ? 'Historial del equipo, con filtros por fecha, nivel y origen.'
