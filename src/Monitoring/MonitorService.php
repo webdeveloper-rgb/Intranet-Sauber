@@ -140,6 +140,7 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
 
     $pdo->beginTransaction();
     try {
+        monitor_agente_comprobar_retirado($pdo, $machineId);
         $pdo->exec('DELETE FROM monitor_backup_activity WHERE observed_at < UTC_TIMESTAMP() - INTERVAL 1 DAY');
         foreach (array_keys($scanned) as $product) {
             $pdo->prepare('DELETE FROM monitor_backup_activity WHERE source_machine_key=? AND product=?')
@@ -546,6 +547,17 @@ function monitor_agente_autenticar(PDO $pdo, ?string $token, string $machineId):
     return true;
 }
 
+/** La comprobacion bajo bloqueo protege tambien envios autenticados antes de combinar. */
+function monitor_agente_comprobar_retirado(PDO $pdo, string $machineId): void
+{
+    $q = $pdo->prepare('SELECT active FROM monitor_agents WHERE machine_id=? FOR UPDATE');
+    $q->execute([$machineId]);
+    $active = $q->fetchColumn();
+    if ($active !== false && (int) $active === 0) {
+        throw new InvalidArgumentException('Este agente fue desactivado al combinar equipos.');
+    }
+}
+
 function monitor_token_consumir(PDO $pdo, ?string $token, string $machineId): bool
 {
     if ($token === null || !preg_match('/\Amtr_[0-9a-f]{64}\z/', $token)) {
@@ -559,6 +571,12 @@ function monitor_token_consumir(PDO $pdo, ?string $token, string $machineId): bo
         $st->execute([hash('sha256', $token)]);
         $row = $st->fetch();
         if (!$row || !hash_equals((string) $row['machine_id'], $machineId)) {
+            $pdo->rollBack();
+            return false;
+        }
+        try {
+            monitor_agente_comprobar_retirado($pdo, $machineId);
+        } catch (InvalidArgumentException $e) {
             $pdo->rollBack();
             return false;
         }
@@ -752,6 +770,7 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
 
     $pdo->beginTransaction();
     try {
+        monitor_agente_comprobar_retirado($pdo, $report['machineId']);
         $st = $pdo->prepare('SELECT id FROM equipos WHERE monitor_machine_id=?');
         $st->execute([$report['machineId']]);
         $equipmentId = $st->fetchColumn();

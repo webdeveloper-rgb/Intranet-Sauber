@@ -58,7 +58,11 @@ function fixture(): PDO
         INSERT INTO monitor_alertas VALUES(1,1,'disk',0,'warning','2026-11-10','2026-11-15','2026-11-15'),
           (2,2,'disk',1,'critical','2026-11-12','2026-11-19',NULL);
         CREATE TABLE equipo_nombres(id INTEGER PRIMARY KEY,software TEXT,nombre TEXT,equipo_id INT REFERENCES equipos(id) ON DELETE CASCADE,UNIQUE(software,nombre));
-        CREATE TABLE equipo_combinaciones(id INTEGER PRIMARY KEY,destino_id INT,usuario TEXT,detalle TEXT);");
+        CREATE TABLE equipo_combinaciones(id INTEGER PRIMARY KEY,destino_id INT,usuario TEXT,detalle TEXT);
+        CREATE TABLE monitor_agents(machine_id TEXT PRIMARY KEY,credential_hash TEXT,active INT,last_used_at TEXT);
+        INSERT INTO monitor_agents(machine_id,active) VALUES('machine-alba',1),('machine-otro',1);
+        CREATE TABLE monitor_ingest_tokens(id INTEGER PRIMARY KEY,machine_id TEXT,token_hash TEXT,consumed_at TEXT,expires_at TEXT);
+        INSERT INTO monitor_ingest_tokens(machine_id,token_hash,expires_at) VALUES('machine-alba','old-token','2099-01-01');");
     return $p;
 }
 function check(bool $value, string $case): void { if (!$value) throw new RuntimeException($case); }
@@ -70,7 +74,6 @@ function rejected(PDO $p, int $target, array $sources, string $case): void
 }
 $p = fixture();
 rejected($p, 1, [4], 'clientes distintos');
-rejected($p, 1, [2,5], 'dos agentes');
 rejected($p, 1, [1], 'destino incluido');
 rejected($p, 1, [999], 'equipo inexistente');
 $plan = equipos_combinar_plan($p, 1, [2,3]);
@@ -104,4 +107,50 @@ $p = fixture(); $p->exec("INSERT INTO equipo_nombres(software,nombre,equipo_id) 
 $plan = equipos_combinar_plan($p,1,[2]);
 try { equipos_combinar($p,1,[2],$plan['token'],'tecnico'); throw new RuntimeException('Alias conflictivo aceptado'); }
 catch (ApiError $e) { check((int) $p->query('SELECT equipo_id FROM copias WHERE id=10')->fetchColumn() === 2, 'rollback por conflicto'); }
-echo "Combinacion, historial, notas, agente, alias, recepcion futura, conflictos y rollback verificados.\n";
+$p = fixture(); $plan = equipos_combinar_plan($p,1,[2,5]);
+check(count($plan['agentes']) === 2, 'vista previa con dos agentes');
+foreach ([null, 4] as $invalidAgent) {
+    try { equipos_combinar($p,1,[2,5],$plan['token'],'tecnico',$invalidAgent); throw new RuntimeException('Agente no seleccionado aceptado'); }
+    catch (ApiError $e) { check((int) $p->query('SELECT COUNT(*) FROM equipos')->fetchColumn() === 5, 'seleccion obligatoria sin cambios'); }
+}
+$p->exec("UPDATE equipos SET monitor_report='{\"hostname\":\"PC-Actual\"}',rustdesk_password_enc='cifrado-actual' WHERE id=5");
+$credential = 'mra_' . str_repeat('a',64);
+$q = $p->prepare('UPDATE monitor_agents SET credential_hash=?');
+$q->execute([hash('sha256',$credential)]);
+$plan = equipos_combinar_plan($p,1,[2,5]);
+equipos_combinar($p,1,[2,5],$plan['token'],'tecnico',5);
+check($p->query('SELECT monitor_machine_id FROM equipos WHERE id=1')->fetchColumn() === 'machine-otro', 'agente elegido trasladado');
+check($p->query('SELECT rustdesk_password_enc FROM equipos WHERE id=1')->fetchColumn() === 'cifrado-actual', 'credencial RustDesk del agente elegido');
+check((int) $p->query("SELECT active FROM monitor_agents WHERE machine_id='machine-alba'")->fetchColumn() === 0, 'agente viejo desactivado');
+check((int) $p->query("SELECT COUNT(*) FROM monitor_ingest_tokens WHERE machine_id='machine-alba'")->fetchColumn() === 0, 'tokens viejos eliminados');
+check(!monitor_agente_autenticar($p,$credential,'machine-alba'), 'credencial vieja rechazada');
+check(monitor_agente_autenticar($p,$credential,'machine-otro'), 'credencial elegida conservada');
+try {
+    monitor_guardar_informe($p,['machineId'=>'machine-alba','hostname'=>'Alba-PC']);
+    throw new RuntimeException('El agente retirado pudo volver a guardar datos');
+} catch (InvalidArgumentException $e) {
+    check((int) $p->query("SELECT COUNT(*) FROM equipos WHERE nombre='Alba-PC'")->fetchColumn() === 0, 'envio en curso no recrea origen');
+}
+// Incluso un token emitido justo despues de revocar queda inutilizado al consumirlo.
+$temporary = 'mtr_' . str_repeat('b',64);
+$q = $p->prepare('INSERT INTO monitor_ingest_tokens(machine_id,token_hash,expires_at) VALUES(?,?,?)');
+$q->execute(['machine-alba',hash('sha256',$temporary),'2099-01-01']);
+check(!monitor_token_consumir($p,$temporary,'machine-alba'), 'token tardio del agente revocado rechazado');
+// Tambien se puede conservar el agente que ya estaba en la ficha destino.
+$p = fixture(); $plan = equipos_combinar_plan($p,2,[5]);
+equipos_combinar($p,2,[5],$plan['token'],'tecnico',2);
+check($p->query('SELECT monitor_machine_id FROM equipos WHERE id=2')->fetchColumn() === 'machine-alba', 'agente destino conservado');
+check((int) $p->query("SELECT active FROM monitor_agents WHERE machine_id='machine-otro'")->fetchColumn() === 0, 'agente origen retirado');
+$p = fixture();
+$p->exec("CREATE TRIGGER fallo_combinacion BEFORE DELETE ON equipos WHEN OLD.id=5 BEGIN SELECT RAISE(ABORT,'fallo simulado'); END");
+$plan = equipos_combinar_plan($p,1,[2,5]);
+try {
+    equipos_combinar($p,1,[2,5],$plan['token'],'tecnico',5);
+    throw new RuntimeException('Se esperaba un fallo transaccional');
+} catch (PDOException $e) {
+    check((int) $p->query('SELECT COUNT(*) FROM equipos')->fetchColumn() === 5, 'rollback restaura fichas');
+    check((int) $p->query("SELECT active FROM monitor_agents WHERE machine_id='machine-alba'")->fetchColumn() === 1, 'rollback restaura credencial');
+    check((int) $p->query('SELECT COUNT(*) FROM monitor_ingest_tokens')->fetchColumn() === 1, 'rollback restaura tokens');
+    check((int) $p->query('SELECT COUNT(*) FROM equipo_combinaciones')->fetchColumn() === 0, 'rollback restaura auditoria');
+}
+echo "Combinacion, eleccion de agente, revocacion, envios en curso, historial y rollback verificados.\n";

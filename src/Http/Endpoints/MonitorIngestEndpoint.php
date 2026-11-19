@@ -64,6 +64,8 @@ try {
         'event_extraction_mode' => monitor_event_mode_obtener($pdo, $equipmentId),
         'alertas_activas' => count(monitor_evaluar_alertas($report)),
     ]);
+} catch (InvalidArgumentException $e) {
+    monitor_responder(['error' => $e->getMessage()], 422);
 } catch (Throwable $e) {
     error_log('[monitor] ingesta: ' . $e->getMessage());
     monitor_responder(['error' => cfg('debug') ? $e->getMessage() : 'Error interno del servidor'], 500);

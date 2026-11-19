@@ -79,10 +79,12 @@ export default function previewDemo() {
           const origenes = equipos.filter((e) => (data.origen_ids || []).includes(e.id));
           if (!destino || !origenes.length) return json({ error: 'Selecciona los equipos de origen y destino.' }, 409);
           if (origenes.some((e) => e.cliente_id && e.cliente_id !== destino.cliente_id)) return json({ error: 'Los equipos pertenecen a clientes distintos.' }, 409);
-          if ([destino, ...origenes].filter((e) => e.tiene_monitor).length > 1) return json({ error: 'Estos equipos tienen agentes con identidades distintas. No se pueden combinar automáticamente sin decidir qué agente conservar.' }, 409);
           const resumen = (e) => ({ ...e, con_agente: e.tiene_monitor, copias: copias.filter((c) => c.equipo_id === e.id).length,
             pendientes: 0, eventos: eventos.filter((ev) => ev.equipo_id === e.id).length });
-          return json({ destino: resumen(destino), origenes: origenes.map(resumen), nombres: [], token: 'demo-read-only' });
+          const agentes = [destino, ...origenes].filter((e) => e.tiene_monitor).map((e) => ({ equipo_id: e.id,
+            nombre: e.nombre, machine_id: `agente-demo-${e.id}`, ultima_conexion: e.monitor_last_seen,
+            hostname: e.nombre, sistema: 'Windows 11 Pro', modelo: 'Dell OptiPlex 7010' }));
+          return json({ destino: resumen(destino), origenes: origenes.map(resumen), nombres: [], agentes, token: 'demo-read-only' });
         }
         if (action === 'list') return json({ copias, truncado: false });
         if (action === 'informe_copias') {

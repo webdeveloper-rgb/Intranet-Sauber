@@ -21,7 +21,9 @@ final class EquipmentController
                     out($plan);
                 }
                 if (!is_string($input['token'] ?? null)) fail('Primero revisa la combinación.');
-                out(equipos_combinar(db(), $destinoId, $origenIds, $input['token'], (string) $user['usuario']));
+                $agenteId = isset($input['agente_equipo_id']) ? filter_var($input['agente_equipo_id'], FILTER_VALIDATE_INT) : null;
+                if ($agenteId !== null && (!$agenteId || $agenteId < 1)) fail('Agente no válido.');
+                out(equipos_combinar(db(), $destinoId, $origenIds, $input['token'], (string) $user['usuario'], $agenteId));
             } catch (ApiError $ex) {
                 fail($ex->getMessage(), 409);
             }

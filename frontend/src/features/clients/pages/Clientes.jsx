@@ -45,6 +45,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
   const [detalleMonitor, setDetalleMonitor] = useState(null);
+  const [revisionCombinacion, setRevisionCombinacion] = useState(0);
   const [cargandoMonitor, setCargandoMonitor] = useState(false);
   const [falloMonitor, setFalloMonitor] = useState('');
   const clienteAbierto = clienteId;
@@ -188,7 +189,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       .catch((error) => { if (activa) setFalloMonitor(error.message); })
       .finally(() => { if (activa) setCargandoMonitor(false); });
     return () => { activa = false; };
-  }, [equipoActual?.id, equipoActual?.tiene_monitor, refreshSignal]);
+  }, [equipoActual?.id, equipoActual?.tiene_monitor, refreshSignal, revisionCombinacion]);
   const equiposCliente = useMemo(() => {
     if (clienteAbierto === 'sin-asignar') return equipos.filter((equipo) => !equipo.cliente_id);
     if (clienteAbierto === 'sin-satbk') return equipos.filter((equipo) => equipo.cliente_id && idsClientesSinSatbk.has(Number(equipo.cliente_id)));
@@ -436,6 +437,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />
       </div>}
     {admin && <CombinarEquipos equipo={equipoActual} equipos={equipos} onSaved={async (destino) => {
+      setRevisionCombinacion((n) => n + 1);
       await cargar(true);
       await cargarHistorial(destino.id);
       const grupo = destino.cliente_id ? destino.cliente_id : 'sin-asignar';

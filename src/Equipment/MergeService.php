@@ -34,8 +34,13 @@ function equipos_combinar_plan(PDO $pdo, int $destinoId, array $origenIds, bool 
             $machines[$row['monitor_machine_id']] = $row;
         }
     }
-    if (count($machines) > 1) {
-        throw new ApiError('Estos equipos tienen agentes con identidades distintas. No se pueden combinar automáticamente sin decidir qué agente conservar.');
+    $agents = [];
+    foreach ($machines as $machineId => $row) {
+        $report = json_decode((string) ($row['monitor_report'] ?? ''), true) ?: [];
+        $agents[] = ['equipo_id' => (int) $row['id'], 'nombre' => $row['nombre'], 'machine_id' => (string) $machineId,
+            'ultima_conexion' => $row['monitor_last_seen'], 'hostname' => $report['hostname'] ?? null,
+            'sistema' => $report['system']['osName'] ?? null,
+            'modelo' => trim(($report['system']['manufacturer'] ?? '') . ' ' . ($report['system']['model'] ?? ''))];
     }
     $counts = [];
     foreach (['copias', 'correo_copias', 'monitor_eventos', 'monitor_alertas', 'monitor_backup_activity'] as $table) {
@@ -73,11 +78,11 @@ function equipos_combinar_plan(PDO $pdo, int $destinoId, array $origenIds, bool 
             'eventos' => (int) ($counts['monitor_eventos'][$id] ?? 0)];
     }
     $token = hash('sha256', json_encode([$rows, $counts, $names], JSON_THROW_ON_ERROR));
-    return ['destino' => $public[0], 'origenes' => array_slice($public, 1), 'nombres' => $names, 'token' => $token,
+    return ['destino' => $public[0], 'origenes' => array_slice($public, 1), 'nombres' => $names, 'token' => $token, 'agentes' => $agents,
         '_rows' => $rows, '_counts' => $counts, '_monitor' => $machines ? reset($machines) : null];
 }
 
-function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $token, string $usuario): array
+function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $token, string $usuario, ?int $agenteEquipoId = null): array
 {
     $pdo->beginTransaction();
     try {
@@ -87,6 +92,13 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
         }
         $byId = array_column($plan['_rows'], null, 'id');
         $destino = $byId[$destinoId];
+        $agentIds = array_column($plan['agentes'], 'equipo_id');
+        if ($agenteEquipoId === null && count($agentIds) === 1) $agenteEquipoId = $agentIds[0];
+        if (($agentIds && !in_array($agenteEquipoId, $agentIds, true)) || (!$agentIds && $agenteEquipoId !== null)) {
+            throw new ApiError('Elige qué agente conservar entre los equipos seleccionados.');
+        }
+        $monitor = $agenteEquipoId !== null ? $byId[$agenteEquipoId] : null;
+        $plan['agente_conservado_equipo_id'] = $agenteEquipoId;
         $origenIds = array_column($plan['origenes'], 'id');
         $ids = array_merge([$destinoId], $origenIds);
         $findName = $pdo->prepare('SELECT id FROM equipos WHERE software=? AND nombre=?');
@@ -119,14 +131,29 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
             $customer = $q->fetchColumn();
             if ($customer === false) throw new ApiError('El cliente del destino ya no existe.');
         }
-        foreach ($origenIds as $sourceId) {
-            // Solo puede existir un agente. Si estaba en el origen, se traslada sin perder su identidad.
-            if ($plan['_monitor'] && (int) $plan['_monitor']['id'] === $sourceId) {
-                $monitor = $plan['_monitor'];
-                $pdo->prepare('UPDATE equipos SET monitor_machine_id=NULL WHERE id=?')->execute([$sourceId]);
-                $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=?,monitor_event_mode=?,rustdesk_password_enc=?,monitor_alias=COALESCE(monitor_alias,?) WHERE id=?')
-                    ->execute([$monitor['monitor_machine_id'], $monitor['monitor_report'], $monitor['monitor_last_seen'], $monitor['monitor_event_mode'], $monitor['rustdesk_password_enc'], $monitor['monitor_alias'], $destinoId]);
+        // Revoca credenciales y tokens pendientes de todas las identidades descartadas.
+        foreach ($plan['agentes'] as $agent) {
+            if ($agent['equipo_id'] === $agenteEquipoId) continue;
+            $machineId = $agent['machine_id'];
+            $q = $pdo->prepare('SELECT machine_id FROM monitor_agents WHERE machine_id=? FOR UPDATE');
+            $q->execute([$machineId]);
+            if ($q->fetchColumn() !== false) {
+                $pdo->prepare('UPDATE monitor_agents SET active=0 WHERE machine_id=?')->execute([$machineId]);
+            } else {
+                $pdo->prepare('INSERT INTO monitor_agents (machine_id,credential_hash,active) VALUES (?,?,0)')
+                    ->execute([$machineId, hash('sha256', random_bytes(32))]);
             }
+            $pdo->prepare('DELETE FROM monitor_ingest_tokens WHERE machine_id=?')->execute([$machineId]);
+        }
+        // Libera la clave unica antes de trasladar el agente elegido, incluso si cambia el del destino.
+        if ($monitor) {
+            foreach ($ids as $id) {
+                $pdo->prepare('UPDATE equipos SET monitor_machine_id=NULL WHERE id=?')->execute([$id]);
+            }
+            $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=?,monitor_event_mode=?,rustdesk_password_enc=?,monitor_alias=COALESCE(monitor_alias,?) WHERE id=?')
+                ->execute([$monitor['monitor_machine_id'], $monitor['monitor_report'], $monitor['monitor_last_seen'], $monitor['monitor_event_mode'], $monitor['rustdesk_password_enc'], $monitor['monitor_alias'], $destinoId]);
+        }
+        foreach ($origenIds as $sourceId) {
             $pdo->prepare('UPDATE copias SET equipo_id=?,cliente=?,equipo=? WHERE equipo_id=?')->execute([$destinoId, $customer, $destino['nombre'], $sourceId]);
             foreach (['correo_copias', 'correo_copias_eliminadas', 'monitor_eventos', 'monitor_backup_activity', 'equipo_nombres'] as $table) {
                 $pdo->prepare("UPDATE `$table` SET equipo_id=? WHERE equipo_id=?")->execute([$destinoId, $sourceId]);
