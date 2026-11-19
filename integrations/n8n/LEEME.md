@@ -10,6 +10,19 @@ El receptor `ingest.php` añade una segunda barrera si recibe esas expresiones e
 
 Los datos guardados antes del filtro se conservan. Este cambio no modifica el esquema ni requiere ejecutar `php migrate.php`.
 
+## Limpiar pruebas recibidas anteriormente
+
+Tras subir los archivos, desde la raíz del proyecto en el servidor Plesk:
+
+```sh
+php bin/eliminar-copias-prueba.php
+php bin/eliminar-copias-prueba.php --aplicar
+```
+
+El primer comando muestra una simulación. El segundo guarda primero una copia JSON privada en `config/copias-prueba-*.json` y elimina los registros identificados del historial y del staging en una transacción. Conserva sus claves para que los reintentos no los repongan. La copia incluye las notas que se eliminarán con esos registros y queda excluida de Git.
+
+La detección usa solo la descripción, evidencia o resultado del propio aviso y su clave de mensaje; no elimina por nombre del equipo ni por la pertenencia al mismo equipo. Las fichas y los informes de monitorización se conservan. Si el cuerpo de prueba no quedó guardado en esos campos, el comando no puede identificarlo: no borra registros por suposición. No requiere migraciones.
+
 Prueba del receptor:
 
 ```sh
