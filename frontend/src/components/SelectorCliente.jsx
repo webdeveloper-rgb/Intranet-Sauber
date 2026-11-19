@@ -56,15 +56,18 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
     <div className="selector-cliente-filtros" role="group" aria-label="Elegir listado de clientes">
       <span>Listado</span>
       <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''}
-        disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('todos')}>
+        aria-pressed={filtroSatbk === 'todos'} disabled={disabled}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('todos')}>
         Todos <span>{clientes.length}</span>
       </button>
       <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''}
-        disabled={disabled || !totalConSatbk} onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('con')}>
+        aria-pressed={filtroSatbk === 'con'} disabled={disabled || !totalConSatbk}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('con')}>
         Con SATBK <span>{totalConSatbk}</span>
       </button>
       <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''}
-        disabled={disabled || !totalSinSatbk} onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('sin')}>
+        aria-pressed={filtroSatbk === 'sin'} disabled={disabled || !totalSinSatbk}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('sin')}>
         Sin SATBK <span>{totalSinSatbk}</span>
       </button>
     </div>

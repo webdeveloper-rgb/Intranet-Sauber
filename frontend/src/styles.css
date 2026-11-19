@@ -3691,6 +3691,192 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
 .notificacion-meta, .notificacion-item time { width: 100%; overflow: hidden; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .notificaciones-vacio { display: grid; min-height: 92px; place-items: center; padding: 14px; border: 1px dashed var(--bd); border-radius: var(--r); }
 
+/* First UI refinement pass: denser controls, clearer lists, quieter panels. */
+.page-heading {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bd);
+}
+.page-heading .eyebrow {
+  color: var(--brand-t);
+  font-weight: 780;
+}
+.page-heading-actions {
+  align-self: center;
+}
+.filter-bar {
+  gap: 12px;
+  padding: 12px;
+}
+.filter-bar-heading {
+  align-items: start;
+}
+.filter-bar-heading h3 {
+  font-size: 14px;
+}
+.filter-bar-controls {
+  grid-template-columns: minmax(240px, 1.25fr) repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.filter-bar-controls .filter-bar-search {
+  grid-column: auto;
+}
+.filter-bar-controls label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filter-bar-controls input,
+.filter-bar-controls select,
+.selector-cliente > input {
+  background: var(--card);
+}
+.filter-bar-footer {
+  padding-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--bd) 62%, transparent);
+}
+.filter-bar-count {
+  padding: 3px 8px;
+  border: 1px solid var(--bd);
+  border-radius: 999px;
+  background: var(--bg);
+}
+.filtros-activos {
+  margin: 0;
+  padding-top: 2px;
+}
+.filtro-activo-chip,
+.filtros-limpiar {
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+.cliente-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.cliente-tarjeta {
+  min-height: 104px;
+  border-left: 3px solid color-mix(in srgb, var(--brand) 30%, var(--bd));
+  background: linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 88%, var(--bg)));
+}
+.cliente-tarjeta-pendiente {
+  border-left-color: var(--wa);
+  background: color-mix(in srgb, var(--wab) 22%, var(--card));
+}
+.cliente-tarjeta-titulo {
+  align-items: center;
+}
+.cliente-tarjeta-titulo strong,
+.cliente-tarjeta > strong {
+  line-height: 1.25;
+}
+.cliente-satbk {
+  margin-top: 0;
+  padding: 3px 7px;
+  border: 1px solid var(--bd);
+  border-radius: 999px;
+  background: var(--bg);
+}
+.cliente-satbk.activo {
+  border-color: color-mix(in srgb, var(--ok) 36%, var(--bd));
+  background: var(--okb);
+}
+.cliente-conteo {
+  align-self: end;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--bd) 70%, transparent);
+}
+.equipo-lista-navegable {
+  gap: 6px;
+}
+.equipo-navegable {
+  border-radius: 8px;
+}
+.equipo-navegable-abrir {
+  min-height: 62px;
+  padding: 10px 13px;
+}
+.equipo-navegable-info strong {
+  line-height: 1.25;
+}
+.equipo-tipo-pill {
+  min-width: 76px;
+  text-align: center;
+}
+.equipo-panel-detalle .equipo-detalle-heading {
+  padding-bottom: 12px;
+}
+.equipo-panel-detalle .equipo-resumen-compacto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0;
+  margin-top: 0;
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--card);
+  overflow: hidden;
+}
+.equipo-panel-detalle .equipo-resumen-compacto > div {
+  padding: 11px 12px;
+  border-right: 1px solid var(--bd);
+  border-bottom: 1px solid var(--bd);
+}
+.equipo-panel-detalle .equipo-resumen-compacto > div:last-child {
+  border-right: 0;
+}
+.equipo-panel-detalle .equipo-asignacion {
+  gap: 10px;
+  padding: 14px;
+}
+.equipo-asignacion-campos {
+  grid-template-columns: minmax(260px, 1fr) minmax(120px, auto) minmax(110px, auto);
+}
+.selector-cliente-filtros {
+  margin-bottom: 8px;
+  padding: 4px;
+  border: 1px solid var(--bd);
+  border-radius: 9px;
+  background: var(--bg);
+}
+.selector-cliente-filtros > span:first-child {
+  padding: 0 5px;
+}
+.selector-cliente-filtros button {
+  min-height: 28px;
+  border-color: transparent;
+}
+.selector-cliente-filtros button.activo {
+  border-color: var(--bd);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(20, 30, 50, .06);
+}
+.selector-resultados {
+  border-radius: var(--r);
+}
+.historial-equipo,
+.equipo-monitor-detalle,
+.equipo-vigilancia,
+.equipo-coincidencias,
+.equipo-panel-detalle .equipo-alias-editor,
+.equipo-panel-detalle .equipo-tipo-editor {
+  background: var(--card);
+}
+.historial-equipo-heading {
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bd);
+}
+.historial-equipo-lista {
+  border-top: 0;
+}
+.historial-equipo-fila {
+  padding: 10px 2px;
+}
+.okmsg,
+.errbox,
+.estado-alertas {
+  border-left-width: 3px;
+}
+
 @media (max-width: 760px) {
   main { gap: 13px; padding: 18px 16px 30px; }
   .page-heading, .eventos-heading, .mapeo-heading, .directorio-heading { gap: 12px; }
@@ -3721,6 +3907,9 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   .filter-bar-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filter-bar-controls .filter-bar-search { grid-column: 1 / -1; }
   .filter-bar-actions { grid-column: 1 / -1; }
+  .cliente-grid { grid-template-columns: minmax(0, 1fr); }
+  .equipo-asignacion-campos { grid-template-columns: minmax(0, 1fr); }
+  .equipo-asignacion-campos .btn { width: 100%; }
   .page-heading h1, .page-heading h2, .eventos-heading h1, .eventos-heading h2, .mapeo-heading h2, .directorio-heading h2 { font-size: 21px; }
 }
 @media print {
