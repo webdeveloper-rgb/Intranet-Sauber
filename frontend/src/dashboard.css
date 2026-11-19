@@ -119,8 +119,9 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .equipos-warning { color: var(--wa); }
 .equipo-panel-detalle .equipo-detalle-heading { position: sticky; top: 65px; z-index: 9; background: var(--bg); padding: 16px 0; border-bottom: 1px solid var(--bd); }
 .ficha-equipo { display: grid; gap: 22px; min-width: 0; }
-.ficha-tabs { display: flex; gap: 22px; overflow-x: auto; border-bottom: 1px solid var(--bd); scrollbar-width: thin; }
-.ficha-tabs > button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; min-height: 48px; padding: 10px 2px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--mut); font-size: 13px; font-weight: 550; cursor: pointer; }
+.ficha-tabs { display: flex; gap: 22px; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--bd); scrollbar-width: thin; }
+.ficha-tabs > button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; min-height: 48px; padding: 10px 2px; margin: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--mut); font-size: 13px; font-weight: 550; cursor: pointer; }
+.ficha-tabs > button:focus-visible { outline-offset: -3px; }
 .ficha-tabs > button:hover { color: var(--tx); }
 .ficha-tabs > button[aria-selected="true"] { color: var(--brand-t); border-bottom-color: var(--brand); }
 .ficha-tab-count { background: var(--erb); color: var(--er); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
