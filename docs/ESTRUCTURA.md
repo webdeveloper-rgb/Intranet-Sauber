@@ -38,6 +38,8 @@ frontend/
 
 Cada área contiene sus pantallas en `pages`, sus piezas en `components` y, cuando corresponda, sus hooks y utilidades. Los componentes compartidos van en `shared`; la composición global permanece en `app`. Los estilos conservan el orden anterior para mantener la presentación.
 
+Los iconos se centralizan en `shared/ui/Icon.jsx` y usan Font Awesome Free mediante CSS y fuente local, sin SVG ni CDN. `main.jsx` importa únicamente el núcleo CSS y el estilo Solid. Vite genera la fuente dentro de `build/assets/`; debe desplegarse junto con el resto de `build/`. La licencia se conserva en `assets/fontawesome-LICENSE.txt`.
+
 ## Servidor e integraciones
 
 ```text

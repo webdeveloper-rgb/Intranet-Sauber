@@ -27,7 +27,7 @@ export default defineConfig(({ mode, command }) => ({
       input: 'src/main.jsx',
       output: {
         entryFileNames: 'app.js',
-        assetFileNames: 'app[extname]',
+        assetFileNames: (asset) => asset.name?.endsWith('.css') ? 'app[extname]' : 'assets/[name]-[hash][extname]',
         manualChunks(id) {
           if (id.includes('node_modules/react') || id.includes('node_modules\\react')
             || id.includes('node_modules/scheduler') || id.includes('node_modules\\scheduler')) return 'react-vendor';

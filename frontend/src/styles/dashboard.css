@@ -199,7 +199,7 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .dashboard-topbar-actions { gap: 16px; }
 .topbar-account { padding-left: 18px; border-left: 1px solid var(--bd); }
 .user-avatar { background: #e8edf4; color: #425b7a; border: 0; }
-.sidebar-nav svg, .sidebar-bottom svg { flex-shrink: 0; }
+.app-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1; vertical-align: middle; }
 .sidebar-bottom small { border-color: var(--bd); color: var(--mut); }
 .dashboard-queue { order: 3; }
 .dashboard-context { order: 2; }
