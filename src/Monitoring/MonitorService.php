@@ -740,7 +740,7 @@ function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSa
 /** El nombre puede cambiar; la identidad del agente y el historial se conservan. */
 function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname): void
 {
-    $st = $pdo->prepare('SELECT nombre,software FROM equipos WHERE id=? FOR UPDATE');
+    $st = $pdo->prepare('SELECT nombre,software,monitor_machine_id FROM equipos WHERE id=? FOR UPDATE');
     $st->execute([$equipmentId]);
     $equipment = $st->fetch(PDO::FETCH_ASSOC);
     if (!$equipment || $equipment['nombre'] === $hostname) {
@@ -760,6 +760,20 @@ function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname)
         $name = mb_substr($hostname, 0, 200 - mb_strlen($suffix)) . $suffix;
     } while (true);
 
+    // Conserva el nombre anterior como referencia de recepcion antes de renombrar.
+    $findAlias = $pdo->prepare('SELECT equipo_id FROM equipo_nombres WHERE software=? AND nombre=? FOR UPDATE');
+    $insertAlias = $pdo->prepare('INSERT INTO equipo_nombres (software,nombre,equipo_id) VALUES (?,?,?)');
+    $products = [$equipment['software']];
+    if (!empty($equipment['monitor_machine_id'])) $products[] = 'MonitorAgent';
+    foreach (array_unique($products) as $product) {
+        $findAlias->execute([$product, $equipment['nombre']]);
+        $owner = $findAlias->fetchColumn();
+        if ($owner !== false && (int) $owner !== $equipmentId) {
+            // Una vinculacion manual anterior tiene prioridad; nunca se reasigna por un renombrado.
+            continue;
+        }
+        if ($owner === false) $insertAlias->execute([$product, $equipment['nombre'], $equipmentId]);
+    }
     $pdo->prepare('UPDATE equipos SET nombre=? WHERE id=?')->execute([$name, $equipmentId]);
 }
 
@@ -795,11 +809,7 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
             }
         }
 
-        $combined = $pdo->prepare('SELECT id FROM equipo_combinaciones WHERE destino_id=? LIMIT 1');
-        $combined->execute([(int) $equipmentId]);
-        if (!$combined->fetchColumn()) {
-            monitor_actualizar_nombre($pdo, (int) $equipmentId, $report['hostname']);
-        }
+        monitor_actualizar_nombre($pdo, (int) $equipmentId, $report['hostname']);
 
         if (!empty($report['clientNote'])) {
             $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(sugerido,?) WHERE id=?')

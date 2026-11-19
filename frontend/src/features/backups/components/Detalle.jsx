@@ -30,6 +30,7 @@ export default function Detalle({ c, onClose, modo = 'drawer', manejarEscape = t
           <Campo t="Fecha" v={c.fecha} />
           <Campo t="Cliente" v={c.cliente} />
           <Campo t="Equipo" v={c.equipo} />
+          <Campo t="Nombre recibido en la copia" v={c.nombre_recibido} />
           <Campo t="Tipo" v={c.tipo ? etiquetaTipo(c) : null} />
           <Campo t="Software" v={c.software} />
           <Campo t="Evidencia registrada" v={c.clasificacion_evidencia} />

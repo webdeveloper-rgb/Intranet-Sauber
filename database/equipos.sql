@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   message_key CHAR(40) NOT NULL,
   equipo_id INT UNSIGNED NOT NULL,
+  nombre_recibido VARCHAR(200) NULL, -- Nombre del aviso, independiente del hostname del agente.
   fecha DATETIME NOT NULL,
   estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL,
   desc_error VARCHAR(500) NOT NULL DEFAULT '',

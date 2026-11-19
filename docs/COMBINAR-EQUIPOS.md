@@ -2,17 +2,17 @@
 
 Disponible para administradores en **Clientes → ficha del equipo → Configuración → Combinar equipos duplicados**.
 
-1. Elige la ficha que se conservará como destino. Conserva su nombre, cliente, tipo y configuración de avisos por falta de copias.
+1. Elige la ficha que se conservará como destino. Conserva su cliente, tipo y configuración de avisos por falta de copias; el nombre principal será el hostname informado por el agente elegido.
 2. Busca y marca entre uno y veinte equipos de origen.
 3. Pulsa **Revisar combinación** para consultar los registros que se trasladarán.
 4. Si hay agentes, elige en **Agente que se conserva** el instalado actualmente. Se muestran su ID, última conexión, hostname, sistema y modelo. Si hay varios, la elección es obligatoria.
 5. Confirma que las fichas pertenecen al mismo equipo físico y pulsa **Confirmar y combinar**.
 
-El destino recibe el historial y staging de copias, las notas y revisiones ligadas a cada copia, eventos, alertas y actividad de copias en curso. Se mantienen los identificadores de las copias para conservar notas y referencias. Las copias trasladadas muestran el nombre y cliente del destino. Los registros ya importados no se duplican. Los orígenes desaparecen del listado.
+El destino recibe el historial y staging de copias, las notas y revisiones ligadas a cada copia, eventos, alertas y actividad de copias en curso. Se mantienen los identificadores de las copias para conservar notas y referencias. Las copias trasladadas muestran el nombre principal y cliente del destino, conservando el nombre recibido como dato propio de la copia. Los registros ya importados no se duplican. Los orígenes desaparecen del listado.
 
 Los nombres y productos anteriores se guardan en `equipo_nombres`. La ingesta los consulta antes de crear equipos nuevos, de modo que las próximas copias con esos nombres quedan en la ficha de destino. Los nombres vinculados se pueden consultar en el mismo panel. Las búsquedas de actividad de copia por hostname también reconocen esos nombres.
 
-Solo se permite combinar equipos del mismo cliente, o un origen sin asignar con un destino asignado. Para otros casos hay que corregir primero la asignación. Se pueden combinar fichas con agentes e IDs distintos: se conserva únicamente la identidad elegida, su informe, contraseña cifrada de RustDesk y configuración. Si hay un único agente, se selecciona automáticamente. Los informes posteriores no sustituyen el nombre elegido para un destino combinado.
+Solo se permite combinar equipos del mismo cliente, o un origen sin asignar con un destino asignado. Para otros casos hay que corregir primero la asignación. Se pueden combinar fichas con agentes e IDs distintos: se conserva únicamente la identidad elegida, su informe, contraseña cifrada de RustDesk y configuración. Si hay un único agente, se selecciona automáticamente. El agente es la fuente del nombre principal, también en fichas combinadas; al cambiar su hostname se actualiza el nombre y se mantiene el anterior como referencia de recepción.
 
 Los agentes descartados quedan con `active=0` en `monitor_agents` y sus tokens temporales pendientes se eliminan. También se comprueba la desactivación al consumir tokens y al guardar informes o actividad, para bloquear envíos que estuvieran en curso. Sus eventos e historial se conservan en el destino. Esto revoca su acceso al servidor; no desinstala el programa de los equipos. Para autorizar de nuevo una identidad retirada sería necesario un alta explícita con un nuevo código.
 
@@ -31,6 +31,8 @@ php migrate.php
 La migración 19 crea las tablas de nombres y auditoría sin combinar equipos automáticamente.
 
 La ampliación para elegir entre varios agentes no añade migraciones: si ya se ejecutó la 19, basta con actualizar PHP y `build/`.
+
+La regla posterior de nombres del agente **requiere la migración 20**. Añade `correo_copias.nombre_recibido` para conservar el nombre exacto que llega de cada nueva copia, lo traslada a `copias.equipo` al importar y muestra por separado el nombre principal del equipo en la API. El detalle de una copia muestra **Nombre recibido en la copia**. La migración también actualiza los nombres principales usando los informes de agente existentes. No se puede reconstruir un nombre original que no se hubiera conservado anteriormente.
 
 ## Validación local
 

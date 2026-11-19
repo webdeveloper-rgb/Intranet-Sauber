@@ -212,6 +212,25 @@ try {
         }
     };
 
+    $migrations[20] = static function (PDO $pdo): void {
+        $q = $pdo->query("SELECT COUNT(*) FROM information_schema.columns
+            WHERE table_schema=DATABASE() AND table_name='correo_copias' AND column_name='nombre_recibido'");
+        if (!(int) $q->fetchColumn()) {
+            $pdo->exec('ALTER TABLE correo_copias ADD COLUMN nombre_recibido VARCHAR(200) NULL AFTER equipo_id');
+        }
+        // Solo se recupera lo que realmente quedo almacenado en el historial.
+        $pdo->exec('UPDATE correo_copias cc JOIN copias cp
+            ON CONVERT(cp.huella USING utf8mb4) COLLATE utf8mb4_unicode_ci=CONVERT(cc.message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            SET cc.nombre_recibido=cp.equipo WHERE cc.nombre_recibido IS NULL');
+        foreach ($pdo->query('SELECT id,monitor_report FROM equipos WHERE monitor_machine_id IS NOT NULL')->fetchAll() as $row) {
+            $report = json_decode((string) $row['monitor_report'], true);
+            $hostname = $report['hostname'] ?? null;
+            if (is_string($hostname) && trim($hostname) !== '') {
+                monitor_actualizar_nombre($pdo, (int) $row['id'], mb_substr(trim($hostname), 0, 200));
+            }
+        }
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

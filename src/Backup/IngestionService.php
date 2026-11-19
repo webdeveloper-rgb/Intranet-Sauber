@@ -377,12 +377,13 @@ function ingesta_guardar(PDO $pdo, array $d): array
 
         // Los reenvios de una copia existente se ignoran y se informan como duplicados.
         $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
-            (message_key,equipo_id,fecha,estado,desc_error,codigo,resultado_original,clasificacion_fuente,
+            (message_key,equipo_id,nombre_recibido,fecha,estado,desc_error,codigo,resultado_original,clasificacion_fuente,
                 clasificacion_evidencia,software,destino,tamano,duracion)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $ins->execute([
             $d['message_key'],
             $eq['id'],
+            $d['nombre'],
             $d['fecha'],
             $d['estado'],
             $d['desc_error'],

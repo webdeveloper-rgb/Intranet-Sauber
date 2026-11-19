@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../src/Equipment/EquipmentService.php';
+require __DIR__ . '/../src/Backup/CopyRepository.php';
 
 // SQLite temporal: adapta solo sintaxis MySQL; se ejecutan los servicios reales.
 final class MergeTestPDO extends PDO
@@ -43,7 +44,7 @@ function fixture(): PDO
           (11,'2026-11-19','Sauber','Ventas',1,'OK','Acronis','target-copy',0);
         CREATE TABLE notas(id INTEGER PRIMARY KEY,copia_id INT REFERENCES copias(id) ON DELETE CASCADE,texto TEXT);
         INSERT INTO notas VALUES(1,10,'Nota tecnica conservada');
-        CREATE TABLE correo_copias(id INTEGER PRIMARY KEY,message_key TEXT UNIQUE,equipo_id INT REFERENCES equipos(id),fecha TEXT,
+        CREATE TABLE correo_copias(id INTEGER PRIMARY KEY,message_key TEXT UNIQUE,equipo_id INT REFERENCES equipos(id),nombre_recibido TEXT,fecha TEXT,
           estado TEXT,desc_error TEXT DEFAULT '',codigo TEXT,resultado_original TEXT DEFAULT '',clasificacion_fuente TEXT DEFAULT '',
           clasificacion_evidencia TEXT DEFAULT '',software TEXT,destino TEXT,tamano TEXT,duracion TEXT,importada INT DEFAULT 0);
         INSERT INTO correo_copias(id,message_key,equipo_id,fecha,estado,software) VALUES(1,'pending-copy',3,'2026-11-19','OK','Iperius');
@@ -83,7 +84,7 @@ equipos_combinar($p, 1, [2,3], $plan['token'], 'tecnico');
 check((int) $p->query('SELECT COUNT(*) FROM equipos WHERE id IN (2,3)')->fetchColumn() === 0, 'origenes retirados');
 check($p->query('SELECT monitor_machine_id FROM equipos WHERE id=1')->fetchColumn() === 'machine-alba', 'agente trasladado');
 check((int) $p->query('SELECT equipo_id FROM copias WHERE id=10')->fetchColumn() === 1, 'historial trasladado');
-check($p->query('SELECT equipo FROM copias WHERE id=10')->fetchColumn() === 'SAUBER OFIMATICA - PC Ventas', 'nombre del destino en el historial');
+check($p->query('SELECT equipo FROM copias WHERE id=10')->fetchColumn() === 'Alba-PC', 'nombre original de copia conservado');
 check((int) $p->query('SELECT revisado FROM copias WHERE id=10')->fetchColumn() === 1, 'revision conservada');
 check($p->query('SELECT texto FROM notas WHERE copia_id=10')->fetchColumn() === 'Nota tecnica conservada', 'notas conservadas');
 check((int) $p->query('SELECT COUNT(*) FROM copias')->fetchColumn() === 3, 'staging importado sin duplicar');
@@ -98,6 +99,7 @@ $d = ['message_key'=>'next-copy', 'nombre'=>'Alba-PC', 'software'=>'Acronis', 's
     'clasificacion_fuente'=>'test', 'clasificacion_evidencia'=>'', 'destino'=>null, 'tamano'=>null, 'duracion'=>null];
 ingesta_guardar($p, $d);
 check((int) $p->query("SELECT equipo_id FROM copias WHERE huella='next-copy'")->fetchColumn() === 1, 'proxima copia del nombre antiguo vinculada');
+check($p->query("SELECT equipo FROM copias WHERE huella='next-copy'")->fetchColumn() === 'Alba-PC', 'nombre recibido conservado al importar');
 check((int) $p->query("SELECT COUNT(*) FROM equipos WHERE nombre='Alba-PC'")->fetchColumn() === 0, 'sin recrear origen');
 $p = fixture(); $plan = equipos_combinar_plan($p,1,[2]);
 $p->exec("UPDATE equipos SET nombre='Nombre cambiado' WHERE id=2");
@@ -120,6 +122,7 @@ $q->execute([hash('sha256',$credential)]);
 $plan = equipos_combinar_plan($p,1,[2,5]);
 equipos_combinar($p,1,[2,5],$plan['token'],'tecnico',5);
 check($p->query('SELECT monitor_machine_id FROM equipos WHERE id=1')->fetchColumn() === 'machine-otro', 'agente elegido trasladado');
+check($p->query('SELECT nombre FROM equipos WHERE id=1')->fetchColumn() === 'PC-Actual', 'nombre principal del agente elegido');
 check($p->query('SELECT rustdesk_password_enc FROM equipos WHERE id=1')->fetchColumn() === 'cifrado-actual', 'credencial RustDesk del agente elegido');
 check((int) $p->query("SELECT active FROM monitor_agents WHERE machine_id='machine-alba'")->fetchColumn() === 0, 'agente viejo desactivado');
 check((int) $p->query("SELECT COUNT(*) FROM monitor_ingest_tokens WHERE machine_id='machine-alba'")->fetchColumn() === 0, 'tokens viejos eliminados');
@@ -153,4 +156,17 @@ try {
     check((int) $p->query('SELECT COUNT(*) FROM monitor_ingest_tokens')->fetchColumn() === 1, 'rollback restaura tokens');
     check((int) $p->query('SELECT COUNT(*) FROM equipo_combinaciones')->fetchColumn() === 0, 'rollback restaura auditoria');
 }
-echo "Combinacion, eleccion de agente, revocacion, envios en curso, historial y rollback verificados.\n";
+$p = fixture();
+monitor_actualizar_nombre($p,2,'PC-VENTAS');
+ingesta_guardar($p,$d);
+check($p->query('SELECT nombre FROM equipos WHERE id=2')->fetchColumn() === 'PC-VENTAS', 'la copia no cambia el nombre del agente');
+check((int) $p->query("SELECT equipo_id FROM copias WHERE huella='next-copy'")->fetchColumn() === 2, 'nombre anterior vinculado tras renombrado');
+check($p->query("SELECT nombre_recibido FROM correo_copias WHERE message_key='next-copy'")->fetchColumn() === 'Alba-PC', 'aviso conserva el nombre recibido');
+foreach (['intentos','revisado_por','revisado_fecha','revision_desc','seg','recordar'] as $column) {
+    $p->exec("ALTER TABLE copias ADD COLUMN $column TEXT");
+}
+$p->sqliteCreateFunction('DATE_FORMAT',static fn($value,$format) => $value);
+$q = $p->query(SQL_COPIA . " WHERE huella='next-copy'");
+$view = $q->fetch(PDO::FETCH_ASSOC);
+check($view['equipo'] === 'PC-VENTAS' && $view['nombre_recibido'] === 'Alba-PC', 'API muestra nombre del agente y referencia original por separado');
+echo "Combinacion, agentes, nombres de recepcion, vista principal y rollback verificados.\n";

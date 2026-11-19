@@ -154,7 +154,7 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
                 ->execute([$monitor['monitor_machine_id'], $monitor['monitor_report'], $monitor['monitor_last_seen'], $monitor['monitor_event_mode'], $monitor['rustdesk_password_enc'], $monitor['monitor_alias'], $destinoId]);
         }
         foreach ($origenIds as $sourceId) {
-            $pdo->prepare('UPDATE copias SET equipo_id=?,cliente=?,equipo=? WHERE equipo_id=?')->execute([$destinoId, $customer, $destino['nombre'], $sourceId]);
+            $pdo->prepare('UPDATE copias SET equipo_id=?,cliente=? WHERE equipo_id=?')->execute([$destinoId, $customer, $sourceId]);
             foreach (['correo_copias', 'correo_copias_eliminadas', 'monitor_eventos', 'monitor_backup_activity', 'equipo_nombres'] as $table) {
                 $pdo->prepare("UPDATE `$table` SET equipo_id=? WHERE equipo_id=?")->execute([$destinoId, $sourceId]);
             }
@@ -180,10 +180,20 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
             $pdo->prepare('DELETE FROM equipos WHERE id=?')->execute([$sourceId]);
         }
         // Una revision anterior no puede cubrir errores que acaban de trasladarse de otra ficha.
+        if ($monitor) {
+            $report = json_decode((string) $monitor['monitor_report'], true);
+            $hostname = $report['hostname'] ?? null;
+            if (is_string($hostname) && trim($hostname) !== '') {
+                monitor_actualizar_nombre($pdo, $destinoId, mb_substr(trim($hostname), 0, 200));
+            }
+        }
         $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')->execute([$destinoId]);
         correo_importar_equipo($destinoId, $destino['cliente_id'] !== null ? (int) $destino['cliente_id'] : null, $pdo);
+        $q = $pdo->prepare('SELECT nombre FROM equipos WHERE id=?');
+        $q->execute([$destinoId]);
+        $nombre = $q->fetchColumn();
         $pdo->commit();
-        return ['ok' => true, 'destino_id' => $destinoId, 'combinados' => count($origenIds)];
+        return ['ok' => true, 'destino_id' => $destinoId, 'nombre' => $nombre, 'combinados' => count($origenIds)];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $e;

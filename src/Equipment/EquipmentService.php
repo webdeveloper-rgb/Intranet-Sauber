@@ -358,7 +358,7 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
         $insert->execute([
             $copy['fecha'],
             $customer,
-            $equipment,
+            $copy['nombre_recibido'] ?? $equipment,
             $equipoId,
             $copy['estado'],
             $copy['desc_error'],

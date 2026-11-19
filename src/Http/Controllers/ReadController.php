@@ -249,7 +249,7 @@ final class ReadController
             $pdo = db();
             $union = "SELECT CONVERT(CAST(id AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS id,fecha,
                     CONVERT(cliente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS cliente,
-                    CONVERT(equipo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS equipo,equipo_id,
+                    CONVERT(COALESCE((SELECT nombre FROM equipos WHERE id=copias.equipo_id),equipo) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS equipo,equipo_id,
                     (SELECT cliente_id FROM equipos WHERE id=copias.equipo_id) AS cliente_id,
                     CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado,
                     CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,

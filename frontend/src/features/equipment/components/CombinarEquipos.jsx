@@ -36,14 +36,14 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
       const response = await api('equipo_combinar', { destino_id: plan.destino.id, origen_ids: plan.origenes.map((item) => item.id), token: plan.token,
         agente_equipo_id: agenteId ? Number(agenteId) : null });
       setPlan(null); setSeleccion([]); setConfirmado(false);
-      setResultado(`${response.combinados} equipo(s) combinados en ${plan.destino.nombre}.`);
+      setResultado(`${response.combinados} equipo(s) combinados en ${response.nombre || plan.destino.nombre}.`);
       await onSaved(plan.destino);
     } catch (e) { setError(e.message); setPlan(null); setConfirmado(false); }
     finally { setOcupado(false); }
   };
   return <section className="equipo-combinar" aria-labelledby="titulo-combinar">
     <h3 id="titulo-combinar">Combinar equipos duplicados</h3>
-    <p>Reúne las fichas que pertenecen al mismo equipo. El destino conserva su nombre, cliente y configuración de avisos; los nombres anteriores seguirán recibiendo copias en esa ficha.</p>
+    <p>Reúne las fichas que pertenecen al mismo equipo. El destino conserva su cliente y configuración de avisos. Su nombre será el que informe el agente elegido; los nombres de las copias se guardan como referencias de recepción.</p>
     <fieldset disabled={ocupado}>
       <label htmlFor="combinar-destino">Equipo que se conserva</label>
       <select id="combinar-destino" value={destinoId} onChange={(e) => { setDestinoId(e.target.value); setSeleccion([]); invalidar(); }}>

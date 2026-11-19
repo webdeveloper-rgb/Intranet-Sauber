@@ -11,6 +11,7 @@ $pdo = new class('sqlite::memory:') extends PDO {
     }
 };
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdo->exec('CREATE TABLE equipo_nombres(id INTEGER PRIMARY KEY,software TEXT,nombre TEXT,equipo_id INT,UNIQUE(software,nombre))');
 $pdo->exec('CREATE TABLE equipos (
     id INTEGER PRIMARY KEY, nombre TEXT, software TEXT, monitor_machine_id TEXT,
     cliente_id INTEGER, UNIQUE(software,nombre))');
@@ -43,5 +44,6 @@ monitor_actualizar_nombre($pdo, 1, $longName);
 $same(200, mb_strlen($name()));
 $same(true, str_ends_with($name(), ' [1]'));
 $same(4, (int) $pdo->query('SELECT COUNT(*) FROM equipos')->fetchColumn());
+$same(1, (int) $pdo->query("SELECT equipo_id FROM equipo_nombres WHERE software='MonitorAgent' AND nombre='PC-ANTIGUO'")->fetchColumn());
 
 echo "{$checks} comprobaciones de cambio de nombre correctas.\n";
