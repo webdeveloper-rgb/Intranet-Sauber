@@ -131,7 +131,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
     setOrden('incidencias');
   };
   return <section className="inicio-page" aria-labelledby="inicio-titulo">
-    <PageHeading id="inicio-titulo" eyebrow="Centro de operaciones" title="Estado de los equipos"
+    <PageHeading id="inicio-titulo" eyebrow="Sauber Ofimática" title="Estado de los equipos"
       description="Incidencias abiertas y copias en curso."
       actions={<button className="btn sec" type="button" onClick={reintentar} disabled={cargando}>Actualizar</button>} />
     <div className="inicio-resumen" aria-label="Métricas de incidencias">

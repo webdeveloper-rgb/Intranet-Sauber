@@ -56,11 +56,11 @@ export default function Resumen({ refreshSignal, onNavigate }) {
   const pagina = usePagination(filas, 6, `${filtro}|${busqueda}`);
   const valor = (n) => datos ? Number(n || 0).toLocaleString('es-ES') : '—';
   const metricas = [
-    ['Equipos con incidencias', equipos.filter(conError).length, 'Estado actual del parque', 'incidencias', 'error'],
+    ['Equipos con incidencias', equipos.filter(conError).length, 'Estado actual de los equipos', 'incidencias', 'error'],
     ['Equipos con fallos de copia', equipos.filter((e) => Number(e.errores_pendientes) > 0).length, 'Errores conservados pendientes', 'copias', 'error'],
     ['Sin copia esperada', resumen?.sin_copia, 'Según los días de copia configurados', 'sin-copia', 'warning'],
     ['Agentes sin informar', resumen?.sin_informe, 'Último informe hace más de 24 h', 'sin-informe', 'warning'],
-    ['Equipos sin asignar', resumen?.sin_asignar, 'En todo el parque', 'asignar', 'neutral'],
+    ['Equipos sin asignar', resumen?.sin_asignar, 'Pendientes de vincular a un cliente', 'asignar', 'neutral'],
   ];
   const copias = Object.fromEntries((datos?.copias || []).map((c) => [c.estado, Number(c.total)]));
   const totalCopias = Object.values(copias).reduce((a, b) => a + b, 0);
@@ -72,19 +72,19 @@ export default function Resumen({ refreshSignal, onNavigate }) {
     ['Monitorización', `${valor(resumen?.agentes)} agentes · ${valor(resumen?.sin_informe)} sin informar >24 h`, 'La ausencia de informes no confirma una desconexión.', Number(resumen?.sin_informe) > 0],
   ];
   return <section className="dashboard-page" aria-labelledby="resumen-titulo" aria-busy={cargando}>
-    <PageHeading id="resumen-titulo" eyebrow="Supervisión del parque" title="Centro de operaciones"
-      description="Monitorización, copias de seguridad y atención a clientes."
+    <PageHeading id="resumen-titulo" eyebrow="Sauber Ofimática" title="Monitoreo de copias y equipos"
+      description="Estado de las copias de seguridad y los equipos de los clientes."
       actions={<div className="dashboard-refresh"><span>{datos ? `Actualizado a las ${new Date(datos.actualizado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Esperando datos'}</span>
         <button className="btn sec" disabled={cargando} onClick={() => setRevision((n) => n + 1)}><Icon name="refresh" size={15} />{cargando ? 'Actualizando…' : 'Actualizar'}</button></div>} />
     {error && <div className="errbox" role="alert">{error}. {datos ? 'Se mantienen los últimos datos recibidos.' : 'No se pudo cargar el resumen.'} <button className="btn sec" onClick={() => setRevision((n) => n + 1)}>Reintentar</button></div>}
-    <div className="dashboard-health" role="group" aria-label="Estado general del parque, copias e integraciones">
-    <div className="dashboard-metrics" aria-label="Indicadores del parque completo">
+    <div className="dashboard-health" role="group" aria-label="Estado general de equipos, copias e integraciones">
+    <div className="dashboard-metrics" aria-label="Indicadores de todos los equipos">
       {metricas.map(([titulo, numero, nota, key, tono]) => <button key={key} type="button" className={`dashboard-metric tone-${tono}`} aria-pressed={key === 'asignar' ? undefined : filtro === key}
         onClick={() => { if (key === 'asignar') onNavigate('/clientes/sin-asignar'); else setFiltro(filtro === key ? 'todos' : key); }}>
         <span>{titulo}<Icon name="arrow" size={14} /></span><strong>{valor(numero)}</strong><small>{nota}</small>
       </button>)}
     </div>
-    <div className="dashboard-context"><span><strong>{valor(resumen?.total_equipos)}</strong> equipos en el parque</span><span><strong>{valor(resumen?.agentes)}</strong> con agente de monitorización</span><span><strong>{valor(equipos.reduce((n, e) => n + Number(e.copias_en_curso), 0))}</strong> copias en curso</span></div>
+    <div className="dashboard-context"><span><strong>{valor(resumen?.total_equipos)}</strong> equipos registrados</span><span><strong>{valor(resumen?.agentes)}</strong> con agente de monitorización</span><span><strong>{valor(equipos.reduce((n, e) => n + Number(e.copias_en_curso), 0))}</strong> copias en curso</span></div>
     <div className="dashboard-overview">
       <section className="dashboard-panel" aria-labelledby="copias-resumen-titulo">
         <div className="dashboard-panel-heading"><div><span className="eyebrow">Actividad reciente</span><h2 id="copias-resumen-titulo">Copias · últimas 24 horas</h2></div><a href={rutaHref('/copias')} onClick={(e) => navegar(e, '/copias')}>Ver historial ↗</a></div>

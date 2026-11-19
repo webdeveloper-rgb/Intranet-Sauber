@@ -104,7 +104,7 @@ La estructura común se compone del menú lateral y la cabecera de `Header.jsx`;
 y los del resumen están en `frontend/src/dashboard.css`, importado después de `styles.css`.
 `Inicio.jsx` conserva la redirección de enlaces antiguos de equipo hacia la ficha de Clientes.
 
-El resumen calcula el total de equipos y los equipos sin asignar sobre todo el parque.
+El resumen calcula el total de equipos registrados y los equipos pendientes de asignar a un cliente.
 Incluye en la cola las incidencias existentes, las copias en curso, los equipos sin copia
 esperada según su calendario y los agentes con informe previo que no informan desde hace
 más de 24 horas. Este último indicador no confirma que el equipo esté desconectado.
