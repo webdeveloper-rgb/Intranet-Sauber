@@ -29,8 +29,7 @@ export default function Notas({ c, onNote }) {
         porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="notas" />
       <textarea rows="2" value={t} onChange={(e) => setT(e.target.value)}
         placeholder="Observación o nota de seguimiento…" />
-      <div className="rf">
-        <span />
+      <div className="rf notas-acciones">
         <button className="btn" disabled={!t.trim()} onClick={add}>Añadir nota</button>
       </div>
     </div>

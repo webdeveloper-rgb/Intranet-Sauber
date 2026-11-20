@@ -10,7 +10,6 @@ import Kpis from '../features/backups/components/Kpis';
 import Filtros from '../features/backups/components/Filtros';
 import Tabla from '../features/backups/components/Tabla';
 import Detalle from '../features/backups/components/Detalle';
-import ClasificacionPendiente from '../features/backups/components/ClasificacionPendiente';
 import Clientes from '../features/clients/pages/Clientes';
 import Usuarios from '../features/account/components/Usuarios';
 import Eventos from '../features/events/pages/Eventos';
@@ -19,6 +18,7 @@ import Inicio from '../features/dashboard/pages/Inicio';
 import Resumen from '../features/dashboard/pages/Resumen';
 import Equipos from '../features/equipment/pages/Equipos';
 import InformeCopias from '../features/backups/pages/InformeCopias';
+import PorClasificar from '../features/backups/pages/PorClasificar';
 import PageHeading from '../shared/ui/PageHeading';
 import Paginacion from '../shared/ui/Paginacion';
 import { usePagination } from '../shared/hooks/usePagination';
@@ -67,7 +67,7 @@ export default function App() {
   const [filtro, setFiltro] = useState('todos');
   const [f, setF] = useReducer((s, p) => ({ ...s, ...p }), undefined, filtrosIniciales);
   const vista = ruta.vista;
-  const copias = useCopias(f.desde, f.hasta, vista === 'copias');
+  const copias = useCopias(f.desde, f.hasta, vista === 'copias' || vista === 'por-clasificar');
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
@@ -242,6 +242,9 @@ export default function App() {
           <Equipos filtros={ruta.filtros} refreshSignal={actualizacionEquipos} onNavigate={navegar} />
         ) : vista === 'informes' ? (
           sesion ? <InformeCopias onNavigate={navegar} /> : estadoSesion
+        ) : vista === 'por-clasificar' ? (
+          sesion ? <PorClasificar copias={copias.data} cargando={copias.cargando} error={copias.fallo}
+            onClasificar={copias.clasificarRevision} onRecargar={copias.cargar} /> : estadoSesion
         ) : vista === 'eventos' ? (
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : estadoSesion
         ) : vista === 'clientes' && sesion ? (
@@ -263,8 +266,6 @@ export default function App() {
             )}
             <Kpis n={n} total={data.length - n.sc} />
             <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} total={data.length} softwares={softwaresCopia} />
-            <ClasificacionPendiente copias={data} onClasificar={copias.clasificarRevision}
-              onFiltrar={() => setFiltro('inc')} />
             {copias.truncado && <div className="estado-alertas" role="status">Este intervalo contiene más de 3.000 copias; se muestran las 3.000 más recientes. Reduce el rango de fechas para ver el resto.</div>}
             <Tabla sinCopia={filtro === 'sin'} rows={paginaCopias.items} cargando={copias.cargando} error={copias.fallo}
               onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />

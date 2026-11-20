@@ -3,6 +3,7 @@ const icons = {
   inicio: 'fa-table-cells-large',
   clientes: 'fa-users',
   copias: 'fa-database',
+  'por-clasificar': 'fa-tags',
   eventos: 'fa-wave-square',
   informes: 'fa-file-lines',
   bell: 'fa-bell',

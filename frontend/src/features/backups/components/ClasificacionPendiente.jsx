@@ -67,7 +67,7 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
   </article>;
 }
 
-export default function ClasificacionPendiente({ copias, onClasificar, onFiltrar }) {
+export default function ClasificacionPendiente({ copias, onClasificar, onFiltrar, modo = 'bloque' }) {
   const grupos = useMemo(() => {
     const mapa = new Map();
     (copias || []).filter((c) => c.estado === 'REVISION').forEach((c) => {
@@ -90,14 +90,15 @@ export default function ClasificacionPendiente({ copias, onClasificar, onFiltrar
   }, [copias]);
 
   if (!grupos.length) return null;
-  return <section className="clasificacion-pendiente" aria-labelledby="clasificacion-pendiente-titulo">
-    <div className="clasificacion-heading">
+  return <section className={`clasificacion-pendiente${modo === 'pagina' ? ' en-pagina' : ''}`} aria-labelledby="clasificacion-pendiente-titulo">
+    {modo !== 'pagina' && <div className="clasificacion-heading">
       <div>
         <span className="eyebrow">Por clasificar</span>
         <h2 id="clasificacion-pendiente-titulo">Errores por clasificar</h2>
       </div>
-      <button className="btn sec" type="button" onClick={onFiltrar}>{grupos.length} grupo{grupos.length === 1 ? '' : 's'}</button>
-    </div>
+      {onFiltrar && <button className="btn sec" type="button" onClick={onFiltrar}>{grupos.length} grupo{grupos.length === 1 ? '' : 's'}</button>}
+    </div>}
+    {modo === 'pagina' && <div className="clasificacion-resumen">{grupos.length} grupo{grupos.length === 1 ? '' : 's'} por revisar</div>}
     <div className="clasificacion-lista">
       {grupos.map((grupo) => <GrupoPorClasificar key={claveGrupo(grupo)} grupo={grupo} onClasificar={onClasificar} />)}
     </div>

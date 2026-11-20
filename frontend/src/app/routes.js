@@ -47,6 +47,10 @@ export function leerRuta() {
     return { vista: 'informes', clienteId: null, equipoId: null, copiaId: null, path: '/informes' };
   }
 
+  if (partes[0] === 'por-clasificar') {
+    return { vista: 'por-clasificar', clienteId: null, equipoId: null, copiaId: null, path: '/por-clasificar' };
+  }
+
   if (partes[0] === 'clientes') {
     const cliente = partes[1] || null;
     const equipo = partes[2] === 'equipos' && /^\d+$/.test(partes[3] || '') ? Number(partes[3]) : null;

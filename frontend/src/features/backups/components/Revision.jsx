@@ -30,7 +30,7 @@ export default function Revision({ c, onRevisar, onReabrir }) {
       <textarea id="rd" rows="3" value={t} onChange={(e) => setT(e.target.value)}
         placeholder="Ej.: Se liberó espacio en el disco de destino, se comprobó la ruta y se relanzó la copia manualmente con éxito" />
       <div className="rf">
-        <span className={ok ? 'okc' : 'nok'}>{n}/{MIN_PALABRAS} palabras mínimo</span>
+        <span className={ok ? 'okc' : 'nok'}>{n ? `${n}/${MIN_PALABRAS}` : MIN_PALABRAS} palabras mínimo</span>
         <button className="btn" disabled={!ok || busy} onClick={enviar}>Marcar como revisado</button>
       </div>
     </div>

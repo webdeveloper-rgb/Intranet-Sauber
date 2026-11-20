@@ -628,6 +628,9 @@ dd {
 .notas textarea {
   margin-bottom: 8px;
 }
+.notas-acciones {
+  justify-content: flex-end;
+}
 .nota {
   border-left: 3px solid var(--brand);
   background: var(--brand-s);
@@ -650,6 +653,15 @@ dd {
   display: grid;
   gap: 14px;
 }
+.clasificacion-pendiente.en-pagina {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.clasificacion-resumen {
+  color: var(--mut);
+  font-size: 13px;
+}
 .clasificacion-heading {
   display: flex;
   align-items: center;
@@ -666,9 +678,9 @@ dd {
 }
 .clasificacion-item {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(420px, 1.4fr);
-  gap: 14px;
-  padding: 12px;
+  grid-template-columns: minmax(280px, 1fr) minmax(520px, 1.1fr);
+  gap: 18px;
+  padding: 16px;
   border: 1px solid var(--bd);
   border-radius: 8px;
   background: var(--bg);
@@ -688,7 +700,7 @@ dd {
 }
 .clasificacion-controles {
   display: grid;
-  grid-template-columns: minmax(130px, .8fr) minmax(130px, .9fr) minmax(180px, 1.2fr) auto;
+  grid-template-columns: minmax(140px, .8fr) minmax(160px, .9fr) minmax(260px, 1.2fr) auto;
   gap: 10px;
   align-items: end;
 }
