@@ -39,10 +39,15 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
   };
   return <article className="clasificacion-item">
     <div className="clasificacion-error">
+      <div className="clasificacion-meta">
+        <span>{grupo.total} copia{grupo.total === 1 ? '' : 's'}</span>
+        <span>{grupo.equipos.size} equipo{grupo.equipos.size === 1 ? '' : 's'}</span>
+        <span>{grupo.software || 'Software no indicado'}</span>
+      </div>
       <strong>{grupo.desc_error || grupo.clasificacion_evidencia || 'Error sin descripcion'}</strong>
-      <span>{grupo.total} copia{grupo.total === 1 ? '' : 's'} - {grupo.equipos.size} equipo{grupo.equipos.size === 1 ? '' : 's'} - {grupo.software || 'Software no indicado'}</span>
       {grupo.clasificacion_evidencia && grupo.clasificacion_evidencia !== grupo.desc_error && <small>{grupo.clasificacion_evidencia}</small>}
     </div>
+    <div className="clasificacion-divider" />
     <div className="clasificacion-controles">
       <label>
         <span>Clasificar como</span>

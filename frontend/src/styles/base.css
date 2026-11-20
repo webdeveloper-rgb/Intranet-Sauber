@@ -573,6 +573,11 @@ dd {
   margin: 0;
   word-break: break-word;
 }
+.detalle-acciones {
+  display: flex;
+  justify-content: flex-start;
+  margin: -4px 0 12px;
+}
 .revbox {
   background: var(--brand-s);
   border: 1px solid var(--brand);

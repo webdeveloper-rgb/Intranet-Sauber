@@ -16,7 +16,9 @@ function copia_fila(array $row): array
 
 const SQL_COPIA = "SELECT id, DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') AS fecha, cliente,
     COALESCE((SELECT nombre FROM equipos WHERE id=copias.equipo_id),equipo) AS equipo,
-    equipo AS nombre_recibido, equipo_id, estado, desc_error,
+    equipo AS nombre_recibido, equipo_id,
+    (SELECT cliente_id FROM equipos WHERE id=copias.equipo_id) AS cliente_id,
+    estado, desc_error,
     codigo, resultado_original, clasificacion_fuente, clasificacion_evidencia,
     software, destino, tamano, duracion, tipo, programa, intentos, revisado, revisado_por,
     DATE_FORMAT(fecha,'%Y-%m-%d %H:%i:%s') AS cursor_fecha,
