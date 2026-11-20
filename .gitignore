@@ -1,5 +1,6 @@
 # Contraseñas de la base de datos: NUNCA al repositorio
 config/config.php
+config/copias-prueba-*.json
 
 # Dependencias y ficheros de editor
 node_modules/

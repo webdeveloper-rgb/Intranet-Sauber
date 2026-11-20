@@ -4,6 +4,10 @@ Aplicación web en **PHP 8 + MySQL/MariaDB** con panel en **React + Vite**. La r
 
 ## Estructura
 
+La opción administrativa para reunir fichas duplicadas está documentada en [Combinar equipos](docs/COMBINAR-EQUIPOS.md). Esta función requiere ejecutar `php migrate.php` tras actualizar.
+
+Consulta el [mapa de carpetas y criterios de organizacion](docs/ESTRUCTURA.md).
+
 La documentacion tecnica de responsabilidades, rutas de datos, acciones API y reglas para cambios esta en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
 Los PHP de la raíz son puntos de entrada conservados para no cambiar las URL del panel, n8n ni las tareas de Plesk. Su implementación está agrupada por responsabilidad dentro de `src/`:
@@ -13,10 +17,13 @@ api.php, ingest.php                 Entradas HTTP del panel y recepción de n8n
 monitor-enroll.php, monitor-ingest.php, monitor-token.php Alta y recepción de informes de Monitor-Equipos
 sync.php, migrate.php, purge.php   Entradas CLI compatibles con las tareas de Plesk
 index.php, login.php, clientes.php Páginas del panel
-src/Http/                          Implementaciones de endpoints y respuesta JSON común
+src/Http/Endpoints/                Implementaciones de endpoints HTTP
+src/Http/Pages/                    Páginas de entrada, login y redirecciones
+src/Http/JsonResponse.php          Respuesta JSON común
 src/Http/Controllers/              Acciones de lectura, historial, clientes, usuarios, equipos y revisión
 src/Console/                       Comandos de sincronización, migración y limpieza
-src/Backup/                        Ingesta de avisos, equipos y copias
+src/Backup/                        Ingesta de avisos y consulta de copias
+src/Equipment/                     Gestión y asignación de equipos
 src/Monitoring/                    Informes de hardware y alertas de salud
 src/Integration/ClientApi.php      Sincronización e inicio de sesión con la API de clientes
 src/Security/ApiTokens.php          Creación y validación de tokens de integración
@@ -27,6 +34,12 @@ build/                              Panel compilado que se despliega
 ```
 
 Las rutas activas del panel y n8n, y los comandos de Plesk, se conservan. Para añadir lógica nueva, coloca el código en el módulo de su área y deja las entradas de la raíz como delegadores pequeños.
+
+## Inicio, navegación e informes
+
+La ruta `/` abre el dashboard. El logo también lleva a **Inicio** desde cualquier vista. El dashboard agrupa equipos con errores de copia o eventos de Windows clasificados como error/crítico; al abrir un equipo muestra únicamente sus errores y eventos con ese nivel.
+
+En **Informes** se puede consultar el historial de copias por fechas y resultado y exportarlo a CSV. El informe incluye las copias del historial y los avisos que siguen en staging, además del resultado original, motivo, evidencia y fuente de clasificación. `REVISION` se muestra como **Por clasificar**, no como error confirmado.
 
 ## Primera instalación
 
@@ -93,6 +106,16 @@ frontend/src/
   components/           Header, Kpis, Filtros, Tabla, Detalle, Revision, Seguimiento, Notas, Historial, Usuarios
 ```
 
+## Preview local de diseño
+
+Sin PHP ni base de datos, ejecuta `npm.cmd run preview:demo` desde `frontend/`
+y abre la URL local indicada por Vite (normalmente `http://127.0.0.1:5173/`).
+La preview muestra datos ficticios y un aviso permanente. Permite revisar el resumen,
+la navegación y las vistas principales; las modificaciones y las integraciones reales
+están desactivadas. Para detenerla, pulsa `Ctrl+C` en la terminal.
+Este modo solo se activa en el servidor de desarrollo con `--mode demo` y no cambia
+el comportamiento del panel compilado para producción.
+
 ## Usuarios
 El acceso se valida con las credenciales personales en la API y los usuarios configurados en `api_sync.usuarios_permitidos`. La primera vez que alguien inicia sesión se crea un único perfil local ligado al ID de usuario de la API; iniciar con DNI o correo no crea cuentas separadas. Configura en `admins` el DNI o correo exacto de cada administrador. Los intentos fallidos se limitan persistentemente por IP y usuario. Las contraseñas se gestionan en la API.
 
@@ -151,13 +174,15 @@ Añade una tarea programada para sincronizar clientes y limpiar logs:
 
 ## Recepción de copias desde n8n
 
-El workflow de n8n lee el buzón IMAP, clasifica cada aviso y envía el resultado a ingest.php con un token Bearer. El panel no se conecta al buzón ni procesa correos por su cuenta.
+El workflow de n8n lee el buzón IMAP, clasifica cada aviso y envía el resultado a ingest.php con un token Bearer. `FALLO_LEVE` se registra como advertencia, `EN_CURSO` como operación activa y solo un `FALLO_GRAVE` confirmado como `ERROR`; resultados contradictorios o ambiguos van a `REVISION`. La clasificación separa el resultado de la copia de las tareas auxiliares. El panel conserva resultado original, motivo, evidencia y fuente. El panel no se conecta al buzón ni procesa correos por su cuenta.
+
+Guarda la API key de OpenAI como credencial de n8n y vuelve a enlazarla en el nodo HTTP antes de activar o importar el workflow actualizado. No guardes claves en el JSON exportado.
 
 Cada aviso debe incluir un identificador estable (message_id) para que la ingesta pueda reconocer reintentos y evitar duplicados. Los avisos aceptados crean o reutilizan un equipo; los que aún no tienen cliente quedan en staging hasta que se asignen desde **Clientes**.
 
 ## Conectar Monitor-Equipos
 
-1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 11).
+1. Despliega Intranet-Sauber y ejecuta `php migrate.php` para aplicar las migraciones pendientes (actualmente, hasta la 16).
 2. En **Tokens de integraciones**, crea una sola clave API compartida sin caducidad para Monitor-Equipos. Reutiliza la misma clave en todas las instalaciones; no generes una clave por equipo. Guárdala de forma segura: quien la obtenga podrá dar de alta agentes.
 3. El instalador solicita la nota o referencia del cliente y la contraseña permanente que quieras asignar a RustDesk (6-64 caracteres, sin espacios). Configura la contraseña en RustDesk, la guarda en MonitorAgent y obtiene el ID de RustDesk. Además, el propio agente comprueba en cada informe si RustDesk está instalado; si encuentra `rustdesk.exe`, ejecuta `--get-id` mediante PowerShell oculto y actualiza el ID enviado al panel. El servicio corre como SYSTEM, por lo que la consulta no muestra ventanas ni solicita interacción.
 4. Compila `Instalador SauberHelp\instalador.iss` con Inno Setup y ejecútalo como administrador. Instala Sauber Desk/RustDesk y MonitorAgent, y solicita la clave compartida `sbr_…`. `monitor.iss` queda como entrada compatible y compila el mismo instalador combinado.

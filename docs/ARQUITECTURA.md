@@ -2,37 +2,41 @@
 
 Este documento explica las responsabilidades del codigo, el recorrido de las peticiones y las reglas que conviene conservar al modificar el proyecto. La aplicacion se divide en una interfaz React compilada, un backend PHP y una base de datos MySQL/MariaDB.
 
+Mapa detallado de carpetas: [ESTRUCTURA.md](ESTRUCTURA.md).
+
 ## Mapa del proyecto
 
 | Ruta | Responsabilidad |
 |---|---|
-| `index.php`, `login.php`, `logout.php`, `clientes.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
+| `src/Http/Pages/IndexPage.php`, `src/Http/Pages/LoginPage.php`, `src/Http/Pages/LogoutPage.php`, `src/Http/Pages/ClientsRedirectPage.php` | Entrada HTML, autenticacion, cierre de sesion y compatibilidad con rutas antiguas. |
 | `api.php` | Punto unico de entrada de las acciones JSON del panel. |
 | `ingest.php` | Punto de entrada de avisos de n8n, protegido con token Bearer. |
 | `monitor-ingest.php` | Receptor autenticado de informes de hardware y alertas de Monitor-Equipos. |
 | `monitor-enroll.php` | Canjea códigos de alta de un solo uso por credenciales de agente individuales. |
 | `monitor-token.php` | Intercambia la credencial individual de un agente por un token temporal de un solo uso. |
 | `src/bootstrap.php` | Configuracion, PDO, sesion, CSRF, escape HTML y utilidades comunes. |
-| `src/Http/ApiEndpoint.php` | Autorizacion, validacion de sesion/CSRF y despacho hacia controladores. |
+| `src/Http/Endpoints/ApiEndpoint.php` | Autorizacion, validacion de sesion/CSRF y despacho hacia controladores. |
 | `src/Http/Controllers/` | Acciones de lectura, historial, clientes, equipos, tokens y revision de copias. |
-| `src/Backup/` | Ingesta de avisos, gestion de equipos y lectura de copias. |
+| `src/Backup/` | Ingesta de avisos y lectura de copias. |
+| `src/Equipment/` | Gestión y asignación de equipos. |
+| `src/Http/Pages/` | Implementación de las páginas de entrada y autenticación. |
 | `src/Monitoring/MonitorService.php` | Normalizacion de informes, asociacion de máquinas y alertas de salud. |
 | `src/Security/ApiTokens.php` | Creacion, autenticacion y registro de uso de tokens para integraciones. |
 | `src/Integration/ClientApi.php` | Cliente HTTP de la API externa de clientes y sincronizacion local. |
 | `src/Console/` | Migraciones y tareas CLI de sincronizacion y retencion. |
 | `database/` | Esquema inicial, tablas de equipos y tablas historicas de sincronizacion. |
 | `frontend/src/` | Aplicacion React: rutas, estado, peticiones y componentes de interfaz. |
-| `frontend/src/styles.css` | Estilos de la interfaz. |
+| `frontend/src/styles/base.css` | Estilos de la interfaz. |
 | `build/` | JavaScript y CSS compilados para produccion. Se generan desde `frontend/`. |
-| `revisar_copias (panel).json` | Workflow local de n8n: clasifica correo y llama a `ingest.php`. |
+| `integrations/n8n/revisar_copias (panel).json` | Workflow local de n8n: clasifica correo y llama a `ingest.php`. |
 
 Los archivos PHP de la raiz son puntos de entrada de compatibilidad. La logica nueva debe ir en el modulo que corresponda, no crecer dentro de esos delegadores.
 
 ## Flujo de autenticacion del panel
 
-1. `login.php` recibe credenciales, limita intentos persistentes y delega la validacion a `ClientApi.php`.
+1. `src/Http/Pages/LoginPage.php` recibe credenciales, limita intentos persistentes y delega la validacion a `ClientApi.php`.
 2. Al autenticar, el backend crea o recupera el usuario local permitido, inicia una sesion protegida y rota su identificador.
-3. `index.php` exige sesion antes de servir React.
+3. `src/Http/Pages/IndexPage.php` exige sesion antes de servir React.
 4. React llama a `api.php?action=sesion` para recuperar usuario y token CSRF.
 5. Las acciones que cambian datos usan POST y envian CSRF en `X-CSRF-Token`. El servidor comprueba de nuevo sesion, estado del usuario y permisos.
 
@@ -43,8 +47,9 @@ Los archivos PHP de la raiz son puntos de entrada de compatibilidad. La logica n
 3. `IngestEndpoint.php` valida metodo, tamano, JSON, limite de elementos y token.
 4. `IngestionService.php` adapta el formato n8n, aplica reglas conocidas del asunto, normaliza campos y rechaza valores invalidos.
 5. `ingesta_guardar()` usa una transaccion: crea o reutiliza el equipo, asigna cliente solo si la sugerencia coincide con un unico cliente activo e inserta el aviso en staging.
-6. `message_key` es unico. Reintentar el mismo mensaje no duplica la copia.
-7. Los avisos en staging se muestran en el panel. Al asignar el equipo, `EquipmentService.php` importa las copias pendientes al historial definitivo.
+6. `message_key` es unico. Reintentar el mismo mensaje no duplica la copia. `WARNING` conserva una advertencia leve, `RUNNING` una operacion activa, `REVISION` un resultado ambiguo y `ERROR` un fallo confirmado. La copia guarda el resultado original, la procedencia y la evidencia de clasificacion.
+7. La revisión operativa se marca en el equipo. Cuando entra un nuevo `OK` después de esa revisión, se eliminan sus copias `ERROR` del historial y del staging dentro de la transacción; las notas ligadas a esas copias también se eliminan por cascada. Solo se conservan las claves de mensaje eliminadas para que n8n no restaure errores en un reintento.
+8. Los avisos en staging se muestran en el panel. Al asignar el equipo, `EquipmentService.php` importa las copias pendientes al historial definitivo.
 
 La ingesta y el panel usan credenciales diferentes: n8n utiliza un token revocable; las personas usan sesion web y proteccion CSRF.
 
@@ -64,11 +69,12 @@ El envío de correo usa `mail()` de PHP, por lo que también debe estar configur
 
 ## API del panel
 
-`api.php` delega en `src/Http/ApiEndpoint.php`. `ReadController` atiende lecturas. Los controladores de historial, cliente, administracion, equipo y revision se ejecutan solo para POST despues de validar CSRF. Las acciones administrativas comprueban el rol `admin` en servidor.
+`api.php` delega en `src/Http/Endpoints/ApiEndpoint.php`. `ReadController` atiende lecturas. Los controladores de historial, cliente, administracion, equipo y revision se ejecutan solo para POST despues de validar CSRF. Las acciones administrativas comprueban el rol `admin` en servidor.
 
 | Accion | Uso |
 |---|---|
-| `sesion`, `novedades`, `list`, `history`, `equipo_historial` | Sesion, actualizacion incremental, copias recientes e historiales paginados. |
+| `sesion`, `novedades`, `panel_inicio`, `list`, `history`, `equipo_historial`, `equipo_errores` | Sesion, resumen de incidencias, copias recientes e historiales paginados. |
+| `informe_copias` | Informe paginado de auditoria, incluidos avisos pendientes de importar y procedencia de clasificacion. |
 | `catalogo`, `equipos`, `sync` | Catalogo de clientes, equipos detectados y sincronizacion externa. |
 | `monitor_equipo` | Informe de hardware y alertas del equipo seleccionado. |
 | `equipo_asignar`, `equipo_desasignar`, `equipo_vigilar`, `equipo_horario` | Asignacion y seguimiento del equipo. |
@@ -91,9 +97,60 @@ Los cambios de esquema deben hacerse mediante migracion versionada en `src/Conso
 
 ## Interfaz y rutas
 
-`frontend/src/App.jsx` compone vistas y estado global. `routes.js` interpreta `/copias`, `/copias/:id`, `/clientes/:cliente` y `/clientes/:cliente/equipos/:id`; `popstate` sincroniza atras/adelante del navegador. `api.js` es el cliente HTTP unico y mantiene CSRF en memoria. `useCopias.js` carga y modifica copias; `logic.js` concentra reglas visuales y calculos; `components/` contiene las piezas de interfaz.
+`frontend/src/app/App.jsx` compone vistas y estado global. `/` muestra el dashboard; `/equipos/:id` lista solo los errores de copia y eventos de ese equipo; `/informes` permite consultar y exportar copias. El logo navega a la raíz. `/inicio` y `/inicio/equipos/:id` se canonicalizan a las rutas nuevas para conservar enlaces antiguos. `routes.js` interpreta tambien `/copias`, `/copias/:id`, `/clientes/:cliente`, `/eventos` y sus detalles; `popstate` sincroniza atras/adelante del navegador. `api.js` es el cliente HTTP unico y mantiene CSRF en memoria. `useCopias.js` carga y modifica copias; `logic.js` concentra reglas visuales y calculos; `components/` contiene las piezas de interfaz.
 
 La lista diaria consulta las ultimas 24 horas. Los historiales se cargan con cursor estable (fecha e ID) para paginar sin saltos. `App.jsx` comprueba novedades mientras la sesion esta activa.
+
+## Resumen operativo
+
+La portada usa `components/Resumen.jsx` y la acción de lectura autenticada `dashboard_resumen`.
+La estructura común se compone del menú lateral y la cabecera de `Header.jsx`; sus estilos
+y los del resumen están en `frontend/src/styles/dashboard.css`, importado después de `styles.css`.
+`Inicio.jsx` conserva la redirección de enlaces antiguos de equipo hacia la ficha de Clientes.
+
+El resumen calcula el total de equipos registrados y los equipos pendientes de asignar a un cliente.
+Incluye en la cola las incidencias existentes, las copias en curso, los equipos sin copia
+esperada según su calendario y los agentes con informe previo que no informan desde hace
+más de 24 horas. Este último indicador no confirma que el equipo esté desconectado.
+La prioridad distingue hardware crítico, servidores con fallos o copias ausentes, otras
+incidencias y copias en curso. Los eventos de Windows y las alertas críticas de hardware
+se muestran por separado. La cola se filtra y pagina en el navegador.
+
+La distribución de copias cubre las últimas 24 horas y suma el historial y únicamente el
+staging sin importar, evitando duplicados. Describe los registros conservados, no una
+serie histórica inmutable: la resolución de una revisión puede eliminar errores antiguos.
+El estado de n8n aplica `ingest_alert_hours`; el de clientes muestra la última sincronización.
+El resumen se actualiza con las novedades globales, cada minuto con la pestaña visible
+y manualmente. Un error conserva los datos anteriores y muestra un aviso.
+
+## Listado global de equipos
+
+La sección `/equipos` usa `components/Equipos.jsx`, combina el listado `equipos` con
+los estados de `dashboard_resumen` y conserva búsqueda, cliente, tipo, estado,
+cobertura y orden en parámetros de URL. Los filtros no crean una entrada de historial
+por cada pulsación; abrir una ficha sí permite volver al listado filtrado. La ficha sigue
+siendo `/clientes/:cliente/equipos/:id`, también para equipos sin asignar. Los enlaces
+anteriores `/equipos/:id` conservan su redirección. Los indicadores del resumen enlazan
+al listado global con su filtro de estado. Si falla la consulta de estados, se mantiene
+el inventario y se avisa de que el estado es parcial; los filtros que dependen del resumen
+no presentan resultados como si fueran completos. El listado añade la última copia
+del historial y del staging pendiente sin combinar columnas de texto con distintas colaciones.
+
+## Ficha de equipo
+
+`Clientes.jsx` conserva los datos y las acciones de la ficha. `FichaEquipo.jsx` organiza
+Resumen, Copias, Monitorización, Eventos y Configuración. El parámetro `tab` se valida
+en `routes.js`; cambiar de pestaña reemplaza la URL sin añadir entradas al historial.
+La identificación, el cliente y RustDesk permanecen en la cabecera visible al desplazarse.
+Las pestañas admiten flechas, Inicio y Fin con roles y relaciones ARIA.
+
+Copias conserva revisión, avisos/calendario e historial paginado. Configuración agrupa
+asignación, alias, tipo y posibles duplicados, manteniendo los permisos y las acciones API
+existentes. Sus formularios se mantienen montados tras la primera visita para conservar
+borradores al alternar pestañas. Eventos monta la vista existente filtrada por equipo solo
+mientras su pestaña está activa, sin mantener consultas de eventos en segundo plano.
+Al guardar una asignación se conserva la pestaña Configuración. Esta reorganización
+no requiere migraciones ni cambios en los endpoints de producción.
 
 ## Reglas para cambios
 

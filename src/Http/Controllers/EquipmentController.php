@@ -9,6 +9,49 @@ final class EquipmentController
 {
     public static function handle(string $action, array $input, array $user): bool
     {
+        if (in_array($action, ['equipo_combinar_prever', 'equipo_combinar'], true)) {
+            exigir_admin($user);
+            $destinoId = filter_var($input['destino_id'] ?? null, FILTER_VALIDATE_INT);
+            $origenIds = $input['origen_ids'] ?? null;
+            if (!$destinoId || !is_array($origenIds)) fail('Selección de equipos no válida.');
+            try {
+                if ($action === 'equipo_combinar_prever') {
+                    $plan = equipos_combinar_plan(db(), $destinoId, $origenIds);
+                    unset($plan['_rows'], $plan['_counts'], $plan['_monitor']);
+                    out($plan);
+                }
+                if (!is_string($input['token'] ?? null)) fail('Primero revisa la combinación.');
+                $agenteId = isset($input['agente_equipo_id']) ? filter_var($input['agente_equipo_id'], FILTER_VALIDATE_INT) : null;
+                if ($agenteId !== null && (!$agenteId || $agenteId < 1)) fail('Agente no válido.');
+                out(equipos_combinar(db(), $destinoId, $origenIds, $input['token'], (string) $user['usuario'], $agenteId));
+            } catch (ApiError $ex) {
+                fail($ex->getMessage(), 409);
+            }
+        }
+
+        if ($action === 'equipo_revisar_errores') {
+            $equipoId = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
+            if ($equipoId === false || $equipoId < 1) {
+                fail('Equipo no válido.');
+            }
+            $description = txt($input['desc'] ?? '', 2000);
+            if (palabras($description) < MIN_PALABRAS) {
+                fail('La descripción debe tener al menos ' . MIN_PALABRAS . ' palabras.');
+            }
+            try {
+                $errors = equipos_revisar_errores($equipoId, (string) $user['usuario'], $description);
+                out([
+                    'ok' => true,
+                    'errores_pendientes' => $errors,
+                    'error_reviewed_at' => date('Y-m-d H:i:s'),
+                    'error_reviewed_by' => $user['usuario'],
+                    'error_review_desc' => $description,
+                ]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_asignar') {
             exigir_admin($user);
             try {

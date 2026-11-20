@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS equipos (
   tipo VARCHAR(20) NULL,
   programa VARCHAR(50) NULL,
   dias_copia CHAR(7) NOT NULL DEFAULT '1111111',
+  error_reviewed_at DATETIME NULL,
+  error_reviewed_by VARCHAR(50) NULL,
+  error_review_desc TEXT NULL,
   cliente_id INT UNSIGNED NULL,
   creado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_equipos_origen_nombre (software, nombre),
@@ -24,10 +27,14 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   message_key CHAR(40) NOT NULL,
   equipo_id INT UNSIGNED NOT NULL,
+  nombre_recibido VARCHAR(200) NULL, -- Nombre del aviso, independiente del hostname del agente.
   fecha DATETIME NOT NULL,
-  estado ENUM('OK','ERROR') NOT NULL,
+  estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL,
   desc_error VARCHAR(500) NOT NULL DEFAULT '',
   codigo VARCHAR(40) NULL,
+  resultado_original VARCHAR(24) NOT NULL DEFAULT '',
+  clasificacion_fuente VARCHAR(40) NOT NULL DEFAULT '',
+  clasificacion_evidencia VARCHAR(600) NOT NULL DEFAULT '',
   software VARCHAR(80) NULL,
   destino VARCHAR(120) NULL,
   tamano VARCHAR(40) NULL,
@@ -37,6 +44,14 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   UNIQUE KEY uq_correo_key (message_key),
   KEY idx_correo_equipo_importada (equipo_id, importada),
   KEY idx_correo_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Claves de mensajes ya eliminados para que un reintento de n8n no restaure errores resueltos.
+CREATE TABLE IF NOT EXISTS correo_copias_eliminadas (
+  message_key CHAR(40) NOT NULL PRIMARY KEY,
+  equipo_id INT UNSIGNED NOT NULL,
+  deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_correo_eliminadas_equipo (equipo_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS correo_sync_log (

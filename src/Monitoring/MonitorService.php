@@ -46,6 +46,136 @@ function monitor_migrar_esquema(PDO $pdo): void
     }
 }
 
+function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHeader): int
+{
+    $machineId = monitor_texto($data['machineId'] ?? null, 128, true, 'machineId');
+    $headerId = monitor_texto($machineHeader, 128, true, 'X-Machine-Id');
+    if (!hash_equals($machineId, $headerId)) {
+        throw new InvalidArgumentException('X-Machine-Id no coincide con machineId');
+    }
+    $observed = strtotime((string) ($data['observedAtUtc'] ?? ''));
+    if ($observed === false || $observed > time() + 300 || $observed < time() - 600) {
+        throw new InvalidArgumentException('observedAtUtc no válido');
+    }
+    $canonical = [
+        'acronis' => 'Acronis', 'iperius' => 'Iperius', 'veeam' => 'Veeam',
+        'data protector' => 'Data Protector', 'micro focus' => 'Data Protector',
+        'arcserve' => 'Arcserve', 'commvault' => 'Commvault', 'veritas' => 'Veritas',
+        'nakivo' => 'NAKIVO', 'backup exec' => 'Backup Exec', 'windows server backup' => 'Windows Server Backup',
+        'synology active backup' => 'Synology Active Backup',
+    ];
+    $scanned = [];
+    foreach (array_slice(is_array($data['scannedProducts'] ?? null) ? $data['scannedProducts'] : [], 0, 30) as $value) {
+        $name = monitor_texto($value, 40);
+        if ($name === null) continue;
+        $key = mb_strtolower($name);
+        if (isset($canonical[$key])) $scanned[$canonical[$key]] = true;
+    }
+    if (!is_array($data['activities'] ?? null) || count($data['activities']) > 200) {
+        throw new InvalidArgumentException('activities no válido');
+    }
+
+    $source = $pdo->prepare('SELECT id,monitor_report FROM equipos WHERE monitor_machine_id=? LIMIT 1');
+    $source->execute([$machineId]);
+    $sourceRow = $source->fetch();
+    $sourceEquipmentId = $sourceRow ? (int) $sourceRow['id'] : null;
+    $sourceReport = is_array($sourceRow) ? json_decode((string) ($sourceRow['monitor_report'] ?? ''), true) : null;
+    $sourceProducts = is_array($sourceReport['software']['backupProducts'] ?? null)
+        ? array_map(static fn($value): string => mb_strtolower((string) $value), $sourceReport['software']['backupProducts']) : [];
+
+    $findByName = $pdo->prepare('SELECT DISTINCT e.id FROM equipos e LEFT JOIN equipo_nombres n ON n.equipo_id=e.id
+        WHERE LOWER(e.nombre)=LOWER(?) OR LOWER(n.nombre)=LOWER(?) ORDER BY e.id LIMIT 2');
+    $findByReportHostname = $pdo->prepare("SELECT id FROM equipos WHERE monitor_report IS NOT NULL AND JSON_VALID(monitor_report)
+        AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(monitor_report,'$.hostname')))=LOWER(?) ORDER BY id LIMIT 2");
+    $equipmentByTarget = [];
+
+    $normalized = [];
+    foreach ($data['activities'] as $activity) {
+        if (!is_array($activity)) continue;
+        $state = strtolower((string) ($activity['state'] ?? ''));
+        if ($state !== 'running') continue;
+        $givenProduct = monitor_texto($activity['product'] ?? null, 40, true, 'product');
+        $product = $canonical[mb_strtolower($givenProduct)] ?? null;
+        if ($product === null || !isset($scanned[$product])) continue;
+        $target = monitor_texto($activity['targetHostname'] ?? null, 200, true, 'targetHostname');
+        $session = monitor_texto($activity['sessionKey'] ?? null, 180, true, 'sessionKey');
+        $startTime = strtotime((string) ($activity['startedAtUtc'] ?? ''));
+        if ($startTime === false || $startTime > time() + 300) $startTime = $observed;
+        $hostKey = mb_strtolower(trim($target));
+        if (!array_key_exists($hostKey, $equipmentByTarget)) {
+            $findByName->execute([$target, $target]);
+            $matches = array_map('intval', $findByName->fetchAll(PDO::FETCH_COLUMN));
+            if (count($matches) !== 1) {
+                $findByReportHostname->execute([$target]);
+                $matches = array_values(array_unique(array_merge($matches, array_map('intval', $findByReportHostname->fetchAll(PDO::FETCH_COLUMN)))));
+            }
+            $equipmentByTarget[$hostKey] = $matches;
+        }
+        $matches = $equipmentByTarget[$hostKey];
+        if (count($matches) !== 1) continue;
+        $remoteManagerProduct = in_array($product, ['Veeam', 'Data Protector'], true);
+        if ($remoteManagerProduct) {
+            $needle = $product === 'Data Protector' ? 'data protector' : 'veeam';
+            $detected = false;
+            foreach ($sourceProducts as $sourceProduct) {
+                if (str_contains($sourceProduct, $needle)
+                    || ($product === 'Data Protector' && str_contains($sourceProduct, 'micro focus'))) {
+                    $detected = true;
+                    break;
+                }
+            }
+            if (!$detected) continue;
+        } elseif ($sourceEquipmentId === null || (int) $matches[0] !== $sourceEquipmentId) {
+            continue;
+        }
+        $normalized[] = [
+            'equipmentId' => (int) $matches[0],
+            'product' => $product,
+            'sessionKey' => hash('sha256', $session . "\0" . $target),
+            'startedAt' => gmdate('Y-m-d H:i:s', $startTime),
+            'activeOperations' => max(1, min(100, monitor_numero($activity['activeOperations'] ?? 1) ?? 1)),
+            'source' => monitor_texto($activity['source'] ?? null, 60) ?? 'agent',
+        ];
+    }
+
+    $pdo->beginTransaction();
+    try {
+        monitor_agente_comprobar_retirado($pdo, $machineId);
+        $pdo->exec('DELETE FROM monitor_backup_activity WHERE observed_at < UTC_TIMESTAMP() - INTERVAL 1 DAY');
+        foreach (array_keys($scanned) as $product) {
+            $pdo->prepare('DELETE FROM monitor_backup_activity WHERE source_machine_key=? AND product=?')
+                ->execute([hash('sha256', $machineId), $product]);
+        }
+        $insert = $pdo->prepare('INSERT INTO monitor_backup_activity
+            (source_machine_id,source_machine_key,equipo_id,product,session_key,started_at,observed_at,active_operations,source)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE equipo_id=VALUES(equipo_id),started_at=VALUES(started_at),
+                observed_at=VALUES(observed_at),active_operations=VALUES(active_operations),source=VALUES(source)');
+        foreach ($normalized as $activity) {
+            $insert->execute([
+                $machineId, hash('sha256', $machineId), $activity['equipmentId'], $activity['product'], $activity['sessionKey'],
+                $activity['startedAt'], gmdate('Y-m-d H:i:s', $observed), $activity['activeOperations'], $activity['source'],
+            ]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    return count($normalized);
+}
+
+function monitor_equipo_copias_en_curso(PDO $pdo, int $equipmentId): array
+{
+    $st = $pdo->prepare("SELECT product,DATE_FORMAT(started_at,'%Y-%m-%dT%H:%i:%sZ') AS started_at,
+            DATE_FORMAT(observed_at,'%Y-%m-%dT%H:%i:%sZ') AS observed_at,active_operations
+        FROM monitor_backup_activity WHERE equipo_id=?
+            AND observed_at >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE
+        ORDER BY started_at DESC,product");
+    $st->execute([$equipmentId]);
+    return $st->fetchAll();
+}
+
 function monitor_texto($value, int $max, bool $required = false, string $field = ''): ?string
 {
     if (!is_scalar($value)) {
@@ -417,6 +547,17 @@ function monitor_agente_autenticar(PDO $pdo, ?string $token, string $machineId):
     return true;
 }
 
+/** La comprobacion bajo bloqueo protege tambien envios autenticados antes de combinar. */
+function monitor_agente_comprobar_retirado(PDO $pdo, string $machineId): void
+{
+    $q = $pdo->prepare('SELECT active FROM monitor_agents WHERE machine_id=? FOR UPDATE');
+    $q->execute([$machineId]);
+    $active = $q->fetchColumn();
+    if ($active !== false && (int) $active === 0) {
+        throw new InvalidArgumentException('Este agente fue desactivado al combinar equipos.');
+    }
+}
+
 function monitor_token_consumir(PDO $pdo, ?string $token, string $machineId): bool
 {
     if ($token === null || !preg_match('/\Amtr_[0-9a-f]{64}\z/', $token)) {
@@ -430,6 +571,12 @@ function monitor_token_consumir(PDO $pdo, ?string $token, string $machineId): bo
         $st->execute([hash('sha256', $token)]);
         $row = $st->fetch();
         if (!$row || !hash_equals((string) $row['machine_id'], $machineId)) {
+            $pdo->rollBack();
+            return false;
+        }
+        try {
+            monitor_agente_comprobar_retirado($pdo, $machineId);
+        } catch (InvalidArgumentException $e) {
             $pdo->rollBack();
             return false;
         }
@@ -590,6 +737,46 @@ function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSa
     return $scores[0]['client'];
 }
 
+/** El nombre puede cambiar; la identidad del agente y el historial se conservan. */
+function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname): void
+{
+    $st = $pdo->prepare('SELECT nombre,software,monitor_machine_id FROM equipos WHERE id=? FOR UPDATE');
+    $st->execute([$equipmentId]);
+    $equipment = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$equipment || $equipment['nombre'] === $hostname) {
+        return;
+    }
+
+    // La clave unica es (software,nombre). Un homonimo no debe fusionar dos equipos.
+    $exists = $pdo->prepare('SELECT id FROM equipos WHERE software=? AND nombre=? AND id<>?');
+    $name = $hostname;
+    $attempt = 0;
+    do {
+        $exists->execute([$equipment['software'], $name, $equipmentId]);
+        if (!$exists->fetchColumn()) {
+            break;
+        }
+        $suffix = ' [' . $equipmentId . (++$attempt > 1 ? '-' . $attempt : '') . ']';
+        $name = mb_substr($hostname, 0, 200 - mb_strlen($suffix)) . $suffix;
+    } while (true);
+
+    // Conserva el nombre anterior como referencia de recepcion antes de renombrar.
+    $findAlias = $pdo->prepare('SELECT equipo_id FROM equipo_nombres WHERE software=? AND nombre=? FOR UPDATE');
+    $insertAlias = $pdo->prepare('INSERT INTO equipo_nombres (software,nombre,equipo_id) VALUES (?,?,?)');
+    $products = [$equipment['software']];
+    if (!empty($equipment['monitor_machine_id'])) $products[] = 'MonitorAgent';
+    foreach (array_unique($products) as $product) {
+        $findAlias->execute([$product, $equipment['nombre']]);
+        $owner = $findAlias->fetchColumn();
+        if ($owner !== false && (int) $owner !== $equipmentId) {
+            // Una vinculacion manual anterior tiene prioridad; nunca se reasigna por un renombrado.
+            continue;
+        }
+        if ($owner === false) $insertAlias->execute([$product, $equipment['nombre'], $equipmentId]);
+    }
+    $pdo->prepare('UPDATE equipos SET nombre=? WHERE id=?')->execute([$name, $equipmentId]);
+}
+
 function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null): int
 {
     $events = $report['events'] ?? [];
@@ -597,6 +784,7 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
 
     $pdo->beginTransaction();
     try {
+        monitor_agente_comprobar_retirado($pdo, $report['machineId']);
         $st = $pdo->prepare('SELECT id FROM equipos WHERE monitor_machine_id=?');
         $st->execute([$report['machineId']]);
         $equipmentId = $st->fetchColumn();
@@ -620,6 +808,8 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
                 $equipmentId = (int) $pdo->lastInsertId();
             }
         }
+
+        monitor_actualizar_nombre($pdo, (int) $equipmentId, $report['hostname']);
 
         if (!empty($report['clientNote'])) {
             $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(sugerido,?) WHERE id=?')
@@ -919,23 +1109,16 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
         'monitor_last_seen' => $row['monitor_last_seen'],
         'event_extraction_mode' => $row['monitor_event_mode'],
         'alertas' => $alerts,
+        'copias_en_curso' => monitor_equipo_copias_en_curso($pdo, $equipmentId),
     ];
 }
 
-function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
+function monitor_evento_nivel_sql(string $alias = 'ev'): string
 {
-    if (!in_array($level, [
-        'all', 'Critical', 'Error', 'Warning', 'Information',
-    ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
-        throw new InvalidArgumentException('El nivel de evento no es válido.');
+    if (!in_array($alias, ['ev'], true)) {
+        throw new InvalidArgumentException('Alias de evento no válido.');
     }
-
-    $page = max(1, min($page, 100000));
-    $pageSize = 10;
-    $search = monitor_texto($search, 150) ?? '';
-    // Ciertos errores de Windows son ruido conocido o tienen impacto de advertencia.
-    // Se conserva el nivel original en la respuesta para que el visor sea transparente.
-    $classifiedLevel = "CASE
+    return "CASE
         WHEN ev.level='Critical' OR ev.level='Level 1' THEN 'Critical'
         WHEN ev.level='Warning' OR ev.level='Level 3' THEN 'Warning'
         WHEN ev.level IN ('Information','Verbose','LogAlways','Level 4','Level 5') THEN 'Information'
@@ -955,6 +1138,21 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
             OR (ev.log_name='System' AND ev.event_id=6008)
         ) THEN 'Warning'
         ELSE 'Error' END";
+}
+
+function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
+{
+    if (!in_array($level, [
+        'all', 'Critical', 'Error', 'Warning', 'Information',
+    ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
+        throw new InvalidArgumentException('El nivel de evento no es válido.');
+    }
+
+    $page = max(1, min($page, 100000));
+    $pageSize = 10;
+    $search = monitor_texto($search, 150) ?? '';
+    // El mismo nivel clasificado se usa en el visor, notificaciones e inicio.
+    $classifiedLevel = monitor_evento_nivel_sql();
     // El visor recorre todo el historial almacenado. El modo de extracción solo controla
     // qué eventos nuevos recoge el agente; no debe ocultar registros antiguos ya guardados.
     $where = ['1=1'];
@@ -1018,7 +1216,7 @@ function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $le
     ];
 }
 
-function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, string $type, string $severity): array
+function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, string $type, string $severity, int $pageSize = 25, ?int $equipmentId = null): array
 {
     $types = ['all', 'disco', 'espacio', 'bateria', 'salud', 'crash', 'windows', 'copias_repetidas'];
     $severities = ['all', 'aviso', 'advertencia', 'error', 'critico'];
@@ -1027,11 +1225,12 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
     }
 
     $page = max(1, min($page, 100000));
-    $pageSize = 25;
+    $pageSize = max(1, min(500, $pageSize));
     $search = monitor_texto($search, 150) ?? '';
     $bugCheck = "(ev.log_name='System' AND ev.event_id=1001
         AND (LOWER(COALESCE(ev.source,'')) LIKE '%bugcheck%'
             OR LOWER(COALESCE(ev.source,'')) LIKE '%wer-systemerrorreporting%'))";
+    $classifiedLevel = monitor_evento_nivel_sql();
     $crash = "({$bugCheck}
         OR (ev.log_name='Application' AND ev.event_id IN (1000,1002))
         OR (ev.log_name='Application' AND ev.event_id=1001
@@ -1056,8 +1255,8 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         SELECT CONCAT('evento-',ev.id) AS id,
             DATE_FORMAT(ev.event_time,'%Y-%m-%dT%H:%i:%s') AS fecha,
             CASE WHEN {$crash} THEN 'crash' ELSE 'windows' END AS tipo,
-            CASE WHEN ev.level='Critical' OR {$bugCheck} THEN 'critico'
-                WHEN ev.level='Warning' THEN 'advertencia' ELSE 'error' END AS nivel,
+            CASE WHEN ({$classifiedLevel})='Critical' OR {$bugCheck} THEN 'critico'
+                WHEN ({$classifiedLevel})='Warning' THEN 'advertencia' ELSE 'error' END AS nivel,
             CASE
                 WHEN {$bugCheck} THEN 'Fallo crítico de Windows'
                 WHEN ev.log_name='Application' AND ev.event_id=1000 THEN 'Cierre inesperado de aplicación'
@@ -1070,7 +1269,7 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
         FROM monitor_eventos ev
         JOIN equipos e ON e.id=ev.equipo_id
         LEFT JOIN clientes c ON c.id=e.cliente_id
-        WHERE ev.level IN ('Critical','Error','Warning')
+        WHERE (({$classifiedLevel}) IN ('Critical','Error','Warning') OR {$bugCheck})
             AND (e.monitor_event_mode='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)
         UNION ALL
         SELECT CONCAT('copias-',e.id) AS id,
@@ -1097,6 +1296,10 @@ function monitor_notificaciones_listar(PDO $pdo, int $page, ?string $search, str
     if ($severity !== 'all') {
         $where[] = 'n.nivel=?';
         $params[] = $severity;
+    }
+    if ($equipmentId !== null) {
+        $where[] = 'n.equipo_id=?';
+        $params[] = $equipmentId;
     }
     if ($search !== '') {
         $where[] = '(n.cliente LIKE ? OR n.equipo LIKE ? OR n.titulo LIKE ? OR n.detalle LIKE ?)';

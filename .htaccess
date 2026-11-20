@@ -21,7 +21,7 @@ DirectoryIndex index.php
   # Rutas del panel: conserva la URL amigable y sirve la aplicación React.
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^(copias|clientes|eventos)(/.*)?$ index.php [QSA,L]
+  RewriteRule ^(inicio|equipos|copias|clientes|eventos|informes)(/.*)?$ index.php [QSA,L]
 
   # Ficheros que no deben verse (permite .well-known para el certificado Let's Encrypt)
   RewriteCond %{REQUEST_URI} !^/\.well-known/

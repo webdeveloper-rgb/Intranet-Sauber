@@ -11,6 +11,50 @@ declare(strict_types=1);
 
 const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'MicroFocus', 'Veeam', 'VMware', 'Otro'];
 const INGESTA_MAX_ITEMS = 100;
+
+/** Detecta avisos de prueba sin confundir nombres de equipos o pruebas de restauracion. */
+function ingesta_es_prueba($item): bool
+{
+    if (!is_array($item)) {
+        return false;
+    }
+    foreach (['es_prueba', 'is_test', 'test_message'] as $field) {
+        if (in_array($item[$field] ?? null, [true, 1, '1', 'true'], true)) {
+            return true;
+        }
+    }
+    foreach (['resultado', 'resultado_original', 'tipo_mensaje', 'message_type'] as $field) {
+        $value = $item[$field] ?? null;
+        if (is_string($value) && in_array(strtoupper(trim($value)), ['TEST', 'PRUEBA', 'TEST_MESSAGE', 'TEST_EMAIL', 'TEST_NOTIFICATION'], true)) {
+            return true;
+        }
+    }
+    // El asunto original debe llegar desde n8n, incluso si la IA indica CORRECTA.
+    foreach (['asunto', 'subject', 'origen', 'cuerpo', 'body', 'texto', 'text', 'html', 'textPlain', 'textHtml', 'evidencia', 'clasificacion_evidencia', 'motivo', 'desc_error'] as $field) {
+        if (!isset($item[$field]) || !is_string($item[$field])) {
+            continue;
+        }
+        $text = html_entity_decode(strip_tags($item[$field]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\s+/u', ' ', $text);
+        if (preg_match('/\b(?:mensaje|correo|email|e-mail|notificaci(?:[oó]|\x{FFFD}|Ã³)n|env[ií]o)\s+(?:de\s+)?prueba\b|\btest\s+(?:e-?mail|message|notification)\b|\b(?:e-?mail|message|notification)\s+test\b/iu', $text)) {
+            return true;
+        }
+        if (in_array($field, ['asunto', 'subject', 'origen'], true)
+            && preg_match('/^\s*(?:\[(?:TEST|PRUEBA)\]|(?:TEST|PRUEBA)\s*:)|^\s*(?:TEST|PRUEBA)\s*$|(?:^|\s)[|–—-]\s*(?:TEST|PRUEBA)\s*$/iu', $text)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Filtra antes de normalizar o abrir una transaccion: una prueba nunca genera datos. */
+function ingesta_recibir(PDO $pdo, $item): array
+{
+    if (ingesta_es_prueba($item)) {
+        return ['ignorado' => true, 'motivo' => 'mensaje_de_prueba'];
+    }
+    return ingesta_guardar($pdo, ingesta_normalizar(ingesta_adaptar($item)));
+}
 // Programas (software de gestión del cliente) que se copian aparte de los equipos de usuario y los servidores.
 const INGESTA_PROGRAMAS = ['EuroAgro', 'EuroPos', 'EuroExtintor', 'EuroMetrics', 'DivaCon', 'DivaGes', 'BDP'];
 
@@ -122,7 +166,7 @@ function ingesta_parsear_asunto(string $asunto): array
 }
 
 /**
- * Adapta el formato del flujo n8n (resultado CORRECTA / FALLO_LEVE / FALLO_GRAVE, cliente, asunto, motivo...)
+ * Adapta el formato del flujo n8n (resultado CORRECTA / FALLO_LEVE / FALLO_GRAVE / REVISION, ...)
  * al formato interno. Si el elemento ya trae 'estado', se deja tal cual.
  */
 function ingesta_adaptar($it)
@@ -137,10 +181,23 @@ function ingesta_adaptar($it)
     if (strcasecmp($cliente, 'SIN_CLIENTE') === 0)
         $cliente = '';
 
-    // Lo que no se pudo clasificar NO se oculta: entra como ERROR para que alguien lo revise.
-    $etiquetas = ['FALLO_LEVE' => 'Fallo leve', 'FALLO_GRAVE' => 'Fallo grave', 'CORRECTA' => null];
-    $estado = $res === 'CORRECTA' ? 'OK' : 'ERROR';
-    $etiqueta = array_key_exists($res, $etiquetas) ? $etiquetas[$res] : 'Sin clasificar';
+    // Solo un fallo confirmado es ERROR. Resultados leves, contradictorios o desconocidos
+    // se conservan como REVISION para no generar falsos fallos ni perder evidencia.
+    $etiquetas = [
+        'FALLO_LEVE' => 'Advertencia',
+        'EN_CURSO' => 'Operacion en curso',
+        'FALLO_GRAVE' => 'Fallo grave',
+        'CORRECTA' => null,
+        'REVISION' => 'Revisión necesaria',
+    ];
+    $estado = match ($res) {
+        'CORRECTA' => 'OK',
+        'FALLO_GRAVE' => 'ERROR',
+        'FALLO_LEVE' => 'WARNING',
+        'EN_CURSO' => 'RUNNING',
+        default => 'REVISION',
+    };
+    $etiqueta = $etiquetas[$res] ?? 'Resultado sin clasificar';
 
     $p = ingesta_parsear_asunto($asunto);
 
@@ -159,7 +216,7 @@ function ingesta_adaptar($it)
     $nombre = $p['nombre'] ?? ($equipo !== '' ? $equipo : ($cliente !== '' ? $cliente : $asunto));
 
     $motivo = trim((string) ($it['motivo'] ?? ''));
-    $desc = $estado === 'ERROR' ? $etiqueta . ': ' . ($motivo !== '' ? $motivo : $asunto) : null;
+    $desc = $estado !== 'OK' ? $etiqueta . ': ' . ($motivo !== '' ? $motivo : $asunto) : null;
 
     return [
         'message_id' => $it['message_id'] ?? null,
@@ -170,6 +227,10 @@ function ingesta_adaptar($it)
         'sugerido' => $cliente !== '' ? $cliente : (ingesta_clasificar_nombre($nombre)['empresa'] ?? $p['sugerido']),
         'estado' => $estado,
         'desc_error' => $desc,
+        'clasificacion_motivo' => $motivo,
+        'clasificacion_evidencia' => (string) ($it['evidencia'] ?? ''),
+        'resultado_original' => $res,
+        'clasificacion_fuente' => ingesta_texto($it['clasificacion_fuente'] ?? null, 40) ?? 'n8n_ai',
         'tipo_equipo' => $it['tipo_equipo'] ?? null,
         'codigo' => $it['codigo'] ?? null,
         'destino' => $it['destino'] ?? null,
@@ -196,8 +257,8 @@ function ingesta_normalizar($it): array
         throw new InvalidArgumentException("'software' debe ser: " . implode(', ', INGESTA_SOFTWARE));
 
     $estado = strtoupper((string) ($it['estado'] ?? ''));
-    if (!in_array($estado, ['OK', 'ERROR'], true))
-        throw new InvalidArgumentException("'estado' debe ser OK o ERROR");
+    if (!in_array($estado, ['OK', 'ERROR', 'WARNING', 'RUNNING', 'REVISION'], true))
+        throw new InvalidArgumentException("'estado' debe ser OK, ERROR, WARNING, RUNNING o REVISION");
 
     $nombre = ingesta_texto($it['nombre'] ?? null, 200, true, 'nombre');
 
@@ -217,6 +278,13 @@ function ingesta_normalizar($it): array
     $ia = strtoupper(trim((string) ($it['tipo_equipo'] ?? '')));
     $tipoIa = $ia === 'SERVIDOR' ? 'servidor' : ($ia === 'EQUIPO' ? 'usuario' : null);
     $tipo = $cl['tipo'] ?? $tipoIa ?? ($software === 'VMware' ? 'servidor' : null);
+    $resultadoOriginal = strtoupper((string) ($it['resultado_original'] ?? $it['resultado'] ?? $estado));
+    if (!preg_match('/^[A-Z_]{1,24}$/D', $resultadoOriginal)) {
+        $resultadoOriginal = $estado;
+    }
+    $fuenteClasificacion = ingesta_texto($it['clasificacion_fuente'] ?? null, 40) ?? 'api_directa';
+    $motivoClasificacion = ingesta_texto($it['clasificacion_motivo'] ?? null, 500)
+        ?? ($estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null);
 
     return [
         'message_key' => sha1('n8n|' . strtolower($mid)),
@@ -229,8 +297,12 @@ function ingesta_normalizar($it): array
         'estado' => $estado,
         'fecha' => date('Y-m-d H:i:s', $ts),
         // Mantener estos límites alineados con correo_copias y copias en database/.
-        'desc_error' => $estado === 'ERROR' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
+        'desc_error' => $estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
         'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
+        'resultado_original' => $resultadoOriginal,
+        'clasificacion_fuente' => $fuenteClasificacion,
+        'clasificacion_evidencia' => ingesta_texto($it['clasificacion_evidencia'] ?? $it['evidencia'] ?? null, 600) ?? '',
+        'clasificacion_motivo' => $motivoClasificacion,
         'destino' => ingesta_texto($it['destino'] ?? null, 120),
         'tamano' => ingesta_texto($it['tamano'] ?? null, 40),
         'duracion' => $duracion,
@@ -243,10 +315,35 @@ function ingesta_guardar(PDO $pdo, array $d): array
     // Equipo, asignacion y copia se guardan en una transaccion para evitar datos parciales.
     $pdo->beginTransaction();
     try {
+        $deletedMessage = $pdo->prepare('SELECT equipo_id FROM correo_copias_eliminadas WHERE message_key=? FOR UPDATE');
+        $deletedMessage->execute([$d['message_key']]);
+        $deletedEquipmentId = $deletedMessage->fetchColumn();
+        if ($deletedEquipmentId !== false && $deletedEquipmentId !== null) {
+            $assignment = $pdo->prepare('SELECT e.cliente_id,c.nombre AS cliente FROM equipos e LEFT JOIN clientes c ON c.id=e.cliente_id WHERE e.id=?');
+            $assignment->execute([(int) $deletedEquipmentId]);
+            $existing = $assignment->fetch() ?: [];
+            $pdo->commit();
+            return [
+                'nuevo' => false,
+                'equipo' => $d['nombre'],
+                'software' => $d['software'],
+                'asignado' => !empty($existing['cliente_id']),
+                'cliente' => $existing['cliente'] ?? null,
+                'errores_eliminados' => 0,
+            ];
+        }
+
+        $alias = $pdo->prepare("SELECT DISTINCT e.id,e.cliente_id FROM equipo_nombres n JOIN equipos e ON e.id=n.equipo_id
+            WHERE n.nombre=? AND (n.software=? OR n.software='MonitorAgent') LIMIT 2 FOR UPDATE");
+        $alias->execute([$d['nombre'], $d['software']]);
+        $aliasMatches = $alias->fetchAll();
+        if (count($aliasMatches) > 1) {
+            throw new RuntimeException('El nombre de recepción coincide con varios equipos combinados.');
+        }
         $st = $pdo->prepare('SELECT id,cliente_id FROM equipos
-            WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2');
+            WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2 FOR UPDATE');
         $st->execute([$d['nombre']]);
-        $monitorMatches = $st->fetchAll();
+        $monitorMatches = $aliasMatches ?: $st->fetchAll();
         if (count($monitorMatches) === 1) {
             $eq = $monitorMatches[0];
             $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(?,sugerido),
@@ -280,23 +377,52 @@ function ingesta_guardar(PDO $pdo, array $d): array
 
         // Los reenvios de una copia existente se ignoran y se informan como duplicados.
         $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
-            (message_key,equipo_id,fecha,estado,desc_error,codigo,software,destino,tamano,duracion)
-            VALUES (?,?,?,?,?,?,?,?,?,?)');
+            (message_key,equipo_id,nombre_recibido,fecha,estado,desc_error,codigo,resultado_original,clasificacion_fuente,
+                clasificacion_evidencia,software,destino,tamano,duracion)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $ins->execute([
             $d['message_key'],
             $eq['id'],
+            $d['nombre'],
             $d['fecha'],
             $d['estado'],
             $d['desc_error'],
             $d['codigo'],
+            $d['resultado_original'],
+            $d['clasificacion_fuente'],
+            $d['clasificacion_evidencia'],
             $d['software'],
             $d['destino'],
             $d['tamano'],
             $d['duracion']
         ]);
         $nuevo = $ins->rowCount() > 0;
+        $erroresEliminados = 0;
         if ($nuevo) {
             correo_importar_equipo((int) $eq['id'], $eq['cliente_id'] !== null ? (int) $eq['cliente_id'] : null, $pdo);
+            if ($d['estado'] === 'OK') {
+                $review = $pdo->prepare('SELECT error_reviewed_at FROM equipos WHERE id=? FOR UPDATE');
+                $review->execute([(int) $eq['id']]);
+                $reviewedAt = $review->fetchColumn();
+                if ($reviewedAt !== false && $reviewedAt !== null) {
+                    $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
+                        SELECT CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
+                        FROM correo_copias WHERE equipo_id=? AND estado='ERROR'
+                        UNION ALL
+                        SELECT CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
+                        FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL");
+                    $rememberDeleted->execute([(int) $eq['id'], (int) $eq['id']]);
+                    $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'");
+                    $deleteHistory->execute([(int) $eq['id']]);
+                    $erroresEliminados = $deleteHistory->rowCount();
+
+                    // Retira también staging para que errores aún no importados no reaparezcan.
+                    $deleteStaging = $pdo->prepare("DELETE FROM correo_copias WHERE equipo_id=? AND estado='ERROR'");
+                    $deleteStaging->execute([(int) $eq['id']]);
+                    $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')
+                        ->execute([(int) $eq['id']]);
+                }
+            }
         }
         $clienteNombre = null;
         if ($eq['cliente_id'] !== null) {
@@ -310,7 +436,8 @@ function ingesta_guardar(PDO $pdo, array $d): array
             'equipo' => $d['nombre'],
             'software' => $d['software'],
             'asignado' => $eq['cliente_id'] !== null,
-            'cliente' => $clienteNombre
+            'cliente' => $clienteNombre,
+            'errores_eliminados' => $erroresEliminados,
         ];
     } catch (Throwable $e) {
         // Si algo falla, revierte tambien equipo y asignacion creados en esta transaccion.

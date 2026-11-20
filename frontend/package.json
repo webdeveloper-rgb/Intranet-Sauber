@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "preview:demo": "vite --mode demo --host 127.0.0.1",
     "build": "vite build"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "react": "^19.2.0",

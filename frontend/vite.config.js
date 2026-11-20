@@ -3,13 +3,16 @@
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import previewDemo from './dev/preview/server';
 
 // Para desarrollar: arranca PHP (php -S localhost:8000 en la raíz del repo),
 // inicia sesión en http://localhost:8000/login.php y luego `npm run dev`.
 const PHP = process.env.PHP_URL || 'http://localhost:8000';
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode, command }) => ({
+  // Los recursos se sirven desde build/, incluso si la intranet esta en una subcarpeta.
+  base: './',
+  plugins: [react(), ...(mode === 'demo' && command === 'serve' ? [previewDemo()] : [])],
   publicDir: false,
   server: {
     proxy: {
@@ -25,11 +28,13 @@ export default defineConfig({
     rollupOptions: {
       input: 'src/main.jsx',
       output: {
-        format: 'iife',
-        inlineDynamicImports: true,
         entryFileNames: 'app.js',
-        assetFileNames: 'app[extname]',
+        assetFileNames: (asset) => asset.name?.endsWith('.css') ? 'app[extname]' : 'assets/[name]-[hash][extname]',
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules\\react')
+            || id.includes('node_modules/scheduler') || id.includes('node_modules\\scheduler')) return 'react-vendor';
+        },
       },
     },
   },
-});
+}));

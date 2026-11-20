@@ -47,6 +47,9 @@ $report = monitor_normalizar_informe([
 
 $same('PC-CLIENTE', $report['hostname'], 'hostname normalizado');
 $same('123456789', $report['rustDeskId'], 'se conserva el ID de RustDesk');
+$clasificacionEventos = monitor_evento_nivel_sql();
+$same(true, str_contains($clasificacionEventos, 'windowsupdateclient'), 'la clasificación compartida rebaja errores conocidos de Windows Update');
+$same(true, str_contains($clasificacionEventos, "THEN 'Information'"), 'la clasificación compartida conserva casos informativos');
 $same('standard', $report['eventExtractionMode'], 'el modo por defecto es estándar');
 $same(null, $report['system']['campoNoAdmitido'] ?? null, 'se descartan campos no admitidos');
 $same(1, count($report['events']), 'se normalizan los eventos recibidos');

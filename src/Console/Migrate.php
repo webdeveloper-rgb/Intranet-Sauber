@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli') {
 define('SCHEMA_MIGRATING', true);
 require __DIR__ . '/../bootstrap.php';
 require __DIR__ . '/../Integration/ClientApi.php';
-require __DIR__ . '/../Backup/EquipmentService.php';
+require __DIR__ . '/../Equipment/EquipmentService.php';
 require_once __DIR__ . '/../Monitoring/MonitorService.php';
 require __DIR__ . '/../Security/ApiTokens.php';
 
@@ -112,7 +112,124 @@ try {
         11 => static function (PDO $pdo): void {
             monitor_migrar_esquema($pdo);
         },
+        12 => static function (PDO $pdo): void {
+            foreach (['copias', 'correo_copias'] as $table) {
+                $column = $pdo->prepare("SELECT column_type FROM information_schema.columns
+                    WHERE table_schema=DATABASE() AND table_name=? AND column_name='estado'");
+                $column->execute([$table]);
+                $type = (string) $column->fetchColumn();
+                if ($type !== '' && !str_contains($type, "'REVISION'")) {
+                    $pdo->exec("ALTER TABLE `{$table}` MODIFY estado ENUM('OK','ERROR','REVISION') NOT NULL");
+                }
+            }
+        },
+        13 => static function (PDO $pdo): void {
+            $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                WHERE table_schema=DATABASE() AND table_name='equipos'")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('error_reviewed_at', $columns, true)) {
+                $pdo->exec('ALTER TABLE equipos ADD COLUMN error_reviewed_at DATETIME NULL');
+            }
+            if (!in_array('error_reviewed_by', $columns, true)) {
+                $pdo->exec('ALTER TABLE equipos ADD COLUMN error_reviewed_by VARCHAR(50) NULL');
+            }
+            if (!in_array('error_review_desc', $columns, true)) {
+                $pdo->exec('ALTER TABLE equipos ADD COLUMN error_review_desc TEXT NULL');
+            }
+        },
+        14 => static function (PDO $pdo): void {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS correo_copias_eliminadas (
+                message_key CHAR(40) NOT NULL PRIMARY KEY,
+                equipo_id INT UNSIGNED NOT NULL,
+                deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_correo_eliminadas_equipo (equipo_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        },
+        15 => static function (PDO $pdo): void {
+            foreach (['copias', 'correo_copias'] as $table) {
+                $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                    WHERE table_schema=DATABASE() AND table_name='{$table}'")->fetchAll(PDO::FETCH_COLUMN);
+                foreach ([
+                    'resultado_original' => "VARCHAR(24) NOT NULL DEFAULT ''",
+                    'clasificacion_fuente' => "VARCHAR(40) NOT NULL DEFAULT ''",
+                    'clasificacion_evidencia' => "VARCHAR(600) NOT NULL DEFAULT ''",
+                ] as $column => $definition) {
+                    if (!in_array($column, $columns, true)) {
+                        $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+                    }
+                }
+            }
+            $pdo->exec("UPDATE copias SET resultado_original=estado,clasificacion_fuente='legacy'
+                WHERE resultado_original='' AND clasificacion_fuente=''");
+            $pdo->exec("UPDATE correo_copias SET resultado_original=estado,clasificacion_fuente='legacy'
+                WHERE resultado_original='' AND clasificacion_fuente=''");
+        },
+        16 => static function (PDO $pdo): void {
+            foreach (['copias', 'correo_copias'] as $table) {
+                $column = $pdo->prepare("SELECT column_type FROM information_schema.columns
+                    WHERE table_schema=DATABASE() AND table_name=? AND column_name='estado'");
+                $column->execute([$table]);
+                $type = (string) $column->fetchColumn();
+                if ($type !== '' && (!str_contains($type, "'WARNING'") || !str_contains($type, "'RUNNING'"))) {
+                    $pdo->exec("ALTER TABLE `{$table}` MODIFY estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL");
+                }
+            }
+        },
+        17 => static function (PDO $pdo): void {
+            $indexes = $pdo->query("SELECT index_name FROM information_schema.statistics
+                WHERE table_schema=DATABASE() AND index_name IN ('idx_copias_equipo_estado','idx_correo_equipo_estado_importada')")
+                ->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('idx_copias_equipo_estado', $indexes, true)) {
+                $pdo->exec('ALTER TABLE copias ADD KEY idx_copias_equipo_estado (equipo_id,estado)');
+            }
+            if (!in_array('idx_correo_equipo_estado_importada', $indexes, true)) {
+                $pdo->exec('ALTER TABLE correo_copias ADD KEY idx_correo_equipo_estado_importada (equipo_id,estado,importada)');
+            }
+        },
+        18 => static function (PDO $pdo): void {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS monitor_backup_activity (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                source_machine_id VARCHAR(128) NOT NULL,
+                source_machine_key CHAR(64) NOT NULL,
+                equipo_id INT UNSIGNED NOT NULL,
+                product VARCHAR(40) NOT NULL,
+                session_key CHAR(64) NOT NULL,
+                started_at DATETIME NOT NULL,
+                observed_at DATETIME NOT NULL,
+                active_operations SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+                source VARCHAR(60) NOT NULL DEFAULT 'agent',
+                UNIQUE KEY uq_monitor_backup_activity_session (source_machine_key,session_key,product),
+                KEY idx_monitor_backup_activity_equipo_time (equipo_id,observed_at),
+                KEY idx_monitor_backup_activity_source (source_machine_key,product),
+                CONSTRAINT fk_monitor_backup_activity_equipo FOREIGN KEY (equipo_id) REFERENCES equipos (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        },
     ];
+
+    $migrations[19] = static function (PDO $pdo): void {
+        $sql = (string) file_get_contents(dirname(__DIR__, 2) . '/database/equipment-merge.sql');
+        foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+            migracion_ejecutar_sql($pdo, $statement, 'database/equipment-merge.sql');
+        }
+    };
+
+    $migrations[20] = static function (PDO $pdo): void {
+        $q = $pdo->query("SELECT COUNT(*) FROM information_schema.columns
+            WHERE table_schema=DATABASE() AND table_name='correo_copias' AND column_name='nombre_recibido'");
+        if (!(int) $q->fetchColumn()) {
+            $pdo->exec('ALTER TABLE correo_copias ADD COLUMN nombre_recibido VARCHAR(200) NULL AFTER equipo_id');
+        }
+        // Solo se recupera lo que realmente quedo almacenado en el historial.
+        $pdo->exec('UPDATE correo_copias cc JOIN copias cp
+            ON CONVERT(cp.huella USING utf8mb4) COLLATE utf8mb4_unicode_ci=CONVERT(cc.message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            SET cc.nombre_recibido=cp.equipo WHERE cc.nombre_recibido IS NULL');
+        foreach ($pdo->query('SELECT id,monitor_report FROM equipos WHERE monitor_machine_id IS NOT NULL')->fetchAll() as $row) {
+            $report = json_decode((string) $row['monitor_report'], true);
+            $hostname = $report['hostname'] ?? null;
+            if (is_string($hostname) && trim($hostname) !== '') {
+                monitor_actualizar_nombre($pdo, (int) $row['id'], mb_substr(trim($hostname), 0, 200));
+            }
+        }
+    };
 
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
