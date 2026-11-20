@@ -5,7 +5,7 @@
 // ERR: error sin revisar | REV: EN REVISIÓN (arreglo descrito, en vigilancia) | OK: copia OK o error con vigilancia cerrada
 export const MIN_PALABRAS = 15;
 
-export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN", WA: "ADVERTENCIA", RUN: "EN CURSO", INC: "POR CLASIFICAR" };
+export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN", WA: "ADVERTENCIA", RUN: "EN CURSO", INC: "PENDIENTE CLASIF." };
 
 export const ef = (c) => {
     if (c.estado === "ERROR" && c.revisado) return c.seg === "cerrado" ? "OK" : "REV";
@@ -48,11 +48,11 @@ export const atrasado = (c, h) => ef(c) === "ERR" && edadH(c) > h;
 export const FILTROS = [
     ["todos", "Todos"],
     ["pend", "Errores"],
-    ["sin", "Sin copia recibida"],
+    ["sin", "Error crítico sin copia"],
     ["rep", "Errores repetidos"],
     ["warning", "Advertencias"],
     ["running", "En curso"],
-    ["inc", "Por clasificar"],
+    ["inc", "Errores pendientes de clasificación"],
     ["ok", "OK"],
     ["notas", "Con notas"],
     ["atr", "Errores atrasados"],

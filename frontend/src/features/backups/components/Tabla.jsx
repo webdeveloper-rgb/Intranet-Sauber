@@ -32,7 +32,7 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
         <Tag c={c} />
         {notas > 0 && <span className="nb" title="Tiene notas de seguimiento">Notas: {notas}</span>}
         {c.acumuladas > 1 && <span className="nb wa" title={`Agrupa errores repetidos desde ${c.fecha_primera} hasta ${c.fecha_ultima}`}>Acumuladas: {c.acumuladas}</span>}
-        {c.codigo === 'SIN_COPIA' && <span className="nb al" title="No ha llegado ninguna copia de este equipo">Sin copia recibida</span>}
+        {c.codigo === 'SIN_COPIA' && <span className="nb al" title="No ha llegado ninguna copia de este equipo en 24 horas">Error crítico sin copia</span>}
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
         {!sinCopia && r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
@@ -47,7 +47,7 @@ export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, 
         <table className="sin-copia-table">
           <thead>
             <tr>
-              <th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Última copia</th><th>Día omitido</th><th>Aviso desde</th><th>Detalle</th><th>Estado</th>
+              <th>Cliente</th><th>Equipo</th><th>Tipo</th><th>Última copia</th><th>Límite 24 h</th><th>Aviso desde</th><th>Detalle</th><th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -59,12 +59,12 @@ export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, 
                 <td>{c.ultima_copia || 'Nunca'}</td>
                 <td>{c.fecha_esperada || '—'}</td>
                 <td>{c.fecha}</td>
-                <td>{c.desc_error || 'No llegó una copia en el último día programado.'}</td>
+                <td>{c.desc_error || 'ERROR CRÍTICO: no ha llegado ninguna copia en las últimas 24 horas.'}</td>
                 <td><Tag c={c} /></td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando…' : error ? 'No se pudo comprobar si hay equipos sin copia.' : 'No hay equipos sin copia recibida.'}</td></tr>
+              <tr><td colSpan="8" className="vacio">{cargando ? 'Cargando...' : error ? 'No se pudo comprobar si hay equipos sin copia.' : 'No hay errores críticos por ausencia de copia.'}</td></tr>
             )}
           </tbody>
         </table>

@@ -7,11 +7,11 @@ import Paginacion from '../../../shared/ui/Paginacion';
 import { usePagination } from '../../../shared/hooks/usePagination';
 import Icon from '../../../shared/ui/Icon';
 
-const ESTADOS = [['OK', 'Correctas', 'ok'], ['ERROR', 'Fallidas', 'error'], ['WARNING', 'Advertencias', 'warning'], ['RUNNING', 'En curso', 'running'], ['REVISION', 'Por clasificar', 'pending']];
+const ESTADOS = [['OK', 'Correctas', 'ok'], ['ERROR', 'Fallidas', 'error'], ['WARNING', 'Advertencias', 'warning'], ['RUNNING', 'En curso', 'running'], ['REVISION', 'Errores pendientes de clasificación', 'pending']];
 const conError = (e) => Number(e.errores_pendientes) > 0 || Number(e.total_errores_evento) > 0 || e.sin_copia || e.sin_informe;
 const prioridad = (e) => e.critico ? 3 : ((e.tipo === 'servidor' && (Number(e.errores_pendientes) > 0 || e.sin_copia)) ? 2 : conError(e) ? 1 : 0);
 const destino = (e) => `/clientes/${e.cliente_id || 'sin-asignar'}/equipos/${e.id}`;
-const FILTROS = [['todos', 'Toda la actividad'], ['incidencias', 'Con incidencias'], ['copias', 'Fallos de copia'], ['sin-copia', 'Sin copia esperada'], ['sin-informe', 'Sin informe >24 h'], ['en-curso', 'Copias en curso']];
+const FILTROS = [['todos', 'Toda la actividad'], ['incidencias', 'Con incidencias'], ['copias', 'Fallos de copia'], ['sin-copia', 'Error crítico sin copia'], ['sin-informe', 'Sin informe >24 h'], ['en-curso', 'Copias en curso']];
 
 export default function Resumen({ refreshSignal, onNavigate }) {
   const [datos, setDatos] = useState(null);
@@ -58,7 +58,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
   const metricas = [
     ['Equipos con incidencias', equipos.filter(conError).length, 'Estado actual de los equipos', 'incidencias', 'error'],
     ['Equipos con fallos de copia', equipos.filter((e) => Number(e.errores_pendientes) > 0).length, 'Errores conservados pendientes', 'copias', 'error'],
-    ['Sin copia esperada', resumen?.sin_copia, 'Según los días de copia configurados', 'sin-copia', 'warning'],
+    ['Error crítico sin copia', resumen?.sin_copia, 'Sin copia recibida en más de 24 h', 'sin-copia', 'warning'],
     ['Agentes sin informar', resumen?.sin_informe, 'Último informe hace más de 24 h', 'sin-informe', 'warning'],
     ['Equipos sin asignar', resumen?.sin_asignar, 'Pendientes de vincular a un cliente', 'asignar', 'neutral'],
   ];
@@ -118,7 +118,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
             {Number(e.errores_pendientes) > 0 && <span className="queue-badge error">{e.errores_pendientes} {Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} de copia</span>}
             {Number(e.eventos_windows) > 0 && <span className="queue-badge error">{e.eventos_windows} {Number(e.eventos_windows) === 1 ? 'evento' : 'eventos'} de Windows</span>}
             {Number(e.alertas_hardware) > 0 && <span className="queue-badge error">{e.alertas_hardware} {Number(e.alertas_hardware) === 1 ? 'alerta crítica' : 'alertas críticas'} de hardware</span>}
-            {e.sin_copia && <span className="queue-badge warning">Sin copia esperada</span>}{e.sin_informe && <span className="queue-badge warning">Sin informe &gt;24 h</span>}
+            {e.sin_copia && <span className="queue-badge warning">Error crítico sin copia</span>}{e.sin_informe && <span className="queue-badge warning">Sin informe &gt;24 h</span>}
             {Number(e.copias_en_curso) > 0 && <span className="queue-badge running">{e.copias_en_curso} en curso</span>}
           </div></td><td className="queue-event">{e.errores_evento?.[0]?.titulo || '—'}</td><td><a className="queue-open" href={rutaHref(destino(e))} onClick={(event) => navegar(event, destino(e))} aria-label={`Revisar ${e.nombre}`}>Revisar ↗</a></td></tr>)}
       </tbody></table></div>

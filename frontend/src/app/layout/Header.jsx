@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { rutaHref } from '../routes';
 import Icon from '../../shared/ui/Icon';
 
-const NAV = [['inicio', 'Resumen'], ['clientes', 'Clientes'], ['equipos', 'Equipos'], ['copias', 'Copias'], ['por-clasificar', 'Por clasificar'], ['eventos', 'Eventos'], ['informes', 'Informes']];
+const NAV = [['inicio', 'Resumen'], ['clientes', 'Clientes'], ['equipos', 'Equipos'], ['copias', 'Copias'], ['por-clasificar', 'Errores pendientes'], ['eventos', 'Eventos'], ['informes', 'Informes']];
 const navPath = (key) => key === 'inicio' ? '/' : `/${key}`;
 
 export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones, onVolver, mostrarVolver = false }) {

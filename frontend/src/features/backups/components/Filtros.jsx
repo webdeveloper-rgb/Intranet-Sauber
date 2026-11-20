@@ -54,7 +54,7 @@ export default function Filtros({ filtro, setFiltro, n, f, setF, resultados, tot
         options: [12, 24, 48, 72].map((horas) => [String(horas), `${horas} h`]) },
     ]}
     summary={<span className={`aviso-cuenta${alertas ? ' activa' : ''}`}
-      title={`Avisos: ${n.sc || 0} sin copia y ${n.a || 0} errores atrasados`}>
+      title={`Avisos: ${n.sc || 0} errores críticos sin copia y ${n.a || 0} errores atrasados`}>
       Avisos <strong>{alertas}</strong>
     </span>}
     count={`${resultados}${Number.isFinite(total) ? ` de ${total}` : ''} resultado${resultados === 1 ? '' : 's'}`}

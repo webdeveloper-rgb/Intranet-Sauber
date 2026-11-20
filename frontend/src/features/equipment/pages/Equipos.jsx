@@ -8,7 +8,7 @@ import PageHeading from '../../../shared/ui/PageHeading';
 import Paginacion from '../../../shared/ui/Paginacion';
 
 const ESTADOS = [['', 'Todos los estados'], ['incidencias', 'Con incidencias'], ['copias', 'Con fallos de copia'],
-  ['sin-copia', 'Sin copia esperada'], ['sin-informe', 'Sin informe >24 h'], ['sin-asignar', 'Sin asignar'], ['en-curso', 'Copias en curso']];
+  ['sin-copia', 'Error crítico sin copia'], ['sin-informe', 'Sin informe >24 h'], ['sin-asignar', 'Sin asignar'], ['en-curso', 'Copias en curso']];
 const TIPOS = [['', 'Todos los tipos'], ['servidor', 'Servidores'], ['usuario', 'Equipos de usuario'], ['programa', 'Programas']];
 const AGENTES = [['', 'Cualquier cobertura'], ['con', 'Con agente'], ['sin', 'Sin agente']];
 const COPIAS = [['', 'Cualquier cobertura'], ['con', 'Con copias recibidas'], ['sin', 'Sin copias recibidas']];
@@ -138,13 +138,13 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
           }}><td><a href={rutaHref(path)} onClick={(event) => abrir(event, path)}>{e.monitor_alias || e.nombre}</a>
           <small>{e.monitor_alias ? `${e.nombre} · ` : ''}{e.tipo === 'servidor' ? 'Servidor' : e.tipo === 'usuario' ? 'Equipo de usuario' : e.tipo === 'programa' ? 'Programa' : 'Sin tipo'}</small></td>
           <td>{e.cliente_id ? <a href={rutaHref(`/clientes/${e.cliente_id}`)} onClick={(event) => abrir(event, `/clientes/${e.cliente_id}`)}>{e.cliente || 'Ver cliente'}</a> : <span className="equipos-muted">Sin asignar</span>}</td>
-          <td><span className={Number(e.errores_pendientes) || e.sin_copia ? 'equipos-warning' : ''}>{e.sin_copia ? 'Sin copia esperada' : Number(e.errores_pendientes) ? `${e.errores_pendientes} ${Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} de copia` : !e.tiene_copias ? 'Sin copias recibidas' : Number(e.copias_en_curso) ? 'Copia en curso' : 'Sin fallos de copia registrados'}</span>
+          <td><span className={Number(e.errores_pendientes) || e.sin_copia ? 'equipos-warning' : ''}>{e.sin_copia ? 'Error crítico sin copia' : Number(e.errores_pendientes) ? `${e.errores_pendientes} ${Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} de copia` : !e.tiene_copias ? 'Sin copias recibidas' : Number(e.copias_en_curso) ? 'Copia en curso' : 'Sin fallos de copia registrados'}</span>
             <small>{e.ultima_copia ? `Última: ${e.ultima_copia}` : e.tiene_copias ? 'Fecha no disponible' : '—'}{e.software ? ` · ${e.software}` : ''}</small></td>
           <td><span className={e.sin_informe ? 'equipos-warning' : ''}>{!e.tiene_monitor ? 'Sin agente' : e.sin_informe ? 'Sin informar >24 h' : e.monitor_last_seen || 'Sin fecha de informe'}</span>
             {e.sin_informe && <small>{e.monitor_last_seen}</small>}</td>
           <td><div className="queue-badges">{e.critico && <span className="queue-priority level-3">Hardware crítico</span>}
             {Number(e.total_errores_evento) > 0 && <span className="queue-badge error">Eventos / alertas: {e.total_errores_evento}</span>}
-            {e.sin_copia && <span className="queue-badge warning">Revisar copias</span>}{e.sin_informe && <span className="queue-badge warning">Revisar agente</span>}
+            {e.sin_copia && <span className="queue-badge warning">Sin copia &gt;24 h</span>}{e.sin_informe && <span className="queue-badge warning">Revisar agente</span>}
             {!incidencia(e) && <span className="equipos-muted">{e.estadoDisponible ? 'Sin incidencias detectadas' : 'Estado parcial'}</span>}
             {Number(e.errores_pendientes) > 0 && !e.critico && <span className="queue-badge error">Revisar fallos de copia</span>}
           </div></td><td><a className="equipos-open" href={rutaHref(path)} onClick={(event) => abrir(event, path)} aria-label={`Abrir ficha de ${e.nombre}`}>Ver ficha ↗</a></td></tr>;

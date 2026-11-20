@@ -87,7 +87,7 @@ export default function InformeCopias({ onNavigate }) {
     ...(consulta.estado !== 'all' ? [{
       clave: 'estado',
       etiqueta: `Resultado: ${[['OK', 'Correcta'], ['ERROR', 'Error confirmado'], ['WARNING', 'Advertencia'],
-        ['RUNNING', 'En curso'], ['REVISION', 'Por clasificar']].find(([value]) => value === consulta.estado)?.[1] || consulta.estado}`,
+        ['RUNNING', 'En curso'], ['REVISION', 'Errores pendientes de clasificación']].find(([value]) => value === consulta.estado)?.[1] || consulta.estado}`,
     }] : []),
   ];
   const quitarFiltro = (clave) => {
@@ -109,7 +109,7 @@ export default function InformeCopias({ onNavigate }) {
 
   return <section className="informe-page" aria-labelledby="informe-titulo">
     <PageHeading id="informe-titulo" eyebrow="Auditoría" title="Informe de copias"
-      description={<>Historial de copias del periodo. Los resultados ambiguos se identifican como <strong>por clasificar</strong>.</>}
+      description={<>Historial de copias del periodo. Los resultados ambiguos se identifican como <strong>errores pendientes de clasificación</strong>.</>}
       actions={<button className="btn" type="button" onClick={exportar} disabled={exportando || !total}>{exportando ? 'Preparando CSV…' : 'Exportar CSV'}</button>} />
     <BarraFiltros className="informe-filtros" title="Filtrar informe"
       fields={[
@@ -120,7 +120,7 @@ export default function InformeCopias({ onNavigate }) {
         { id: 'informe-estado', label: 'Resultado', type: 'select', value: estado,
           onChange: (event) => setEstado(event.target.value),
           options: [['all', 'Todos'], ['OK', 'Correcta'], ['ERROR', 'Error confirmado'],
-            ['WARNING', 'Advertencia'], ['RUNNING', 'En curso'], ['REVISION', 'Por clasificar']] },
+            ['WARNING', 'Advertencia'], ['RUNNING', 'En curso'], ['REVISION', 'Errores pendientes de clasificación']] },
       ]}
       actions={<button className="btn sec" type="submit">Aplicar filtros</button>}
       count={`${total.toLocaleString('es-ES')} registros`} onSubmit={aplicar}
@@ -128,7 +128,7 @@ export default function InformeCopias({ onNavigate }) {
     <div className="informe-resumen" aria-live="polite">
       <span>Correctas <strong>{resumen.OK || 0}</strong></span><span>Errores confirmados <strong>{resumen.ERROR || 0}</strong></span>
       <span>Advertencias <strong>{resumen.WARNING || 0}</strong></span><span>En curso <strong>{resumen.RUNNING || 0}</strong></span>
-      <span>Por clasificar <strong>{resumen.REVISION || 0}</strong></span>
+      <span>Pendientes clasificación <strong>{resumen.REVISION || 0}</strong></span>
     </div>
     {error && <div className="errbox" role="alert">{error} <button className="btn sec" type="button" onClick={() => cargar(pagina)}>Reintentar</button></div>}
     <div className="wrap informe-tabla-wrap"><table className="informe-tabla"><thead><tr>

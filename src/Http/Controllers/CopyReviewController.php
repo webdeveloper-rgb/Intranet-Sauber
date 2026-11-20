@@ -38,7 +38,7 @@ final class CopyReviewController
         $idsQuery->execute($params);
         $ids = array_map('intval', $idsQuery->fetchAll(PDO::FETCH_COLUMN));
         if (!$ids) {
-            fail('No quedan copias por clasificar con ese error', 404);
+            fail('No quedan errores pendientes de clasificación con ese resultado', 404);
         }
 
         $code = $state === 'OK' ? '' : txt($input['codigo'] ?? ($group['codigo'] ?? ''), 40);

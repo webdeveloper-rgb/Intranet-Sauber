@@ -32,7 +32,7 @@ export default function Detalle({
         <button className="x" onClick={onClose} aria-label="Cerrar">Cerrar</button>
         <h2>Copia #{c.id}</h2>
         <Tag c={c} />
-        {c.desc_error && <div className={`errbox${c.estado === 'ERROR' ? '' : c.estado === 'WARNING' ? ' aviso' : c.estado === 'RUNNING' ? ' en-curso' : ' revision'}`}><b>{c.codigo || (c.estado === 'ERROR' ? 'Fallo confirmado' : c.estado === 'WARNING' ? 'Advertencia' : c.estado === 'RUNNING' ? 'En curso' : 'Pendiente de clasificar')}</b> - {c.desc_error}</div>}
+        {c.desc_error && <div className={`errbox${c.estado === 'ERROR' ? '' : c.estado === 'WARNING' ? ' aviso' : c.estado === 'RUNNING' ? ' en-curso' : ' revision'}`}><b>{c.codigo || (c.estado === 'ERROR' ? 'Fallo confirmado' : c.estado === 'WARNING' ? 'Advertencia' : c.estado === 'RUNNING' ? 'En curso' : 'Pendiente de clasificación')}</b> - {c.desc_error}</div>}
         <dl>
           <Campo t="Fecha" v={c.fecha} />
           <Campo t="Cliente" v={c.cliente} />

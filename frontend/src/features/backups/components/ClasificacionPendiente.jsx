@@ -98,8 +98,8 @@ export default function ClasificacionPendiente({ copias, onClasificar, onFiltrar
   return <section className={`clasificacion-pendiente${modo === 'pagina' ? ' en-pagina' : ''}`} aria-labelledby="clasificacion-pendiente-titulo">
     {modo !== 'pagina' && <div className="clasificacion-heading">
       <div>
-        <span className="eyebrow">Por clasificar</span>
-        <h2 id="clasificacion-pendiente-titulo">Errores por clasificar</h2>
+        <span className="eyebrow">Pendiente</span>
+        <h2 id="clasificacion-pendiente-titulo">Errores pendientes de clasificación</h2>
       </div>
       {onFiltrar && <button className="btn sec" type="button" onClick={onFiltrar}>{grupos.length} grupo{grupos.length === 1 ? '' : 's'}</button>}
     </div>}

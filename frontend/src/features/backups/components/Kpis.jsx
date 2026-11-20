@@ -6,7 +6,7 @@ export default function Kpis({ n, total }) {
     ['er', n.p, 'Fallos confirmados'],
     ['wa', n.wa, 'Advertencias'],
     ['run', n.run, 'En curso'],
-    ['inc', n.inc, 'Por clasificar'],
+    ['inc', n.inc, 'Pendientes clasificación'],
     ['ok', n.o, 'Correctas'],
     ['', total, 'Total'],
   ];
