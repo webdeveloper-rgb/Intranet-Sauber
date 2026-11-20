@@ -164,8 +164,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const equiposClienteSinSatbk = equipos.filter((equipo) => equipo.cliente_id && idsClientesSinSatbk.has(Number(equipo.cliente_id)));
   const clienteActual = clienteAbierto === 'sin-asignar'
     ? { nombre: 'Equipos sin asignar' }
-    : clienteAbierto === 'sin-satbk'
-      ? { nombre: 'Equipos de clientes sin SATBK' }
     : clienteAbierto === 'cliente-inactivo'
       ? { nombre: 'Cliente no activo' }
     : clientes.find((cliente) => Number(cliente.id) === Number(clienteAbierto));
