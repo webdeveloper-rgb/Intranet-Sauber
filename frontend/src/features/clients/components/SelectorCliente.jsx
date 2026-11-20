@@ -5,28 +5,30 @@ import { useEffect, useMemo, useState } from 'react';
 import { norm } from '../../../shared/lib/logic';
 
 const etiqueta = (cliente) => cliente
-  ? `${cliente.nombre || '(sin nombre)'}${cliente.codigo ? ` · ${cliente.codigo}` : ''} · ${cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}`
+  ? `${cliente.nombre || '(sin nombre)'}${cliente.codigo ? ` · ${cliente.codigo}` : ''} · ${cliente.tiene_satbk && cliente.tiene_sat18 ? 'SATBK · SAT18' : cliente.tiene_satbk ? 'SATBK' : cliente.tiene_sat18 ? 'SAT18' : 'Sin SAT'}`
   : '';
 
 export default function SelectorCliente({ clientes, value, onChange, disabled = false, id, mostrarFiltros = true }) {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState('');
-  const [filtroSatbk, setFiltroSatbk] = useState('todos');
+  const [filtroSatbk, setFiltroSatbk] = useState('satbk');
   const [activo, setActivo] = useState(0);
   const seleccionado = clientes.find((c) => Number(c.id) === Number(value));
   const totalConSatbk = useMemo(() => clientes.filter((c) => c.tiene_satbk).length, [clientes]);
-  const totalSinSatbk = clientes.length - totalConSatbk;
+  const totalConSat18 = useMemo(() => clientes.filter((c) => c.tiene_sat18).length, [clientes]);
+  const totalConSat = useMemo(() => clientes.filter((c) => c.tiene_satbk || c.tiene_sat18).length, [clientes]);
   const opciones = useMemo(() => {
     const q = norm(busqueda.trim());
     return clientes.filter((c) => {
-      if (filtroSatbk === 'con' && !c.tiene_satbk) return false;
-      if (filtroSatbk === 'sin' && c.tiene_satbk) return false;
+      if (filtroSatbk === 'satbk' && !c.tiene_satbk) return false;
+      if (filtroSatbk === 'sat18' && !c.tiene_sat18) return false;
+      if (filtroSatbk === 'ambos' && !c.tiene_satbk && !c.tiene_sat18) return false;
       return !q || norm(etiqueta(c)).includes(q);
     });
   }, [clientes, busqueda, filtroSatbk]);
 
   useEffect(() => {
-    setFiltroSatbk('todos');
+    setFiltroSatbk('satbk');
     setBusqueda('');
     setActivo(0);
   }, [id]);
@@ -55,20 +57,20 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
   return <div className="selector-cliente">
     {mostrarFiltros && <div className="selector-cliente-filtros" role="group" aria-label="Elegir listado de clientes">
       <span>Listado</span>
-      <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''}
-        aria-pressed={filtroSatbk === 'todos'} disabled={disabled}
-        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('todos')}>
-        Todos <span>{clientes.length}</span>
-      </button>
-      <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''}
-        aria-pressed={filtroSatbk === 'con'} disabled={disabled || !totalConSatbk}
-        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('con')}>
+      <button type="button" className={filtroSatbk === 'satbk' ? 'activo' : ''}
+        aria-pressed={filtroSatbk === 'satbk'} disabled={disabled || !totalConSatbk}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('satbk')}>
         Con SATBK <span>{totalConSatbk}</span>
       </button>
-      <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''}
-        aria-pressed={filtroSatbk === 'sin'} disabled={disabled || !totalSinSatbk}
-        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('sin')}>
-        Sin SATBK <span>{totalSinSatbk}</span>
+      <button type="button" className={filtroSatbk === 'sat18' ? 'activo' : ''}
+        aria-pressed={filtroSatbk === 'sat18'} disabled={disabled || !totalConSat18}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('sat18')}>
+        Con SAT18 <span>{totalConSat18}</span>
+      </button>
+      <button type="button" className={filtroSatbk === 'ambos' ? 'activo' : ''}
+        aria-pressed={filtroSatbk === 'ambos'} disabled={disabled || !totalConSat}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => cambiarFiltroSatbk('ambos')}>
+        Ambos <span>{totalConSat}</span>
       </button>
     </div>}
     <input

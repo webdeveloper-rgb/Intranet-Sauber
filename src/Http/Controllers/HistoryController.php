@@ -79,7 +79,9 @@ final class HistoryController
                 $params = [$equipoId, $cursorFecha, $cursorFecha, $cursorId];
             }
 
-            $st = db()->prepare(SQL_COPIA . " WHERE $where ORDER BY cursor_fecha DESC,id DESC LIMIT 51");
+            $pdo = db();
+            copias_sin_recibir_cache($pdo);
+            $st = $pdo->prepare(SQL_COPIA . " WHERE $where ORDER BY cursor_fecha DESC,id DESC LIMIT 51");
             $st->execute($params);
             $rows = $st->fetchAll();
             $hasMore = count($rows) > 50;
@@ -119,7 +121,9 @@ final class HistoryController
             $params = [$cursorFecha, $cursorFecha, $cursorId];
         }
 
-        $st = db()->prepare(SQL_COPIA . " WHERE $where ORDER BY cursor_fecha DESC,id DESC LIMIT 501");
+        $pdo = db();
+        copias_sin_recibir_cache($pdo);
+        $st = $pdo->prepare(SQL_COPIA . " WHERE $where ORDER BY cursor_fecha DESC,id DESC LIMIT 501");
         $st->execute($params);
         $rows = $st->fetchAll();
         $hasMore = count($rows) > 500;

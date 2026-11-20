@@ -12,14 +12,14 @@ const fechaInicial = () => {
   date.setDate(date.getDate() - 30);
   return fechaLocal(date);
 };
-const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`;
 const fuenteEtiqueta = (fuente) => fuente === 'legacy' ? 'Dato histórico (clasificación anterior)' : fuente || 'Sin registrar';
 
 export default function InformeCopias({ onNavigate }) {
   const [desde, setDesde] = useState(fechaInicial);
   const [hasta, setHasta] = useState(() => fechaLocal(new Date()));
   const [estado, setEstado] = useState('all');
-  const [consulta, setConsulta] = useState({ desde: fechaInicial(), hasta: fechaLocal(new Date()), estado: 'all' });
+  const [busqueda, setBusqueda] = useState('');
+  const [consulta, setConsulta] = useState({ desde: fechaInicial(), hasta: fechaLocal(new Date()), estado: 'all', q: '' });
   const [pagina, setPagina] = useState(1);
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -30,7 +30,7 @@ export default function InformeCopias({ onNavigate }) {
     setCargando(true);
     setError('');
     try {
-      const data = await api(`informe_copias&desde=${consulta.desde}&hasta=${consulta.hasta}&estado=${consulta.estado}&page=${page}`);
+      const data = await api(`informe_copias&${new URLSearchParams({ desde: consulta.desde, hasta: consulta.hasta, estado: consulta.estado, q: consulta.q, page: String(page) })}`);
       setResultado(data);
       setPagina(page);
     } catch (e) {
@@ -44,11 +44,11 @@ export default function InformeCopias({ onNavigate }) {
 
   const aplicar = (event) => {
     event.preventDefault();
-    setConsulta({ desde, hasta, estado });
+    setConsulta({ desde, hasta, estado, q: busqueda.trim() });
     setPagina(1);
   };
 
-  const exportar = async () => {
+  const generarPdf = async (imprimir = false) => {
     if (exportando || !resultado?.total) return;
     setExportando(true);
     setError('');
@@ -56,24 +56,34 @@ export default function InformeCopias({ onNavigate }) {
       const rows = [];
       const pages = Math.ceil(resultado.total / (resultado.por_pagina || 100));
       for (let page = 1; page <= pages; page += 1) {
-        const data = await api(`informe_copias&desde=${consulta.desde}&hasta=${consulta.hasta}&estado=${consulta.estado}&page=${page}`);
+        const data = await api(`informe_copias&${new URLSearchParams({ desde: consulta.desde, hasta: consulta.hasta, estado: consulta.estado, q: consulta.q, page: String(page) })}`);
         rows.push(...(data.copias || []));
       }
-      const header = ['Fecha', 'Cliente', 'Equipo', 'Software', 'Estado panel', 'Nivel', 'Resultado original', 'Motivo', 'Código', 'Fuente de clasificación', 'Evidencia', 'Destino', 'Tamaño', 'Duración', 'Origen de registro'];
-      const lines = [header, ...rows.map((item) => [item.fecha, item.cliente, item.equipo, item.software,
-        item.estado, etiquetaEstado(item), item.resultado_original || 'DESCONOCIDO', item.desc_error, item.codigo,
-        fuenteEtiqueta(item.clasificacion_fuente), item.clasificacion_evidencia, item.destino, item.tamano, item.duracion,
-        item.staging ? 'Pendiente de importar' : 'Historial'])]
-        .map((line) => line.map(csvCell).join(';')).join('\r\n');
-      const blob = new Blob(['\ufeff', lines], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `informe-copias-${consulta.desde}-a-${consulta.hasta}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const ancho = doc.internal.pageSize.getWidth();
+      const alto = doc.internal.pageSize.getHeight();
+      const filtros = [consulta.desde && `Desde ${consulta.desde}`, consulta.hasta && `Hasta ${consulta.hasta}`,
+        consulta.estado !== 'all' && `Estado ${consulta.estado}`, consulta.q && `Búsqueda: ${consulta.q}`].filter(Boolean).join(' · ') || 'Sin filtros';
+      doc.setProperties({ title: 'Informe de copias', subject: filtros, creator: 'Intranet-Sauber' });
+      doc.setFillColor(27, 48, 70); doc.rect(0, 0, ancho, 39, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(255, 255, 255); doc.text('Informe de copias', 14, 19);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(220, 230, 239); doc.text(filtros, 14, 29);
+      doc.setTextColor(65, 79, 94); doc.setFontSize(10); doc.text(`${rows.length.toLocaleString('es-ES')} registros`, 14, 48);
+      doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, ancho - 14, 48, { align: 'right' });
+      autoTable(doc, { startY: 54, head: [['Fecha', 'Cliente', 'Equipo', 'Software', 'Estado', 'Detalle', 'Código', 'Destino']],
+        body: rows.map((item) => [item.fecha, item.cliente, item.equipo, item.software || '—', etiquetaEstado(item),
+          item.desc_error || item.clasificacion_evidencia || '—', item.codigo || '—', item.destino || '—']),
+        styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 2.3, overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: [34, 67, 96], textColor: 255 }, alternateRowStyles: { fillColor: [245, 248, 251] },
+        columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 32 }, 2: { cellWidth: 32 }, 3: { cellWidth: 23 }, 4: { cellWidth: 25 }, 5: { cellWidth: 'auto' }, 6: { cellWidth: 25 }, 7: { cellWidth: 28 } },
+        margin: { left: 10, right: 10, bottom: 15 }, });
+      const paginasPdf = doc.internal.getNumberOfPages();
+      for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) { doc.setPage(paginaPdf); doc.setFontSize(8); doc.setTextColor(105, 117, 129); doc.text('Intranet-Sauber · Informe de copias', 10, alto - 8); doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 10, alto - 8, { align: 'right' }); }
+      const nombre = `informe-copias-${consulta.desde || 'historial'}-${consulta.hasta || 'actual'}.pdf`;
+      if (imprimir) { doc.autoPrint(); window.open(doc.output('bloburl'), '_blank', 'noopener'); } else doc.save(nombre);
     } catch (e) {
-      setError(e.message || 'No se pudo exportar el informe.');
+      setError(e.message || 'No se pudo generar el PDF del informe.');
     } finally {
       setExportando(false);
     }
@@ -85,6 +95,7 @@ export default function InformeCopias({ onNavigate }) {
   const filtrosActivos = [
     ...(consulta.desde ? [{ clave: 'desde', etiqueta: `Desde: ${consulta.desde}` }] : []),
     ...(consulta.hasta ? [{ clave: 'hasta', etiqueta: `Hasta: ${consulta.hasta}` }] : []),
+    ...(consulta.q ? [{ clave: 'q', etiqueta: `Búsqueda: ${consulta.q}` }] : []),
     ...(consulta.estado !== 'all' ? [{
       clave: 'estado',
       etiqueta: `Resultado: ${[['OK', 'Correcta'], ['ERROR', 'Error confirmado'], ['WARNING', 'Advertencia'],
@@ -97,13 +108,15 @@ export default function InformeCopias({ onNavigate }) {
     setDesde(siguiente.desde);
     setHasta(siguiente.hasta);
     setEstado(siguiente.estado);
+    setBusqueda(siguiente.q);
     setPagina(1);
   };
   const limpiarFiltros = () => {
-    const vacios = { desde: '', hasta: '', estado: 'all' };
+    const vacios = { desde: '', hasta: '', estado: 'all', q: '' };
     setDesde(vacios.desde);
     setHasta(vacios.hasta);
     setEstado(vacios.estado);
+    setBusqueda(vacios.q);
     setConsulta(vacios);
     setPagina(1);
   };
@@ -111,8 +124,9 @@ export default function InformeCopias({ onNavigate }) {
   return <section className="informe-page" aria-labelledby="informe-titulo">
     <PageHeading id="informe-titulo" eyebrow="Auditoría" title="Informe de copias"
       description={<>Historial de copias del periodo. Los resultados ambiguos se identifican como <strong>errores pendientes de clasificación</strong>.</>}
-      actions={<button className="btn" type="button" onClick={exportar} disabled={exportando || !total}>{exportando ? 'Preparando CSV…' : 'Exportar CSV'}</button>} />
+      actions={<><button className="btn sec" type="button" onClick={() => generarPdf(true)} disabled={exportando || !total}>{exportando ? 'Preparando PDF…' : 'Imprimir'}</button><button className="btn" type="button" onClick={() => generarPdf(false)} disabled={exportando || !total}>{exportando ? 'Preparando PDF…' : 'Descargar PDF'}</button></>} />
     <BarraFiltros className="informe-filtros" title="Filtrar informe"
+      search={{ id: 'informe-buscar', label: 'Buscar', value: busqueda, placeholder: 'Cliente, equipo, error o código', onChange: (event) => setBusqueda(event.target.value) }}
       fields={[
         { id: 'informe-desde', label: 'Desde', type: 'date', value: desde, max: hasta,
           onChange: (event) => setDesde(event.target.value) },

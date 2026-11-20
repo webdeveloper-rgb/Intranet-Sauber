@@ -54,7 +54,7 @@ function copia_obtener(int $id): ?array
 
 function copias_sin_recibir(PDO $pdo): array
 {
-    $sql = "SELECT CONCAT('sin-copia-', e.id) AS id,
+    $sql = "SELECT CONCAT('sin-copia-', e.id) AS id,e.id AS equipo_id,
             DATE_FORMAT(DATE_ADD(DATE_SUB(CURDATE(), INTERVAL d.dias DAY), INTERVAL 1 DAY),'%Y-%m-%d %H:%i') AS fecha,
             DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL d.dias DAY),'%Y-%m-%d') AS fecha_esperada,
             c.nombre AS cliente, e.nombre AS equipo, e.tipo, e.programa, e.software,
@@ -70,7 +70,8 @@ function copias_sin_recibir(PDO $pdo): array
             NULL AS revision_desc, NULL AS seg, NULL AS recordar, NULL AS notas
         FROM equipos e
         INNER JOIN clientes c ON c.id=e.cliente_id AND c.activo=1 AND c.tiene_satbk=1
-        LEFT JOIN (SELECT equipo_id, MAX(fecha) AS ultima FROM copias WHERE equipo_id IS NOT NULL GROUP BY equipo_id) cp
+        LEFT JOIN (SELECT equipo_id, MAX(fecha) AS ultima FROM copias
+            WHERE equipo_id IS NOT NULL AND (codigo IS NULL OR codigo <> 'SIN_COPIA') GROUP BY equipo_id) cp
             ON cp.equipo_id=e.id
         INNER JOIN (
             SELECT 1 AS dias UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
@@ -95,6 +96,31 @@ function copias_sin_recibir(PDO $pdo): array
     return $pdo->query($sql)->fetchAll();
 }
 
+/** Guarda una sola incidencia crítica por equipo y día de copia esperado.
+ * La consulta sigue devolviendo el estado actual para los indicadores, pero el
+ * historial se apoya ya en la tabla copias y conserva la trazabilidad.
+ */
+function copias_sin_recibir_registrar(PDO $pdo, array $rows): void
+{
+    if (!$rows) return;
+    $insert = $pdo->prepare("INSERT IGNORE INTO copias
+        (fecha,cliente,equipo,equipo_id,huella,estado,severidad,desc_error,codigo,
+         resultado_original,clasificacion_fuente,clasificacion_evidencia,software,tipo,programa)
+        VALUES (?,?,?,?,?,'ERROR','critico',?,'SIN_COPIA','SIN_COPIA',
+         'sistema:copias-esperadas',?, ?,?,?)");
+    foreach ($rows as $row) {
+        $equipoId = (int) ($row['equipo_id'] ?? 0);
+        $esperada = (string) ($row['fecha_esperada'] ?? '');
+        if ($equipoId < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $esperada)) continue;
+        $huella = sha1("sin-copia:{$equipoId}:{$esperada}");
+        $insert->execute([
+            (string) $row['fecha'] . ':00', (string) $row['cliente'], (string) $row['equipo'], $equipoId, $huella,
+            (string) $row['desc_error'], "Copia esperada el {$esperada} sin recibir tras 24 horas.",
+            $row['software'] ?: null, $row['tipo'] ?: null, $row['programa'] ?: null,
+        ]);
+    }
+}
+
 function copias_sin_recibir_cache(PDO $pdo): array
 {
     $key = hash('sha256', 'copias_sin_recibir:v4');
@@ -104,11 +130,13 @@ function copias_sin_recibir_cache(PDO $pdo): array
     if (is_string($payload)) {
         $cached = json_decode($payload, true);
         if (is_array($cached)) {
+            copias_sin_recibir_registrar($pdo, $cached);
             return $cached;
         }
     }
 
     $rows = copias_sin_recibir($pdo);
+    copias_sin_recibir_registrar($pdo, $rows);
     $payload = json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     if ($payload === false) {
         throw new RuntimeException('No se pudo serializar la caché de equipos sin copia.');

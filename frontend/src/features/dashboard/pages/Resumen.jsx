@@ -111,15 +111,18 @@ export default function Resumen({ refreshSignal, onNavigate }) {
         <span>{filas.length} resultados</span>
       </div>
       {!filas.length && <div className="empty-state" role="status">{!datos ? cargando ? 'Cargando equipos…' : 'Datos no disponibles' : equipos.length ? 'No hay equipos que coincidan con los filtros.' : 'No hay incidencias ni copias activas en este momento.'}</div>}
-      <div className="dashboard-table-wrap" hidden={!filas.length}><table className="dashboard-table"><thead><tr><th>Prioridad</th><th>Equipo / cliente</th><th>Situación</th><th>Último evento o alerta</th><th><span className="sr-only">Acciones</span></th></tr></thead><tbody>
+      <div className="dashboard-table-wrap" hidden={!filas.length}><table className="dashboard-table"><thead><tr><th>Prioridad</th><th>Equipo / cliente</th><th>Errores Windows</th><th>Errores copias</th><th>Último evento o alerta</th><th><span className="sr-only">Acciones</span></th></tr></thead><tbody>
         {pagina.items.map((e) => <tr key={e.id}><td><span className={`queue-priority level-${prioridad(e)}`}>{['En curso', 'Atención', 'Alta', 'Crítica'][prioridad(e)]}</span></td>
           <td><a href={rutaHref(destino(e))} onClick={(event) => navegar(event, destino(e))}>{e.monitor_alias || e.nombre}</a><small>{e.cliente || 'Sin asignar'}{e.tipo === 'servidor' ? ' · Servidor' : ''}</small></td>
           <td><div className="queue-badges">
-            {Number(e.errores_pendientes) > 0 && <span className="queue-badge error">{e.errores_pendientes} {Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} de copia</span>}
             {Number(e.eventos_windows) > 0 && <span className="queue-badge error">{e.eventos_windows} {Number(e.eventos_windows) === 1 ? 'evento' : 'eventos'} de Windows</span>}
             {Number(e.alertas_hardware) > 0 && <span className="queue-badge error">{e.alertas_hardware} {Number(e.alertas_hardware) === 1 ? 'alerta crítica' : 'alertas críticas'} de hardware</span>}
-            {e.sin_copia && <span className="queue-badge warning">Error crítico sin copia</span>}{e.sin_informe && <span className="queue-badge warning">Sin informe &gt;24 h</span>}
+            {!Number(e.eventos_windows) && !Number(e.alertas_hardware) && <span className="equipos-muted">Sin errores Windows</span>}
+          </div></td><td><div className="queue-badges">
+            {Number(e.errores_pendientes) > 0 && <span className="queue-badge error">{e.errores_pendientes} {Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} registrados</span>}
+            {e.sin_copia && <span className="queue-badge warning">Error crítico: copia no recibida</span>}
             {Number(e.copias_en_curso) > 0 && <span className="queue-badge running">{e.copias_en_curso} en curso</span>}
+            {!Number(e.errores_pendientes) && !e.sin_copia && !Number(e.copias_en_curso) && <span className="equipos-muted">Sin errores de copias</span>}
           </div></td><td className="queue-event">{e.errores_evento?.[0]?.titulo || '—'}</td><td><a className="queue-open" href={rutaHref(destino(e))} onClick={(event) => navegar(event, destino(e))} aria-label={`Revisar ${e.nombre}`}>Revisar ↗</a></td></tr>)}
       </tbody></table></div>
       <Paginacion total={filas.length} pagina={pagina.page} paginas={pagina.pageCount} porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="equipos" />

@@ -52,7 +52,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const clienteAbierto = clienteId;
   const equipoAbierto = equipoId;
   const [busqueda, setBusqueda] = useState('');
-  const [filtroSatbk, setFiltroSatbk] = useState('todos');
+  const [filtroSatbk, setFiltroSatbk] = useState('satbk');
   const [ordenClientes, setOrdenClientes] = useState('az');
   const [filtroAgenteCliente, setFiltroAgenteCliente] = useState('todos');
   const [softwareCliente, setSoftwareCliente] = useState('');
@@ -153,6 +153,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
 
   const clientes = cat?.clientes || [];
   const clientesConSatbk = clientes.filter((cliente) => cliente.tiene_satbk);
+  const clientesConSat18 = clientes.filter((cliente) => cliente.tiene_sat18);
   const clientesSinSatbk = clientes.filter((cliente) => !cliente.tiene_satbk);
   const softwaresEquipo = [...new Set(equipos.map((equipo) => equipo.software).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
@@ -200,9 +201,9 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   }, [equipos, clienteAbierto, cat]);
   const textoBusqueda = norm(busqueda.trim());
   const clientesPorSatbk = useMemo(() => {
-    if (filtroSatbk === 'con') return clientes.filter((cliente) => cliente.tiene_satbk);
-    if (filtroSatbk === 'sin') return clientes.filter((cliente) => !cliente.tiene_satbk);
-    return clientes;
+    if (filtroSatbk === 'satbk') return clientes.filter((cliente) => cliente.tiene_satbk);
+    if (filtroSatbk === 'sat18') return clientes.filter((cliente) => cliente.tiene_sat18);
+    return clientes.filter((cliente) => cliente.tiene_satbk || cliente.tiene_sat18);
   }, [clientes, filtroSatbk]);
   const clientesPorEquipo = useMemo(() => clientesPorSatbk.filter((cliente) => {
     const relacionados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
@@ -236,7 +237,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   }), [equiposCliente, textoBusqueda, filtrosEquipo]);
   const filtrosActivosClientes = [
     ...(busqueda.trim() ? [{ clave: 'busqueda', etiqueta: `Búsqueda: ${busqueda.trim()}` }] : []),
-    ...(filtroSatbk !== 'todos' ? [{ clave: 'satbk', etiqueta: filtroSatbk === 'con' ? 'Con SATBK' : 'Sin SATBK' }] : []),
     ...(filtroAgenteCliente !== 'todos' ? [{ clave: 'agente', etiqueta: filtroAgenteCliente === 'con' ? 'Con agente' : 'Sin agente' }] : []),
     ...(softwareCliente ? [{ clave: 'software', etiqueta: `Programa: ${softwareCliente}` }] : []),
   ];
@@ -386,13 +386,13 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
 
   const quitarFiltroCliente = (clave) => {
     if (clave === 'busqueda') setBusqueda('');
-    else if (clave === 'satbk') setFiltroSatbk('todos');
+    else if (clave === 'satbk') setFiltroSatbk('satbk');
     else if (clave === 'agente') setFiltroAgenteCliente('todos');
     else if (clave === 'software') setSoftwareCliente('');
   };
   const limpiarFiltrosClientes = () => {
     setBusqueda('');
-    setFiltroSatbk('todos');
+    setFiltroSatbk('satbk');
     setFiltroAgenteCliente('todos');
     setSoftwareCliente('');
   };
@@ -551,15 +551,15 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     </button>}
         count={`${clientesFiltrados.length} de ${clientes.length} clientes`}
         activeFilters={filtrosActivosClientes} onRemoveFilter={quitarFiltroCliente} onClear={limpiarFiltrosClientes}>
-        <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por SATBK">
+        <div className="cliente-filtros" role="group" aria-label="Filtrar clientes por tipo de SAT">
           <span className="cliente-filtros-label">Tipo SAT</span>
           <div className="cliente-filtros-opciones">
-            <button type="button" className={filtroSatbk === 'todos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'todos'}
-              onClick={() => setFiltroSatbk('todos')}>Todos <span>{clientes.length}</span></button>
-            <button type="button" className={filtroSatbk === 'con' ? 'activo' : ''} aria-pressed={filtroSatbk === 'con'}
-              onClick={() => setFiltroSatbk('con')}>Con SATBK <span>{clientesConSatbk.length}</span></button>
-            <button type="button" className={filtroSatbk === 'sin' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sin'}
-              onClick={() => setFiltroSatbk('sin')}>Sin SATBK <span>{clientesSinSatbk.length}</span></button>
+            <button type="button" className={filtroSatbk === 'satbk' ? 'activo' : ''} aria-pressed={filtroSatbk === 'satbk'}
+              onClick={() => setFiltroSatbk('satbk')}>Con SATBK <span>{clientesConSatbk.length}</span></button>
+            <button type="button" className={filtroSatbk === 'sat18' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sat18'}
+              onClick={() => setFiltroSatbk('sat18')}>Con SAT18 <span>{clientesConSat18.length}</span></button>
+            <button type="button" className={filtroSatbk === 'ambos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'ambos'}
+              onClick={() => setFiltroSatbk('ambos')}>Ambos <span>{clientes.filter((cliente) => cliente.tiene_satbk || cliente.tiene_sat18).length}</span></button>
           </div>
         </div>
       </BarraFiltros>}
@@ -622,9 +622,9 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                   <span className="cliente-tarjeta-flecha">›</span>
                   <span className="cliente-tarjeta-titulo">
                     <strong>{cliente.nombre}</strong>
-                    <span className={`cliente-satbk${cliente.tiene_satbk ? ' activo' : ''}`}>
+                    <span className={`cliente-satbk${cliente.tiene_satbk || cliente.tiene_sat18 ? ' activo' : ''}`}>
                       <span className="cliente-satbk-punto" aria-hidden="true" />
-                      {cliente.tiene_satbk ? 'SATBK' : 'Sin SATBK'}
+                      {cliente.tiene_satbk && cliente.tiene_sat18 ? 'SATBK · SAT18' : cliente.tiene_satbk ? 'SATBK' : cliente.tiene_sat18 ? 'SAT18' : 'Sin SAT'}
                     </span>
                   </span>
                   <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>

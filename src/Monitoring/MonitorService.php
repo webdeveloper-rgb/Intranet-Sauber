@@ -1103,12 +1103,18 @@ function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
         $alert['equipo_id'] = (int) $alert['equipo_id'];
     }
     unset($alert);
+    $st = $pdo->prepare("SELECT COUNT(*) FROM monitor_eventos ev
+        WHERE ev.equipo_id=? AND (" . monitor_evento_nivel_sql() . " IN ('Critical','Error'))
+            AND (?='full' OR ev.event_time >= UTC_TIMESTAMP() - INTERVAL 30 DAY)");
+    $st->execute([$equipmentId, $row['monitor_event_mode']]);
+    $eventosWindows = (int) $st->fetchColumn();
     return [
         'monitor' => $report,
         'monitor_alias' => $row['monitor_alias'],
         'monitor_last_seen' => $row['monitor_last_seen'],
         'event_extraction_mode' => $row['monitor_event_mode'],
         'alertas' => $alerts,
+        'eventos_windows' => $eventosWindows,
         'copias_en_curso' => monitor_equipo_copias_en_curso($pdo, $equipmentId),
     ];
 }

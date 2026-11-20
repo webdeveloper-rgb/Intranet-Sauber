@@ -177,7 +177,11 @@ final class ReadController
             if ($where) {
                 $sql .= ' WHERE ' . implode(' AND ', $where);
             }
-            $query = db()->prepare($sql . ' ORDER BY cursor_fecha DESC, id DESC LIMIT 3001');
+            $pdo = db();
+            // Materializa primero los fallos de copia esperada para que aparezcan
+            // en esta misma primera respuesta del historial.
+            copias_sin_recibir_cache($pdo);
+            $query = $pdo->prepare($sql . ' ORDER BY cursor_fecha DESC, id DESC LIMIT 3001');
             $query->execute($params);
             $rows = $query->fetchAll();
             $truncado = count($rows) > 3000;
@@ -185,7 +189,6 @@ final class ReadController
                 array_pop($rows);
             }
             $rows = array_map('copia_fila', $rows);
-            $rows = array_merge(copias_sin_recibir_cache(db()), $rows);
             $notas = copia_notas_de(array_column(
                 array_filter($rows, static fn($row) => ($row['codigo'] ?? null) !== 'SIN_COPIA'),
                 'id'
@@ -257,6 +260,7 @@ final class ReadController
             }
             $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
             $pdo = db();
+            copias_sin_recibir_cache($pdo);
             $union = "SELECT CONVERT(CAST(id AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS id,fecha,
                     CONVERT(cliente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS cliente,
                     CONVERT(COALESCE((SELECT nombre FROM equipos WHERE id=copias.equipo_id),equipo) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS equipo,equipo_id,
@@ -293,8 +297,8 @@ final class ReadController
             $count->execute($params);
             $total = (int) $count->fetchColumn();
             $summaryQuery = $pdo->prepare('SELECT informe.estado,COUNT(*) AS total FROM (' . $union . ') informe'
-                . ($dateWhere ? ' WHERE ' . implode(' AND ', $dateWhere) : '') . ' GROUP BY estado');
-            $summaryQuery->execute($dateParams);
+                . $whereSql . ' GROUP BY estado');
+            $summaryQuery->execute($params);
             $summary = ['OK' => 0, 'ERROR' => 0, 'WARNING' => 0, 'RUNNING' => 0, 'REVISION' => 0];
             foreach ($summaryQuery->fetchAll() as $row) $summary[$row['estado']] = (int) $row['total'];
             $pageSize = 100;

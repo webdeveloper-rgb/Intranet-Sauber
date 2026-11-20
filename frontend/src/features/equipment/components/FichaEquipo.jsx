@@ -12,6 +12,7 @@ export default function FichaEquipo({ equipo, pestana = 'resumen', onCambiar, re
   useEffect(() => { setVisitadas((prev) => prev.includes(actual) ? prev : [...prev, actual]); }, [actual]);
   const alertas = datosMonitor?.alertas || [];
   const errores = Number(equipo.errores_pendientes || 0);
+  const eventosWindows = Number(datosMonitor?.eventos_windows || 0);
   const teclado = (event, index) => {
     let siguiente;
     if (event.key === 'ArrowRight') siguiente = (index + 1) % TABS.length;
@@ -42,6 +43,13 @@ export default function FichaEquipo({ equipo, pestana = 'resumen', onCambiar, re
             : !datosMonitor?.monitor ? 'Informe no disponible' : alertas.length ? `${alertas.length} ${alertas.length === 1 ? 'alerta activa' : 'alertas activas'}` : 'Sin alertas de hardware activas'}</p>
           <span className="ficha-muted">Discos, capacidad disponible y especificaciones del último informe.</span>
           <button className="btn sec" type="button" onClick={() => onCambiar('monitor')}>Ver monitorización <Icon name="arrow" size={14} /></button>
+        </section>
+        <section className="ficha-card" aria-labelledby="ficha-windows-estado">
+          <div className="ficha-card-title"><Icon name="eventos" /><h3 id="ficha-windows-estado">Eventos de Windows</h3></div>
+          <p className={eventosWindows ? 'ficha-estado-error' : ''}>{!equipo.tiene_monitor ? 'Sin agente de monitorización'
+            : cargandoMonitor ? 'Consultando eventos…' : eventosWindows ? `${eventosWindows} ${eventosWindows === 1 ? 'error detectado' : 'errores detectados'}` : 'Sin errores de Windows detectados'}</p>
+          <span className="ficha-muted">Errores y eventos críticos recibidos desde el agente de este equipo.</span>
+          <button className="btn sec" type="button" onClick={() => onCambiar('eventos')} disabled={!equipo.tiene_monitor}>Ver eventos Windows <Icon name="arrow" size={14} /></button>
         </section>
       </div>
       {errorMonitor && <div className="errbox" role="alert">No se pudo consultar la monitorización: {errorMonitor}</div>}

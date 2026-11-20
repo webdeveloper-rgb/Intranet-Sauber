@@ -147,7 +147,7 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
             {e.sin_copia && <span className="queue-badge warning">Sin copia &gt;24 h</span>}{e.sin_informe && <span className="queue-badge warning">Revisar agente</span>}
             {!incidencia(e) && <span className="equipos-muted">{e.estadoDisponible ? 'Sin incidencias detectadas' : 'Estado parcial'}</span>}
             {Number(e.errores_pendientes) > 0 && !e.critico && <span className="queue-badge error">Revisar fallos de copia</span>}
-          </div></td><td><a className="equipos-open" href={rutaHref(path)} onClick={(event) => abrir(event, path)} aria-label={`Abrir ficha de ${e.nombre}`}>Ver ficha ↗</a></td></tr>;
+          </div></td><td>{!e.cliente_id && <a className="equipos-open" href={rutaHref(`/clientes/sin-asignar/equipos/${e.id}?tab=configuracion`)} onClick={(event) => abrir(event, `/clientes/sin-asignar/equipos/${e.id}?tab=configuracion`)} aria-label={`Asignar cliente a ${e.nombre}`}>Asignar cliente ↗</a>}</td></tr>;
       })}</tbody></table></div>
       {!filas.length && <div className="empty-state" role="status">{filtroNoDisponible ? 'No se puede aplicar este filtro hasta recuperar los estados de monitoreo.' : !datos ? cargando ? 'Cargando equipos…' : 'No se pudieron cargar los equipos.' : datos.length ? 'No hay equipos que coincidan con los filtros.' : 'Todavía no hay equipos registrados.'}</div>}
       <Paginacion total={filas.length} pagina={pagina.page} paginas={pagina.pageCount} porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="equipos" />

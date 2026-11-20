@@ -128,7 +128,7 @@ export default function Eventos({ equipoId = null, integrado = false }) {
   const eventos = resultado?.eventos || [];
   const total = resultado?.total || 0;
   const paginas = Math.max(1, Math.ceil(total / (resultado?.porPagina || POR_PAGINA)));
-  const equipoNombre = eventos[0]?.equipo || `equipo #${equipoId}`;
+  const equipoNombre = eventos[0]?.equipo || (equipoId ? `equipo #${equipoId}` : 'todos los equipos');
   const filtrosActivos = [
     ...(buscar.trim() ? [{ clave: 'q', etiqueta: `Búsqueda: ${buscar.trim()}` }] : []),
     ...(nivel !== 'all' ? [{ clave: 'nivel', etiqueta: `Nivel: ${niveles.find(([key]) => key === nivel)?.[1] || nivel}` }] : []),
@@ -151,8 +151,8 @@ export default function Eventos({ equipoId = null, integrado = false }) {
     setPagina(1);
   };
 
-  const imprimirRegistro = async () => {
-    if (!equipoId || exportando) return;
+  const generarPdf = async (imprimir = false) => {
+    if (exportando || !total) return;
     setExportando(true);
     setErrorPdf('');
     try {
@@ -161,7 +161,7 @@ export default function Eventos({ equipoId = null, integrado = false }) {
         import('jspdf-autotable'),
       ]);
       const tamano = resultado?.porPagina || POR_PAGINA;
-      const query = (page) => `monitor_eventos&page=${page}&q=&nivel=all&equipo_id=${equipoId}${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
+      const query = (page) => `monitor_eventos&page=${page}&q=${encodeURIComponent(q)}&nivel=${encodeURIComponent(nivel)}${equipoId ? `&equipo_id=${equipoId}` : ''}${desde ? `&desde=${desde}` : ''}${hasta ? `&hasta=${hasta}` : ''}`;
       const primera = await api(query(1));
       const todos = [...(primera.eventos || [])];
       const totalRegistros = Number(primera.total) || todos.length;
@@ -204,10 +204,15 @@ export default function Eventos({ equipoId = null, integrado = false }) {
       doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 16, 37);
       doc.setTextColor(40, 51, 64);
       doc.setFontSize(11);
-      doc.text(`Periodo: ${desde || 'todo el historial'}${hasta ? ` a ${hasta}` : ''}`, 9, 53);
+      const filtrosPdf = [
+        q && `Búsqueda: ${q}`,
+        nivel !== 'all' && `Nivel: ${nivel}`,
+      ].filter(Boolean).join(' · ') || 'Sin filtros adicionales';
+      const lineasFiltros = doc.splitTextToSize(`Periodo: ${desde || 'todo el historial'}${hasta ? ` a ${hasta}` : ''} · ${filtrosPdf}`, ancho - 18);
+      doc.text(lineasFiltros, 9, 53);
       doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, ancho - 9, 53, { align: 'right' });
 
-      const tarjetaY = 60;
+      const tarjetaY = 60 + ((lineasFiltros.length - 1) * 5);
       const tarjetaGap = 5;
       const tarjetaAncho = (ancho - 18 - tarjetaGap * 3) / 4;
       clasificaciones.forEach(([clave, titulo, color], indice) => {
@@ -229,13 +234,13 @@ export default function Eventos({ equipoId = null, integrado = false }) {
       doc.setFont('times', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(28, 53, 81);
-      doc.text('Conteo por tipo de evento', 9, 94);
+      doc.text('Conteo por tipo de evento', 9, tarjetaY + 34);
       doc.setFont('times', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(90, 100, 112);
-      doc.text(`${todos.length.toLocaleString('es-ES')} registros · agrupados por clasificación, canal, origen y Event ID`, 9, 100);
+      doc.text(`${todos.length.toLocaleString('es-ES')} registros · agrupados por clasificación, canal, origen y Event ID`, 9, tarjetaY + 40);
       autoTable(doc, {
-        startY: 104,
+        startY: tarjetaY + 44,
         head: [['Clasificación', 'Canal', 'Origen', 'Event ID', 'Cantidad']],
         body: ordenarTipos.map((tipo) => [tipo.nivel, tipo.canal, tipo.origen, tipo.eventId, tipo.cantidad]),
         styles: { font: 'times', fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
@@ -276,7 +281,13 @@ export default function Eventos({ equipoId = null, integrado = false }) {
         doc.text(`Registro de eventos · ${todos.length} eventos · mensajes resumidos a 220 caracteres`, 9, 206);
         doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 9, 206, { align: 'right' });
       }
-      doc.save(`eventos-equipo-${equipoId}.pdf`);
+      const nombre = `eventos-${equipoId ? `equipo-${equipoId}` : 'todos'}-${desde || 'historial'}-${hasta || 'actual'}.pdf`;
+      if (imprimir) {
+        doc.autoPrint();
+        window.open(doc.output('bloburl'), '_blank', 'noopener');
+      } else {
+        doc.save(nombre);
+      }
     } catch (e) {
       setErrorPdf(e.message || 'No se pudo generar el PDF del registro.');
     } finally {
@@ -296,6 +307,8 @@ export default function Eventos({ equipoId = null, integrado = false }) {
             <span className={`eventos-indicador${cargando ? ' actualizando' : ''}`} aria-hidden="true" />
             {cargando ? 'Actualizando…' : 'Auto cada minuto'}
           </div>
+          <button className="btn sec" type="button" onClick={() => generarPdf(true)} disabled={exportando || !total}>{exportando ? 'Preparando PDF…' : 'Imprimir'}</button>
+          <button className="btn" type="button" onClick={() => generarPdf(false)} disabled={exportando || !total}>{exportando ? 'Preparando PDF…' : 'Descargar PDF'}</button>
         </>} />
 
       <BarraFiltros title="Filtrar eventos"
@@ -309,9 +322,6 @@ export default function Eventos({ equipoId = null, integrado = false }) {
           { id: 'eventos-nivel', label: 'Nivel', type: 'select', value: nivel,
             onChange: (event) => { setNivel(event.target.value); setPagina(1); }, options: niveles },
         ]}
-        actions={equipoId && <button className="btn sec eventos-pdf" type="button" onClick={imprimirRegistro} disabled={exportando}>
-          {exportando ? 'Preparando PDF…' : 'Imprimir registro PDF'}
-        </button>}
         count={resultado === null && cargando ? 'Cargando resultados…'
           : `${total.toLocaleString('es-ES')} evento${total === 1 ? '' : 's'}`}
         activeFilters={filtrosActivos} onRemoveFilter={quitarFiltro} onClear={limpiarFiltros} />

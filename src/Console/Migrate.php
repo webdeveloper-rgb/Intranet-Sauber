@@ -265,6 +265,14 @@ try {
         }
     };
 
+    $migrations[22] = static function (PDO $pdo): void {
+        $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+            WHERE table_schema=DATABASE() AND table_name='clientes'")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('tiene_sat18', $columns, true)) {
+            $pdo->exec('ALTER TABLE clientes ADD COLUMN tiene_sat18 TINYINT(1) NOT NULL DEFAULT 0 AFTER tiene_satbk');
+        }
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

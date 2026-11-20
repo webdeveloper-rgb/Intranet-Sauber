@@ -43,6 +43,7 @@ function api_sync_cfg(): array
         'tabla_usuarios' => 'Usuario',
         'usuarios_permitidos' => ['dni' => [], 'correo_nombre' => []],
         'servicio_requerido' => 'VBA3KT7GN7',
+        'servicio_sat18' => '',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
     ];
@@ -410,6 +411,9 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $clientes = api_sync_todo($c, $token, (string) $c['tabla_clientes']);
         $cliservicios = api_sync_todo($c, $token, (string) $c['tabla_cliservicios']);
         $clientesConServicio = api_sync_clientes_con_servicio($clientes, $cliservicios, (string)$c['servicio_requerido']);
+        $clientesConSat18 = trim((string) ($c['servicio_sat18'] ?? '')) !== ''
+            ? api_sync_clientes_con_servicio($clientes, $cliservicios, (string) $c['servicio_sat18'])
+            : [];
         if (!$clientes || !$cliservicios || !$clientesConServicio) {
             throw new ApiError('La API no devolvió clientes con el servicio requerido. No se modificó el catálogo local.');
         }
@@ -424,14 +428,15 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $clientesActivos = (int) $pdo->query('SELECT COUNT(*) FROM clientes WHERE activo=1')->fetchColumn();
 
         $st = $pdo->prepare(
-            'INSERT INTO clientes (clave, codigo, nombre, cif, email, telefono, localidad, provincia, datos, activo, tiene_satbk, visto)
-             VALUES (?,?,?,?,?,?,?,?,?,1,?,?)
+            'INSERT INTO clientes (clave, codigo, nombre, cif, email, telefono, localidad, provincia, datos, activo, tiene_satbk, tiene_sat18, visto)
+             VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?)
              ON DUPLICATE KEY UPDATE codigo=?, nombre=?, cif=?, email=?, telefono=?, localidad=?, provincia=?, datos=?,
-                activo=1, tiene_satbk=?, visto=?'
+                activo=1, tiene_satbk=?, tiene_sat18=?, visto=?'
         );
         $pdo->exec('UPDATE clientes SET activo = 0');
         $nCli = 0;
         $nSatbk = 0;
+        $nSat18 = 0;
         foreach ($clientes as $r) {
             $codigo = api_sync_primero($r, ['Codigo', 'Cod', 'CodCliente'], 40);
             $clave = api_sync_primero($r, ['Clave', 'Id', 'Codigo'], 64);
@@ -440,6 +445,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 continue;
             }
             $tieneSatbk = isset($clientesConServicio[$clave]) ? 1 : 0;
+            $tieneSat18 = isset($clientesConSat18[$clave]) ? 1 : 0;
             $values = [
                 $clave,
                 $codigo,
@@ -451,11 +457,13 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
                 api_sync_primero($r, ['Provincia'], 100),
                 $json($r),
                 $tieneSatbk,
+                $tieneSat18,
                 $ahora,
             ];
             $st->execute(array_merge($values, array_slice($values, 1)));
             $nCli++;
             $nSatbk += $tieneSatbk;
+            $nSat18 += $tieneSat18;
         }
 
         if ($nCli === 0) {
@@ -475,6 +483,7 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         return [
             'clientes' => $nCli,
             'clientes_satbk' => $nSatbk,
+            'clientes_sat18' => $nSat18,
             'omitidos' => $saltados,
             'servicio' => (string)$c['servicio_requerido'],
             'campos' => [
@@ -501,12 +510,13 @@ function api_sync_catalogo(): array
 {
     $pdo = db();
     asegurar_tablas_sync($pdo);
-    $cl = $pdo->query('SELECT id, codigo, nombre, tiene_satbk
+    $cl = $pdo->query('SELECT id, codigo, nombre, tiene_satbk, tiene_sat18
         FROM clientes WHERE activo = 1 ORDER BY nombre')->fetchAll();
     $out = [];
     foreach ($cl as $c) {
         $c['id'] = (int) $c['id'];
         $c['tiene_satbk'] = (bool) $c['tiene_satbk'];
+        $c['tiene_sat18'] = (bool) $c['tiene_sat18'];
         $out[] = $c;
     }
     $ult = $pdo->query("SELECT DATE_FORMAT(inicio,'%Y-%m-%d %H:%i') AS fecha, ok, mensaje, clientes, origen

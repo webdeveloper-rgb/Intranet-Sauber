@@ -96,7 +96,7 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .queue-filters input, .queue-filters select { width: 100%; padding: 9px 11px; border: 1px solid var(--bd); border-radius: 7px; background: var(--card); font-size: 12px; }
 .queue-filters > span { color: var(--mut); font-size: 11px; margin-left: auto; }
 .dashboard-table-wrap { overflow: auto; position: relative; }
-.dashboard-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; min-width: 780px; }
+.dashboard-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; min-width: 980px; }
 .dashboard-table th { color: var(--mut); font-weight: 600; padding: 11px 12px; background: var(--bg); border-bottom: 1px solid var(--bd); font-size: 12px; text-transform: none; letter-spacing: 0; }
 .dashboard-table td { padding: 15px 12px; border-bottom: 1px solid var(--bd); vertical-align: middle; }
 .dashboard-table tbody tr:hover { background: var(--bg); }
@@ -150,7 +150,7 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .ficha-tab-count { background: var(--erb); color: var(--er); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
 .ficha-tab-panel { display: grid; gap: 20px; min-width: 0; }
 .ficha-tab-panel[hidden] { display: none; }
-.ficha-estado-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ficha-estado-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .ficha-card { padding: 22px; border: 1px solid var(--bd); border-radius: 8px; background: var(--card); min-width: 0; }
 .ficha-card-title { display: flex; align-items: center; gap: 10px; color: var(--mut); }
 .ficha-card-title h3 { font-size: 14px; font-weight: 600; margin: 0; color: var(--tx); }
@@ -172,6 +172,7 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .equipo-detalle-heading .equipo-rustdesk-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
 .equipo-detalle-heading .equipo-rustdesk-acciones > .btn { flex: 1 1 auto; width: auto; }
 .equipo-detalle-heading h1 { overflow-wrap: anywhere; }
+@media (max-width: 1080px) { .ficha-estado-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .ficha-estado-grid { grid-template-columns: 1fr; gap: 14px; } .ficha-card { padding: 17px; } .ficha-tabs { gap: 17px; } .equipo-panel-detalle .equipo-detalle-heading { padding: 10px 0; gap: 10px; } .equipo-detalle-heading .equipo-rustdesk-acceso { padding: 9px; gap: 7px; } .equipo-detalle-heading h1 { font-size: 21px; } }
 @media (max-width: 1000px) { .equipos-filtros .filter-bar-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .equipos-listado { padding: 12px; } .equipos-filtros .filter-bar-controls { grid-template-columns: 1fr; } .equipos-filtros .filter-bar-search { grid-column: auto; } }
@@ -209,8 +210,9 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .dashboard-sidebar { box-shadow: none; }
 .dashboard-table { table-layout: fixed; }
 .dashboard-table th:first-child { width: 100px; }
-.dashboard-table th:nth-child(2) { width: 22%; }
-.dashboard-table th:nth-child(3) { width: 29%; }
+.dashboard-table th:nth-child(2) { width: 19%; }
+.dashboard-table th:nth-child(3), .dashboard-table th:nth-child(4) { width: 20%; }
+.dashboard-table th:nth-child(5) { width: 19%; }
 .dashboard-table th:last-child { width: 90px; }
 .dashboard-page > .page-heading { border: 0; padding-bottom: 4px; }
 .dashboard-page .page-heading h1 { font-size: 29px; font-weight: 600; letter-spacing: -.035em; margin: 6px 0 8px; }
