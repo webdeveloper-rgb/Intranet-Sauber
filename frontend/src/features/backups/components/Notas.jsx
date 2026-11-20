@@ -17,7 +17,8 @@ export default function Notas({ c, onNote }) {
   };
   return (
     <div className="notas">
-      <h3>Seguimiento ({lista.length})</h3>
+      <h3>{lista.length ? `Seguimiento (${lista.length})` : 'Seguimiento'}</h3>
+      {!lista.length && <p className="notas-vacio">Sin notas de seguimiento.</p>}
       {pagina.items.map((n, i) => (
         <div className="nota" key={i}>
           {n.texto}

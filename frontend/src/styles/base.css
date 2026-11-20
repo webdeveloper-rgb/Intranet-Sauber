@@ -620,6 +620,11 @@ dd {
   font-size: 15px;
   margin: 0 0 8px;
 }
+.notas-vacio {
+  margin: 0 0 10px;
+  color: var(--mut);
+  font-size: 13px;
+}
 .notas textarea {
   margin-bottom: 8px;
 }
