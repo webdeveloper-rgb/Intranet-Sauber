@@ -22,7 +22,7 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
     return clientes.filter((c) => {
       if (filtroSatbk === 'satbk' && !c.tiene_satbk) return false;
       if (filtroSatbk === 'sat18' && !c.tiene_sat18) return false;
-      if (filtroSatbk === 'ambos' && !c.tiene_satbk && !c.tiene_sat18) return false;
+      if (filtroSatbk === 'ambos' && !(c.tiene_satbk && c.tiene_sat18)) return false;
       return !q || norm(etiqueta(c)).includes(q);
     });
   }, [clientes, busqueda, filtroSatbk]);

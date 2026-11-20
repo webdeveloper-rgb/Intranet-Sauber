@@ -204,6 +204,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const clientesPorSatbk = useMemo(() => {
     if (filtroSatbk === 'satbk') return clientes.filter((cliente) => cliente.tiene_satbk);
     if (filtroSatbk === 'sat18') return clientes.filter((cliente) => cliente.tiene_sat18);
+    if(filtroSatbk === 'ambos') return clientes.filter((cliente) => cliente.tiene_satbk && cliente.tiene_sat18);
     return clientes.filter((cliente) => cliente.tiene_satbk || cliente.tiene_sat18);
   }, [clientes, filtroSatbk]);
   const clientesPorEquipo = useMemo(() => clientesPorSatbk.filter((cliente) => {
@@ -580,7 +581,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             <button type="button" className={filtroSatbk === 'sat18' ? 'activo' : ''} aria-pressed={filtroSatbk === 'sat18'}
               onClick={() => setFiltroSatbk('sat18')}>Con SAT18 <span>{clientesConSat18.length}</span></button>
             <button type="button" className={filtroSatbk === 'ambos' ? 'activo' : ''} aria-pressed={filtroSatbk === 'ambos'}
-              onClick={() => setFiltroSatbk('ambos')}>Ambos <span>{clientes.filter((cliente) => cliente.tiene_satbk || cliente.tiene_sat18).length}</span></button>
+              onClick={() => setFiltroSatbk('ambos')}>Ambos <span>{clientes.filter((cliente) => cliente.tiene_satbk && cliente.tiene_sat18).length}</span></button>
           </div>
         </div>
       </BarraFiltros>}
