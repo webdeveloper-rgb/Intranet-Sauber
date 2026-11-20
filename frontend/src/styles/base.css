@@ -3720,7 +3720,13 @@ header.app-header {
 .wrap tbody tr:last-child td, .eventos-table tbody tr:last-child td, .informe-tabla tbody tr:last-child td { border-bottom: 0; }
 .wrap tbody tr:hover td, .eventos-table tbody tr:hover td, .informe-tabla tbody tr:hover td { background: color-mix(in srgb, var(--brand-s) 40%, var(--card)); }
 
-.cliente-grid, .inicio-equipos { gap: 10px; }
+.cliente-grid, .inicio-equipos { gap: 14px; }
+.clientes-page > .paginacion {
+  margin: 8px 0 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bd);
+}
+.clientes-page > .paginacion:empty { display: none; }
 .cliente-tarjeta, .inicio-equipo, .equipo-navegable, .equipo-card,
 .monitor-panel, .incidencias-seccion, .historial-equipo, .equipo-error-revision {
   border-radius: var(--r);
