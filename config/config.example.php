@@ -30,8 +30,8 @@ return [
             'correo_nombre' => ['Alberto'],
         ],
         'servicio_requerido' => 'VBA3KT7GN7',
-        // Identificador del servicio SAT18. Déjalo vacío hasta conocerlo en la API.
-        'servicio_sat18' => '',
+        // Segundo servicio SAT (por ejemplo, SAT18) en Cliservicios.
+        'servicio_sat18' => 'B4M6LVVHFS',
         'sync_max_caida_pct' => 30,
     ],
 

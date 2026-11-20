@@ -414,8 +414,8 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $clientesConSat18 = trim((string) ($c['servicio_sat18'] ?? '')) !== ''
             ? api_sync_clientes_con_servicio($clientes, $cliservicios, (string) $c['servicio_sat18'])
             : [];
-        if (!$clientes || !$cliservicios || !$clientesConServicio) {
-            throw new ApiError('La API no devolvió clientes con el servicio requerido. No se modificó el catálogo local.');
+        if (!$clientes || !$cliservicios || (!$clientesConServicio && !$clientesConSat18)) {
+            throw new ApiError('La API no devolvió clientes con ninguno de los servicios SAT configurados. No se modificó el catálogo local.');
         }
 
         $ahora = date('Y-m-d H:i:s');
