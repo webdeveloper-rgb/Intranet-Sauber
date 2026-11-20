@@ -238,7 +238,8 @@ export default function App() {
         )}
       </main>
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} />
+        <Detalle c={cur} onClose={cerrar} onRevisar={copias.revisar} onReabrir={copias.reabrir}
+          onSeg={copias.seguimiento} onNote={copias.nota} />
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
       {sesion && notificacionesAbiertas && <Notificaciones onClose={() => setNotificacionesAbiertas(false)}

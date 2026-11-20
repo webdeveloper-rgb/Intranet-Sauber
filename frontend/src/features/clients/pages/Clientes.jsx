@@ -360,6 +360,25 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     setEquipos(actualizar);
   };
 
+  const ejecutarAccionCopia = async (action, body) => {
+    try {
+      const respuesta = await api(action, body);
+      const actualizar = (lista) => lista.map((copia) => (copia.id === respuesta.copia.id ? respuesta.copia : copia));
+      setHistorial(actualizar);
+      setCopiaSeleccionada((actual) => (actual?.id === respuesta.copia.id ? respuesta.copia : actual));
+      return true;
+    } catch (e) {
+      alert(e.message);
+      return false;
+    }
+  };
+  const accionesCopia = {
+    revisar: (id, desc) => ejecutarAccionCopia('revisar', { id, desc }),
+    reabrir: (id) => ejecutarAccionCopia('reabrir', { id }),
+    seguimiento: (id, campos) => ejecutarAccionCopia('seguimiento', { id, ...campos }),
+    nota: (id, texto) => ejecutarAccionCopia('nota', { id, texto }),
+  };
+
   const quitarFiltroCliente = (clave) => {
     if (clave === 'busqueda') setBusqueda('');
     else if (clave === 'satbk') setFiltroSatbk('todos');
@@ -667,6 +686,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       )}
     </section>
     {copiaSeleccionada && <Detalle modo="dialog" c={copiaSeleccionada}
-      onClose={() => setCopiaSeleccionada(null)} />}
+      onClose={() => setCopiaSeleccionada(null)} onRevisar={accionesCopia.revisar}
+      onReabrir={accionesCopia.reabrir} onSeg={accionesCopia.seguimiento} onNote={accionesCopia.nota} />}
   </div>;
 }

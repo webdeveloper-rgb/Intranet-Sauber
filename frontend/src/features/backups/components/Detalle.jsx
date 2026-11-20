@@ -3,6 +3,9 @@
  */
 import { useEffect } from 'react';
 import Tag from './Tag';
+import Revision from './Revision';
+import Seguimiento from './Seguimiento';
+import Notas from './Notas';
 import { etiquetaTipo } from '../../../shared/lib/logic';
 
 function Campo({ t, v }) {
@@ -10,7 +13,10 @@ function Campo({ t, v }) {
   return (<><dt>{t}</dt><dd>{v}</dd></>);
 }
 
-export default function Detalle({ c, onClose, modo = 'drawer', manejarEscape = true }) {
+export default function Detalle({
+  c, onClose, modo = 'drawer', manejarEscape = true,
+  onRevisar = null, onReabrir = null, onSeg = null, onNote = null,
+}) {
   useEffect(() => {
     if (!manejarEscape) return undefined;
     const k = (e) => e.key === 'Escape' && onClose();
@@ -38,7 +44,17 @@ export default function Detalle({ c, onClose, modo = 'drawer', manejarEscape = t
           <Campo t="Tamaño" v={c.tamano} />
           <Campo t="Duración" v={c.duracion} />
           <Campo t="Reintentos" v={c.intentos} />
+          <Campo t="Revisado por" v={c.revisado ? `${c.revisado_por || 'Usuario'}${c.revisado_fecha ? ` · ${c.revisado_fecha}` : ''}` : null} />
         </dl>
+        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && onRevisar && onReabrir && (
+          <Revision c={c} onRevisar={onRevisar} onReabrir={onReabrir} />
+        )}
+        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && c.revisado && onSeg && (
+          <Seguimiento c={c} onSeg={onSeg} />
+        )}
+        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && c.revisado && onNote && (
+          <Notas c={c} onNote={onNote} />
+        )}
       </aside>
     </>
   );

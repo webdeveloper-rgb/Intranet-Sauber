@@ -47,7 +47,6 @@ export function useCopias(desde = '', hasta = '', enabled = true) {
       const j = await api(action, body);
       const actualizar = (copias) => copias.map((c) => (c.id === j.copia.id ? j.copia : c));
       setRecientes(actualizar);
-      setHistorial(actualizar);
       return true;
     } catch (e) {
       alert(e.message);

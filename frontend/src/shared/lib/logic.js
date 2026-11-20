@@ -5,12 +5,16 @@
 // ERR: error sin revisar | REV: EN REVISIÓN (arreglo descrito, en vigilancia) | OK: copia OK o error con vigilancia cerrada
 export const MIN_PALABRAS = 15;
 
-export const LBL = { OK: "OK", ERR: "ERROR", WA: "ADVERTENCIA", RUN: "EN CURSO", INC: "POR CLASIFICAR" };
+export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN", WA: "ADVERTENCIA", RUN: "EN CURSO", INC: "POR CLASIFICAR" };
 
-export const ef = (c) => ({ OK: 'OK', ERROR: 'ERR', WARNING: 'WA', RUNNING: 'RUN', REVISION: 'INC' }[c.estado] || 'INC');
+export const ef = (c) => {
+    if (c.estado === "ERROR" && c.revisado) return c.seg === "cerrado" ? "OK" : "REV";
+    return ({ OK: "OK", ERROR: "ERR", WARNING: "WA", RUNNING: "RUN", REVISION: "INC" }[c.estado] || "INC");
+};
 
 export const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 export const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
+export const vencido = (c) => Boolean(c.recordar && c.recordar < new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10));
 
 // Tipo de copia: equipo de usuario, servidor o uno de los programas de gestión.
 export const TIPOS = {
