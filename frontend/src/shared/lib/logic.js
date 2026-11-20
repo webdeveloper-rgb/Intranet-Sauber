@@ -6,6 +6,14 @@
 export const MIN_PALABRAS = 15;
 
 export const LBL = { OK: "OK", ERR: "ERROR", REV: "EN REVISIÓN", WA: "ADVERTENCIA", RUN: "EN CURSO", INC: "PENDIENTE CLASIF." };
+export const SEVERIDAD = {
+    leve: "ERROR LEVE",
+    normal: "ERROR",
+    grave: "ERROR GRAVE",
+    critico: "ERROR CRÍTICO",
+};
+export const severidad = (c) => c.codigo === "SIN_COPIA" ? "critico" : (c.severidad || "normal");
+export const etiquetaEstado = (c) => ef(c) === "ERR" ? (SEVERIDAD[severidad(c)] || SEVERIDAD.normal) : LBL[ef(c)];
 
 export const ef = (c) => {
     if (c.estado === "ERROR" && c.revisado) return c.seg === "cerrado" ? "OK" : "REV";
@@ -48,6 +56,9 @@ export const atrasado = (c, h) => ef(c) === "ERR" && edadH(c) > h;
 export const FILTROS = [
     ["todos", "Todos"],
     ["pend", "Errores"],
+    ["crit", "Error crítico"],
+    ["grave", "Error grave"],
+    ["leve", "Error leve"],
     ["sin", "Error crítico sin copia"],
     ["rep", "Errores repetidos"],
     ["warning", "Advertencias"],
@@ -61,6 +72,9 @@ export const FILTROS = [
 export const TEST = {
     todos: () => true,
     pend: (c) => ef(c) === "ERR",
+    crit: (c) => ef(c) === "ERR" && severidad(c) === "critico" && c.codigo !== "SIN_COPIA",
+    grave: (c) => ef(c) === "ERR" && severidad(c) === "grave",
+    leve: (c) => ef(c) === "ERR" && severidad(c) === "leve",
     sin: (c) => c.codigo === "SIN_COPIA",
     rep: (c, h, rep) => c.estado === "ERROR" && c.codigo !== "SIN_COPIA" && (rep?.[claveEquipo(c)] || 0) > 1,
     warning: (c) => ef(c) === "WA",
@@ -72,14 +86,17 @@ export const TEST = {
 };
 
 // Filtros que muestran contador (clave del contador) y los que avisan en rojo
-export const EXTRA = { sin: "sc", rep: "rr", warning: "wa", running: "run", inc: "inc", notas: "c", atr: "a" };
-export const ALERTA = { sin: 1, atr: 1 };
+export const EXTRA = { crit: "crit", grave: "grave", leve: "leve", sin: "sc", rep: "rr", warning: "wa", running: "run", inc: "inc", notas: "c", atr: "a" };
+export const ALERTA = { crit: 1, grave: 1, sin: 1, atr: 1 };
 
 export function contadores(data, horas) {
     const copias = data.filter((c) => c.codigo !== "SIN_COPIA");
     const rep = repeticiones(copias);
     return {
         p: copias.filter(TEST.pend).length,
+        crit: copias.filter(TEST.crit).length,
+        grave: copias.filter(TEST.grave).length,
+        leve: copias.filter(TEST.leve).length,
         sc: data.filter(TEST.sin).length,
         rr: copias.filter((c) => TEST.rep(c, horas, rep)).length,
         wa: copias.filter(TEST.warning).length,

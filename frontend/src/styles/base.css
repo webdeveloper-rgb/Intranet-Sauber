@@ -423,6 +423,19 @@ tr.pen td:first-child {
   background: var(--erb);
   color: var(--er);
 }
+.tag.ERR.sev-leve {
+  background: var(--wab);
+  color: var(--wa);
+}
+.tag.ERR.sev-grave {
+  background: var(--err2b);
+  color: var(--err2);
+}
+.tag.ERR.sev-critico {
+  background: var(--erb);
+  color: var(--er);
+  border: 1px solid color-mix(in srgb, var(--er) 35%, var(--bd));
+}
 .tag.REV {
   background: var(--wab);
   color: var(--wa);
@@ -4197,6 +4210,12 @@ header.app-header {
 .inicio-metrica.error,
 .informe-resumen span:nth-child(2) {
   border-left-color: var(--er);
+}
+.kpi.critico {
+  border-left-color: var(--er);
+}
+.kpi.grave {
+  border-left-color: var(--err2);
 }
 .kpi.wa,
 .kpi.inc,

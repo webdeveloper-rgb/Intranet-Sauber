@@ -124,6 +124,35 @@ function ingesta_texto($v, int $max, bool $obligatorio = false, string $campo = 
     return mb_substr($t, 0, $max);
 }
 
+function ingesta_severidad(string $estado, ?string $desc, ?string $codigo, $valor = null): string
+{
+    if ($estado !== 'ERROR') {
+        return 'normal';
+    }
+    $raw = is_scalar($valor) ? mb_strtolower(trim((string) $valor), 'UTF-8') : '';
+    $map = [
+        'leve' => 'leve', 'low' => 'leve', 'menor' => 'leve',
+        'normal' => 'normal', 'medio' => 'normal', 'media' => 'normal',
+        'grave' => 'grave', 'high' => 'grave', 'alto' => 'grave', 'alta' => 'grave',
+        'critico' => 'critico', 'crítico' => 'critico', 'critical' => 'critico', 'urgente' => 'critico',
+    ];
+    if (isset($map[$raw])) {
+        return $map[$raw];
+    }
+    $texto = mb_strtolower(trim((string) $codigo . ' ' . (string) $desc), 'UTF-8');
+    if (str_contains($texto, 'sin_copia') || str_contains($texto, 'critico')
+        || str_contains($texto, 'crítico') || str_contains($texto, 'critical')) {
+        return 'critico';
+    }
+    foreach (['not enough space', 'falta de espacio', 'sin espacio', 'disco lleno', 'space',
+        'destino', 'destination', 'conectar', 'connect', 'servidor remoto'] as $needle) {
+        if (str_contains($texto, $needle)) {
+            return 'grave';
+        }
+    }
+    return 'normal';
+}
+
 /**
  * Saca software, nombre de equipo y cliente sugerido del ASUNTO, con las mismas reglas que el antiguo lector IMAP.
  * Así el nombre del equipo coincide con los que ya estaban asignados a un cliente en el panel.
@@ -226,6 +255,7 @@ function ingesta_adaptar($it)
         'origen' => $asunto !== '' ? $asunto : $nombre,
         'sugerido' => $cliente !== '' ? $cliente : (ingesta_clasificar_nombre($nombre)['empresa'] ?? $p['sugerido']),
         'estado' => $estado,
+        'severidad' => $estado === 'ERROR' && $res === 'FALLO_GRAVE' ? 'grave' : ingesta_severidad($estado, $desc, $it['codigo'] ?? null, $it['severidad'] ?? null),
         'desc_error' => $desc,
         'clasificacion_motivo' => $motivo,
         'clasificacion_evidencia' => (string) ($it['evidencia'] ?? ''),
@@ -285,6 +315,8 @@ function ingesta_normalizar($it): array
     $fuenteClasificacion = ingesta_texto($it['clasificacion_fuente'] ?? null, 40) ?? 'api_directa';
     $motivoClasificacion = ingesta_texto($it['clasificacion_motivo'] ?? null, 500)
         ?? ($estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null);
+    $descError = $estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null;
+    $codigo = ingesta_texto($it['codigo'] ?? null, 40);
 
     return [
         'message_key' => sha1('n8n|' . strtolower($mid)),
@@ -295,10 +327,11 @@ function ingesta_normalizar($it): array
         'origen' => ingesta_texto($it['origen'] ?? null, 200) ?? $nombre,
         'sugerido' => ingesta_texto($it['sugerido'] ?? null, 200) ?? $cl['empresa'],
         'estado' => $estado,
+        'severidad' => ingesta_severidad($estado, $descError, $codigo, $it['severidad'] ?? $it['severity'] ?? null),
         'fecha' => date('Y-m-d H:i:s', $ts),
         // Mantener estos límites alineados con correo_copias y copias en database/.
-        'desc_error' => $estado !== 'OK' ? ingesta_texto($it['desc_error'] ?? null, 500) : null,
-        'codigo' => ingesta_texto($it['codigo'] ?? null, 40),
+        'desc_error' => $descError,
+        'codigo' => $codigo,
         'resultado_original' => $resultadoOriginal,
         'clasificacion_fuente' => $fuenteClasificacion,
         'clasificacion_evidencia' => ingesta_texto($it['clasificacion_evidencia'] ?? $it['evidencia'] ?? null, 600) ?? '',
@@ -377,15 +410,16 @@ function ingesta_guardar(PDO $pdo, array $d): array
 
         // Los reenvios de una copia existente se ignoran y se informan como duplicados.
         $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
-            (message_key,equipo_id,nombre_recibido,fecha,estado,desc_error,codigo,resultado_original,clasificacion_fuente,
+            (message_key,equipo_id,nombre_recibido,fecha,estado,severidad,desc_error,codigo,resultado_original,clasificacion_fuente,
                 clasificacion_evidencia,software,destino,tamano,duracion)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $ins->execute([
             $d['message_key'],
             $eq['id'],
             $d['nombre'],
             $d['fecha'],
             $d['estado'],
+            $d['severidad'],
             $d['desc_error'],
             $d['codigo'],
             $d['resultado_original'],

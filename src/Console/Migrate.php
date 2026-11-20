@@ -231,6 +231,40 @@ try {
         }
     };
 
+    $migrations[21] = static function (PDO $pdo): void {
+        foreach (['copias', 'correo_copias'] as $table) {
+            $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                WHERE table_schema=DATABASE() AND table_name='{$table}'")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('severidad', $columns, true)) {
+                $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN severidad ENUM('leve','normal','grave','critico') NOT NULL DEFAULT 'normal' AFTER estado");
+            }
+            $indexes = $pdo->query("SELECT index_name FROM information_schema.statistics
+                WHERE table_schema=DATABASE() AND table_name='{$table}'")->fetchAll(PDO::FETCH_COLUMN);
+            $indexName = $table === 'copias' ? 'idx_copias_estado_severidad' : 'idx_correo_estado_severidad';
+            if (!in_array($indexName, $indexes, true)) {
+                $pdo->exec("ALTER TABLE `{$table}` ADD KEY {$indexName} (estado,severidad)");
+            }
+            $pdo->exec("UPDATE `{$table}` SET severidad='normal' WHERE estado <> 'ERROR'");
+            $pdo->exec("UPDATE `{$table}` SET severidad='critico'
+                WHERE estado='ERROR' AND (codigo='SIN_COPIA'
+                    OR LOWER(desc_error) LIKE '%critico%'
+                    OR LOWER(desc_error) LIKE '%crítico%'
+                    OR LOWER(desc_error) LIKE '%critical%')");
+            $pdo->exec("UPDATE `{$table}` SET severidad='grave'
+                WHERE estado='ERROR' AND severidad='normal' AND (
+                    LOWER(desc_error) LIKE '%not enough space%'
+                    OR LOWER(desc_error) LIKE '%falta de espacio%'
+                    OR LOWER(desc_error) LIKE '%sin espacio%'
+                    OR LOWER(desc_error) LIKE '%disco lleno%'
+                    OR LOWER(desc_error) LIKE '%space%'
+                    OR LOWER(desc_error) LIKE '%destino%'
+                    OR LOWER(desc_error) LIKE '%destination%'
+                    OR LOWER(desc_error) LIKE '%conectar%'
+                    OR LOWER(desc_error) LIKE '%connect%'
+                    OR LOWER(desc_error) LIKE '%servidor remoto%')");
+        }
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

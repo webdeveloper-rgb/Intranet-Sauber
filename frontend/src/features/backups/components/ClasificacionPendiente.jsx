@@ -6,6 +6,12 @@ const TIPOS = [
   ['WARNING', 'Advertencia'],
   ['RUNNING', 'En curso'],
 ];
+const NIVELES_ERROR = [
+  ['leve', 'Error leve'],
+  ['normal', 'Error'],
+  ['grave', 'Error grave'],
+  ['critico', 'Error crítico'],
+];
 
 const claveGrupo = (c) => [
   c.software || '',
@@ -18,6 +24,7 @@ const claveGrupo = (c) => [
 const grupoPayload = (g) => ({
   software: g.software || '',
   codigo: g.codigo || '',
+  severidad: g.severidad || 'normal',
   resultado_original: g.resultado_original || '',
   desc_error: g.desc_error || '',
   clasificacion_evidencia: g.clasificacion_evidencia || '',
@@ -25,6 +32,7 @@ const grupoPayload = (g) => ({
 
 function GrupoPorClasificar({ grupo, onClasificar }) {
   const [estado, setEstado] = useState('ERROR');
+  const [severidad, setSeveridad] = useState(grupo.severidad || 'normal');
   const [codigo, setCodigo] = useState(grupo.codigo || '');
   const [descripcion, setDescripcion] = useState(grupo.desc_error || grupo.clasificacion_evidencia || '');
   const [ocupado, setOcupado] = useState(false);
@@ -32,6 +40,7 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
     setOcupado(true);
     const ok = await onClasificar(grupoPayload(grupo), {
       estado,
+      severidad: estado === 'ERROR' ? severidad : 'normal',
       codigo: codigo.trim(),
       desc_error: descripcion.trim(),
     });
@@ -60,6 +69,12 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
         <input value={codigo} disabled={ocupado || estado === 'OK'} onChange={(event) => setCodigo(event.target.value)}
           placeholder={estado === 'OK' ? 'No aplica' : 'Ej.: ERROR_DESTINO'} />
       </label>
+      {estado === 'ERROR' && <label>
+        <span>Nivel</span>
+        <select value={severidad} disabled={ocupado} onChange={(event) => setSeveridad(event.target.value)}>
+          {NIVELES_ERROR.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>}
       <label className="clasificacion-descripcion">
         <span>Descripción</span>
         <textarea rows="5" value={descripcion} disabled={ocupado || estado === 'OK'} onChange={(event) => setDescripcion(event.target.value)}

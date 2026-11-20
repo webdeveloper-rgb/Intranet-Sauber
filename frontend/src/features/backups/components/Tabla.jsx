@@ -3,14 +3,14 @@
  */
 import { memo } from 'react';
 import Tag from './Tag';
-import { ef, atrasado, etiquetaTipo } from '../../../shared/lib/logic';
+import { ef, atrasado, etiquetaTipo, severidad } from '../../../shared/lib/logic';
 import { rutaHref } from '../../../app/routes';
 
 const Fila = memo(function Fila({ c, onOpen, r, h }) {
   const k = ef(c);
   const notas = (c.notas || []).length;
   const sinCopia = c.codigo === 'SIN_COPIA';
-  const claseEstado = { ERR: 'err', WA: 'warn', RUN: 'run', REV: 'pen', INC: 'por-clasificar' }[k] || '';
+  const claseEstado = { ERR: `err sev-${severidad(c)}`, WA: 'warn', RUN: 'run', REV: 'pen', INC: 'por-clasificar' }[k] || '';
   const abrir = () => !sinCopia && onOpen(c.id);
   return (
     <tr className={`${claseEstado}${sinCopia ? ' sin-copia' : ''}`}

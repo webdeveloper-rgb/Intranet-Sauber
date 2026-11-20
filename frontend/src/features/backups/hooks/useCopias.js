@@ -51,7 +51,7 @@ export function useCopias(desde = '', hasta = '', enabled = true) {
       const actualizadas = new Set(j.actualizadas || []);
       const actualizar = (copias) => copias.map((c) => {
         if (c.id === j.copia.id) return j.copia;
-        if (actualizadas.has(c.id)) return { ...c, estado: 'OK', revisado: 1, seg: 'cerrado', recordar: null };
+        if (actualizadas.has(c.id)) return { ...c, estado: 'OK', severidad: 'normal', revisado: 1, seg: 'cerrado', recordar: null };
         return c;
       });
       setRecientes(actualizar);

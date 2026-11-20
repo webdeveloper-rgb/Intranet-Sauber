@@ -43,16 +43,21 @@ final class CopyReviewController
 
         $code = $state === 'OK' ? '' : txt($input['codigo'] ?? ($group['codigo'] ?? ''), 40);
         $description = $state === 'OK' ? '' : txt($input['desc_error'] ?? ($group['desc_error'] ?? ''), 500);
+        $severity = $state === 'ERROR' ? strtolower((string) ($input['severidad'] ?? 'normal')) : 'normal';
+        if (!in_array($severity, ['leve', 'normal', 'grave', 'critico'], true)) {
+            $severity = 'normal';
+        }
         if ($state !== 'OK' && $description === '') {
             fail('Indica una descripciÃ³n para clasificar el error');
         }
         $source = 'manual:' . $user['usuario'];
-        $update = db()->prepare("UPDATE copias SET estado=?, codigo=?, desc_error=?,
+        $update = db()->prepare("UPDATE copias SET estado=?, severidad=?, codigo=?, desc_error=?,
             clasificacion_fuente=?, revisado=0, revisado_por=NULL, revisado_fecha=NULL,
             revision_desc=NULL, seg=NULL, recordar=NULL WHERE {$where}");
-        $update->execute(array_merge([$state, $code !== '' ? $code : null, $description, $source], $params));
+        $update->execute(array_merge([$state, $severity, $code !== '' ? $code : null, $description, $source], $params));
         out(['actualizadas' => $ids, 'clasificacion' => [
             'estado' => $state,
+            'severidad' => $severity,
             'codigo' => $code !== '' ? $code : null,
             'desc_error' => $description,
             'clasificacion_fuente' => $source,
@@ -96,7 +101,7 @@ final class CopyReviewController
         }
 
         $description = (string) ($copy['revision_desc'] ?? '');
-        $update = db()->prepare("UPDATE copias SET estado='OK', revisado=1,
+        $update = db()->prepare("UPDATE copias SET estado='OK', severidad='normal', revisado=1,
             revisado_por=COALESCE(revisado_por, ?),
             revisado_fecha=COALESCE(revisado_fecha, NOW()),
             revision_desc=COALESCE(revision_desc, ?),

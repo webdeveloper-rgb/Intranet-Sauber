@@ -30,6 +30,7 @@ const filtrosIniciales = () => {
 const claveIncidenciaCopia = (c) => [
   c.equipo_id || `${c.cliente}|${c.equipo}`,
   c.software || '',
+  c.severidad || 'normal',
   c.codigo || '',
   c.desc_error || '',
 ].join('\u001f');

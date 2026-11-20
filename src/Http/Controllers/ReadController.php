@@ -252,6 +252,7 @@ final class ReadController
                     CONVERT(COALESCE((SELECT nombre FROM equipos WHERE id=copias.equipo_id),equipo) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS equipo,equipo_id,
                     (SELECT cliente_id FROM equipos WHERE id=copias.equipo_id) AS cliente_id,
                     CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci AS estado,
+                    CONVERT(severidad USING utf8mb4) COLLATE utf8mb4_unicode_ci AS severidad,
                     CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
                     CONVERT(codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci AS codigo,
                     CONVERT(resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci AS resultado_original,
@@ -266,6 +267,7 @@ final class ReadController
                     CONVERT(COALESCE(c.nombre,'Sin asignar') USING utf8mb4) COLLATE utf8mb4_unicode_ci,
                     CONVERT(e.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci,cc.equipo_id,e.cliente_id,
                     CONVERT(cc.estado USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(cc.severidad USING utf8mb4) COLLATE utf8mb4_unicode_ci,
                     CONVERT(cc.desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci,
                     CONVERT(cc.codigo USING utf8mb4) COLLATE utf8mb4_unicode_ci,
                     CONVERT(cc.resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci,
@@ -287,7 +289,7 @@ final class ReadController
             foreach ($summaryQuery->fetchAll() as $row) $summary[$row['estado']] = (int) $row['total'];
             $pageSize = 100;
             $query = $pdo->prepare('SELECT informe.id,DATE_FORMAT(informe.fecha,\'%Y-%m-%d %H:%i\') AS fecha,
-                informe.cliente,informe.equipo,informe.equipo_id,informe.cliente_id,informe.estado,informe.desc_error,informe.codigo,informe.resultado_original,
+                informe.cliente,informe.equipo,informe.equipo_id,informe.cliente_id,informe.estado,informe.severidad,informe.desc_error,informe.codigo,informe.resultado_original,
                 informe.clasificacion_fuente,informe.clasificacion_evidencia,informe.software,informe.destino,
                 informe.tamano,informe.duracion,informe.staging FROM (' . $union . ') informe' . $whereSql
                 . " ORDER BY informe.fecha DESC,informe.id DESC LIMIT {$pageSize} OFFSET " . (($page - 1) * $pageSize));

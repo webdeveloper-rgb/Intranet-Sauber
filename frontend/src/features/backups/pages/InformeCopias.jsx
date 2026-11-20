@@ -4,6 +4,7 @@ import Paginacion from '../../../shared/ui/Paginacion';
 import Tag from '../components/Tag';
 import PageHeading from '../../../shared/ui/PageHeading';
 import BarraFiltros from '../../../shared/ui/BarraFiltros';
+import { etiquetaEstado } from '../../../shared/lib/logic';
 
 const fechaLocal = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const fechaInicial = () => {
@@ -58,9 +59,9 @@ export default function InformeCopias({ onNavigate }) {
         const data = await api(`informe_copias&desde=${consulta.desde}&hasta=${consulta.hasta}&estado=${consulta.estado}&page=${page}`);
         rows.push(...(data.copias || []));
       }
-      const header = ['Fecha', 'Cliente', 'Equipo', 'Software', 'Estado panel', 'Resultado original', 'Motivo', 'Código', 'Fuente de clasificación', 'Evidencia', 'Destino', 'Tamaño', 'Duración', 'Origen de registro'];
+      const header = ['Fecha', 'Cliente', 'Equipo', 'Software', 'Estado panel', 'Nivel', 'Resultado original', 'Motivo', 'Código', 'Fuente de clasificación', 'Evidencia', 'Destino', 'Tamaño', 'Duración', 'Origen de registro'];
       const lines = [header, ...rows.map((item) => [item.fecha, item.cliente, item.equipo, item.software,
-        item.estado, item.resultado_original || 'DESCONOCIDO', item.desc_error, item.codigo,
+        item.estado, etiquetaEstado(item), item.resultado_original || 'DESCONOCIDO', item.desc_error, item.codigo,
         fuenteEtiqueta(item.clasificacion_fuente), item.clasificacion_evidencia, item.destino, item.tamano, item.duracion,
         item.staging ? 'Pendiente de importar' : 'Historial'])]
         .map((line) => line.map(csvCell).join(';')).join('\r\n');

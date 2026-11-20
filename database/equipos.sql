@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   nombre_recibido VARCHAR(200) NULL, -- Nombre del aviso, independiente del hostname del agente.
   fecha DATETIME NOT NULL,
   estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL,
+  severidad ENUM('leve','normal','grave','critico') NOT NULL DEFAULT 'normal',
   desc_error VARCHAR(500) NOT NULL DEFAULT '',
   codigo VARCHAR(40) NULL,
   resultado_original VARCHAR(24) NOT NULL DEFAULT '',
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   creado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_correo_key (message_key),
   KEY idx_correo_equipo_importada (equipo_id, importada),
-  KEY idx_correo_fecha (fecha)
+  KEY idx_correo_fecha (fecha),
+  KEY idx_correo_estado_severidad (estado, severidad)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Claves de mensajes ya eliminados para que un reintento de n8n no restaure errores resueltos.

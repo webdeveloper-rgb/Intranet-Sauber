@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS copias (
   equipo_id INT UNSIGNED NULL,
   huella CHAR(40) NULL,
   estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL,
+  severidad ENUM('leve','normal','grave','critico') NOT NULL DEFAULT 'normal',
   desc_error VARCHAR(500) NOT NULL DEFAULT '',
   codigo VARCHAR(40) NULL,
   resultado_original VARCHAR(24) NOT NULL DEFAULT '',
@@ -47,7 +48,8 @@ CREATE TABLE IF NOT EXISTS copias (
   KEY idx_cliente_equipo (cliente, equipo),
   KEY idx_copias_equipo_id (equipo_id),
   UNIQUE KEY uq_copias_huella (huella),
-  KEY idx_estado_rev (estado, revisado)
+  KEY idx_estado_rev (estado, revisado),
+  KEY idx_copias_estado_severidad (estado, severidad)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS notas (

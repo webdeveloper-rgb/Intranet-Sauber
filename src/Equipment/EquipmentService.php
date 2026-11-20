@@ -350,8 +350,8 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
 
     $pending = $pdo->prepare('SELECT * FROM correo_copias WHERE equipo_id=? AND importada=0 ORDER BY fecha,id');
     $pending->execute([$equipoId]);
-    $insert = $pdo->prepare('INSERT INTO copias (fecha,cliente,equipo,equipo_id,estado,desc_error,codigo,resultado_original,clasificacion_fuente,clasificacion_evidencia,software,destino,tamano,duracion,huella,tipo,programa)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
+    $insert = $pdo->prepare('INSERT INTO copias (fecha,cliente,equipo,equipo_id,estado,severidad,desc_error,codigo,resultado_original,clasificacion_fuente,clasificacion_evidencia,software,destino,tamano,duracion,huella,tipo,programa)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
     $mark = $pdo->prepare('UPDATE correo_copias SET importada=1 WHERE id=?');
     $count = 0;
     foreach ($pending as $copy) {
@@ -361,6 +361,7 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
             $copy['nombre_recibido'] ?? $equipment,
             $equipoId,
             $copy['estado'],
+            $copy['severidad'] ?? 'normal',
             $copy['desc_error'],
             $copy['codigo'],
             $copy['resultado_original'],
