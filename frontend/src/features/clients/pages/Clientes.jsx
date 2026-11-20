@@ -658,12 +658,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                 <strong>Sin asignar</strong>
                 <span className="cliente-conteo">{equiposSinAsignar.length} equipos por vincular</span>
               </button>}
-              {!filtrosActivosClientes.length && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
-                onClick={() => { onNavigate('/clientes/sin-satbk'); setBusqueda(''); }}>
-                <span className="cliente-tarjeta-flecha">›</span>
-                <strong>Equipos sin SATBK</strong>
-                <span className="cliente-conteo">{equiposClienteSinSatbk.length} equipos asignados a clientes sin SATBK</span>
-              </button>}
               {!filtrosActivosClientes.length && equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
                 onClick={() => { onNavigate('/clientes/cliente-inactivo'); setBusqueda(''); }}>
                 <span className="cliente-tarjeta-flecha">›</span>
