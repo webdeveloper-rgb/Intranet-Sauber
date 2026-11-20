@@ -107,6 +107,10 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault(); onNavigate(path);
   };
+  const abrirFila = (event, path) => {
+    if (event.target.closest('a,button,input,select,textarea')) return;
+    abrir(event, path);
+  };
   return <section className="equipos-page" aria-labelledby="equipos-titulo" aria-busy={cargando}>
     <PageHeading id="equipos-titulo" eyebrow="Sauber Ofimática" title="Equipos"
       description="Todos los equipos registrados, sus clientes y su estado de monitoreo."
@@ -124,7 +128,14 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
         <th>Equipo / tipo</th><th>Cliente</th><th>Estado de copias</th><th>Último informe del agente</th><th>Atención</th><th><span className="sr-only">Acciones</span></th>
       </tr></thead><tbody>{pagina.items.map((e) => {
         const path = `/clientes/${e.cliente_id || 'sin-asignar'}/equipos/${e.id}`;
-        return <tr key={e.id}><td><a href={rutaHref(path)} onClick={(event) => abrir(event, path)}>{e.monitor_alias || e.nombre}</a>
+        return <tr key={e.id} className="equipos-row-link" tabIndex={0} role="link"
+          aria-label={`Abrir ficha de ${e.nombre}`} onClick={(event) => abrirFila(event, path)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onNavigate(path);
+            }
+          }}><td><a href={rutaHref(path)} onClick={(event) => abrir(event, path)}>{e.monitor_alias || e.nombre}</a>
           <small>{e.monitor_alias ? `${e.nombre} · ` : ''}{e.tipo === 'servidor' ? 'Servidor' : e.tipo === 'usuario' ? 'Equipo de usuario' : e.tipo === 'programa' ? 'Programa' : 'Sin tipo'}</small></td>
           <td>{e.cliente_id ? <a href={rutaHref(`/clientes/${e.cliente_id}`)} onClick={(event) => abrir(event, `/clientes/${e.cliente_id}`)}>{e.cliente || 'Ver cliente'}</a> : <span className="equipos-muted">Sin asignar</span>}</td>
           <td><span className={Number(e.errores_pendientes) || e.sin_copia ? 'equipos-warning' : ''}>{e.sin_copia ? 'Sin copia esperada' : Number(e.errores_pendientes) ? `${e.errores_pendientes} ${Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} de copia` : !e.tiene_copias ? 'Sin copias recibidas' : Number(e.copias_en_curso) ? 'Copia en curso' : 'Sin fallos de copia registrados'}</span>

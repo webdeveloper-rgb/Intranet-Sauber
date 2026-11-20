@@ -45,7 +45,12 @@ export function useCopias(desde = '', hasta = '', enabled = true) {
   const run = useCallback(async (action, body) => {
     try {
       const j = await api(action, body);
-      const actualizar = (copias) => copias.map((c) => (c.id === j.copia.id ? j.copia : c));
+      const actualizadas = new Set(j.actualizadas || []);
+      const actualizar = (copias) => copias.map((c) => {
+        if (c.id === j.copia.id) return j.copia;
+        if (actualizadas.has(c.id)) return { ...c, estado: 'OK', revisado: 1, seg: 'cerrado', recordar: null };
+        return c;
+      });
       setRecientes(actualizar);
       return true;
     } catch (e) {

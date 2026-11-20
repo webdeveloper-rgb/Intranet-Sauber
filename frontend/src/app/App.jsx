@@ -26,6 +26,38 @@ import { leerRuta, rutaHref } from './routes';
 const filtrosIniciales = () => {
   return { cli: '', tipo: '', software: '', desde: '', hasta: '', orden: 'fecha-desc', horas: 24 };
 };
+const claveIncidenciaCopia = (c) => [
+  c.equipo_id || `${c.cliente}|${c.equipo}`,
+  c.software || '',
+  c.codigo || '',
+  c.desc_error || '',
+].join('\u001f');
+const acumularErrores = (copias) => {
+  const grupos = new Map();
+  const resultado = [];
+  copias.forEach((copia) => {
+    if (copia.estado !== 'ERROR' || copia.codigo === 'SIN_COPIA') {
+      resultado.push(copia);
+      return;
+    }
+    const clave = claveIncidenciaCopia(copia);
+    const existente = grupos.get(clave);
+    if (!existente) {
+      const agrupada = { ...copia, acumuladas: 1, fecha_primera: copia.fecha, fecha_ultima: copia.fecha };
+      grupos.set(clave, agrupada);
+      resultado.push(agrupada);
+      return;
+    }
+    const acumuladas = existente.acumuladas + 1;
+    const fechaPrimera = String(copia.fecha) < String(existente.fecha_primera) ? copia.fecha : existente.fecha_primera;
+    const fechaUltima = String(copia.fecha) > String(existente.fecha_ultima) ? copia.fecha : existente.fecha_ultima;
+    if (String(copia.fecha) > String(existente.fecha)) Object.assign(existente, copia);
+    existente.acumuladas = acumuladas;
+    existente.fecha_primera = fechaPrimera;
+    existente.fecha_ultima = fechaUltima;
+  });
+  return resultado;
+};
 
 export default function App() {
   const [sesion, setSesion] = useState(null);
@@ -158,7 +190,7 @@ export default function App() {
       );
     });
     const compararTexto = (a, b, key, direccion = 1) => String(a[key] || '').localeCompare(String(b[key] || ''), 'es', { sensitivity: 'base' }) * direccion;
-    return ordenados.sort((a, b) => {
+    const ordenadosYAcumulados = ordenados.sort((a, b) => {
       if (f.orden === 'fecha-asc') return String(a.fecha).localeCompare(String(b.fecha)) || Number(a.id) - Number(b.id);
       if (f.orden === 'cliente-az') return compararTexto(a, b, 'cliente') || compararTexto(a, b, 'equipo');
       if (f.orden === 'cliente-za') return compararTexto(a, b, 'cliente', -1) || compararTexto(a, b, 'equipo');
@@ -166,6 +198,7 @@ export default function App() {
       if (f.orden === 'equipo-za') return compararTexto(a, b, 'equipo', -1) || compararTexto(a, b, 'cliente');
       return String(b.fecha).localeCompare(String(a.fecha)) || Number(b.id) - Number(a.id);
     });
+    return acumularErrores(ordenadosYAcumulados);
   }, [data, filtro, f, rep]);
   const softwaresCopia = useMemo(() => [...new Set(data.map((c) => c.software).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [data]);
   const paginaCopias = usePagination(rows, 20, `${filtro}|${f.cli}|${f.tipo}|${f.software}|${f.desde}|${f.hasta}|${f.orden}`);

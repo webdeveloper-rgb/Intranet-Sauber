@@ -363,7 +363,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const ejecutarAccionCopia = async (action, body) => {
     try {
       const respuesta = await api(action, body);
-      const actualizar = (lista) => lista.map((copia) => (copia.id === respuesta.copia.id ? respuesta.copia : copia));
+      const actualizadas = new Set(respuesta.actualizadas || []);
+      const actualizar = (lista) => lista.map((copia) => {
+        if (copia.id === respuesta.copia.id) return respuesta.copia;
+        if (actualizadas.has(copia.id)) return { ...copia, estado: 'OK', revisado: 1, seg: 'cerrado', recordar: null };
+        return copia;
+      });
       setHistorial(actualizar);
       setCopiaSeleccionada((actual) => (actual?.id === respuesta.copia.id ? respuesta.copia : actual));
       return true;

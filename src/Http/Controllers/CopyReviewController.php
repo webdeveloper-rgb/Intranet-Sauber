@@ -7,6 +7,51 @@ declare(strict_types=1);
  */
 final class CopyReviewController
 {
+    private static function issueFilter(array $copy): array
+    {
+        $where = ['estado=\'ERROR\'', 'fecha <= ?'];
+        $params = [$copy['cursor_fecha']];
+
+        if (!empty($copy['equipo_id'])) {
+            $where[] = 'equipo_id = ?';
+            $params[] = (int) $copy['equipo_id'];
+        } else {
+            $where[] = 'cliente = ?';
+            $where[] = 'equipo = ?';
+            $params[] = $copy['cliente'];
+            $params[] = $copy['nombre_recibido'] ?: $copy['equipo'];
+        }
+
+        $where[] = 'COALESCE(software, \'\') = ?';
+        $where[] = 'COALESCE(codigo, \'\') = ?';
+        $where[] = 'COALESCE(desc_error, \'\') = ?';
+        $params[] = (string) ($copy['software'] ?? '');
+        $params[] = (string) ($copy['codigo'] ?? '');
+        $params[] = (string) ($copy['desc_error'] ?? '');
+
+        return [implode(' AND ', $where), $params];
+    }
+
+    private static function closeIssue(array $copy, array $user): array
+    {
+        [$where, $params] = self::issueFilter($copy);
+        $idsQuery = db()->prepare("SELECT id FROM copias WHERE {$where}");
+        $idsQuery->execute($params);
+        $ids = array_map('intval', $idsQuery->fetchAll(PDO::FETCH_COLUMN));
+        if (!$ids) {
+            return [];
+        }
+
+        $description = (string) ($copy['revision_desc'] ?? '');
+        $update = db()->prepare("UPDATE copias SET estado='OK', revisado=1,
+            revisado_por=COALESCE(revisado_por, ?),
+            revisado_fecha=COALESCE(revisado_fecha, NOW()),
+            revision_desc=COALESCE(revision_desc, ?),
+            seg='cerrado', recordar=NULL WHERE {$where}");
+        $update->execute(array_merge([$user['usuario'], $description], $params));
+        return $ids;
+    }
+
     public static function handle(string $action, array $input, array $user): bool
     {
         if (!in_array($action, ['revisar', 'reabrir', 'seguimiento', 'nota'], true)) {
@@ -18,6 +63,7 @@ final class CopyReviewController
             fail('Copia no encontrada', 404);
         }
         $id = $copy['id'];
+        $updatedIds = [];
 
         switch ($action) {
             case 'revisar':
@@ -74,6 +120,9 @@ final class CopyReviewController
                     $reminder = null;
                 }
                 db()->prepare('UPDATE copias SET seg=?, recordar=? WHERE id=?')->execute([$followUp, $reminder, $id]);
+                if ($followUp === 'cerrado') {
+                    $updatedIds = self::closeIssue(copia_obtener($id) ?: $copy, $user);
+                }
                 break;
 
             case 'nota':
@@ -89,7 +138,7 @@ final class CopyReviewController
                 break;
         }
 
-        out(['copia' => copia_obtener($id)]);
+        out(['copia' => copia_obtener($id), 'actualizadas' => $updatedIds]);
         return true;
     }
 }
