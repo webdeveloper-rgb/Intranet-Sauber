@@ -222,6 +222,8 @@ final class ReadController
             $dateFrom = $_GET['desde'] ?? '';
             $dateTo = $_GET['hasta'] ?? '';
             $status = $_GET['estado'] ?? 'all';
+            $equipmentId = $_GET['equipo_id'] ?? '';
+            $search = $_GET['q'] ?? '';
             $page = filter_var($_GET['page'] ?? '1', FILTER_VALIDATE_INT);
             $validDate = static fn($value): bool => is_string($value) && ($value === '' ||
                 (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1
@@ -229,6 +231,8 @@ final class ReadController
             if (!$validDate($dateFrom) || !$validDate($dateTo)
                 || ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo)
                 || !in_array($status, ['all', 'OK', 'ERROR', 'WARNING', 'RUNNING', 'REVISION'], true)
+                || !is_string($equipmentId) || ($equipmentId !== '' && (!ctype_digit($equipmentId) || (int) $equipmentId < 1))
+                || !is_string($search) || mb_strlen($search) > 150
                 || $page === false || $page < 1) {
                 fail('Los filtros del informe no son válidos.');
             }
@@ -245,6 +249,12 @@ final class ReadController
             $where = $dateWhere;
             $params = $dateParams;
             if ($status !== 'all') { $where[] = 'informe.estado = ?'; $params[] = $status; }
+            if ($equipmentId !== '') { $where[] = 'informe.equipo_id = ?'; $params[] = (int) $equipmentId; }
+            if (trim($search) !== '') {
+                $where[] = '(informe.equipo LIKE ? OR informe.cliente LIKE ? OR informe.desc_error LIKE ? OR informe.codigo LIKE ?)';
+                $term = '%' . trim($search) . '%';
+                array_push($params, $term, $term, $term, $term);
+            }
             $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
             $pdo = db();
             $union = "SELECT CONVERT(CAST(id AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS id,fecha,
