@@ -266,7 +266,7 @@ export default function App() {
             {copias.fallo && (
               <div className="errbox">
                 No se pudieron cargar los datos: {copias.fallo}{' '}
-                <button className="btn sec" onClick={copias.cargar}>Reintentar</button>
+                <button className="btn sec" onClick={() => copias.cargar()}>Reintentar</button>
               </div>
             )}
             <Kpis n={n} total={data.length - n.sc} />

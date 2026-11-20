@@ -6,10 +6,10 @@ export default function PorClasificar({ copias, cargando, error, onClasificar, o
   return <section className="por-clasificar-page" aria-labelledby="por-clasificar-titulo" aria-busy={cargando}>
     <PageHeading id="por-clasificar-titulo" eyebrow="Copias" title="Errores pendientes de clasificación"
       description="Errores pendientes agrupados por descripcion para clasificarlos sin saturar el historial."
-      actions={<button className="btn sec" type="button" disabled={cargando} onClick={onRecargar}>
+      actions={<button className="btn sec" type="button" disabled={cargando} onClick={() => onRecargar()}>
         {cargando ? 'Actualizando...' : 'Actualizar'}
       </button>} />
-    {error && <div className="errbox" role="alert">No se pudieron cargar las copias: {error} <button className="btn sec" onClick={onRecargar}>Reintentar</button></div>}
+    {error && <div className="errbox" role="alert">No se pudieron cargar las copias: {error} <button className="btn sec" onClick={() => onRecargar()}>Reintentar</button></div>}
     {!error && !pendientes.length && <div className="empty-state" role="status">
       <strong>No hay errores pendientes de clasificación</strong>
       <span>Cuando llegue un resultado ambiguo aparecera aqui agrupado por tipo de fallo.</span>

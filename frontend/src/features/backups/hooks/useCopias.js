@@ -15,8 +15,11 @@ export function useCopias(desde = '', hasta = '', enabled = true) {
   const data = useMemo(() => recientes, [recientes]);
 
   const cargar = useCallback(async (desde = filtrosActuales.current.desde, hasta = filtrosActuales.current.hasta) => {
+    if (typeof desde !== 'string') desde = filtrosActuales.current.desde;
+    if (typeof hasta !== 'string') hasta = filtrosActuales.current.hasta;
     filtrosActuales.current = { desde, hasta };
     const carga = ++cargaActual.current;
+    setCargando(true);
     try {
       const query = `list${desde ? `&desde=${encodeURIComponent(desde)}` : ''}${hasta ? `&hasta=${encodeURIComponent(hasta)}` : ''}`;
       const j = await api(query);
