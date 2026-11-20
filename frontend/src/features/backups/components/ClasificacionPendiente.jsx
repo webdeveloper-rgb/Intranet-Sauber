@@ -1,0 +1,105 @@
+import { useMemo, useState } from 'react';
+
+const TIPOS = [
+  ['OK', 'OK'],
+  ['ERROR', 'Error confirmado'],
+  ['WARNING', 'Advertencia'],
+  ['RUNNING', 'En curso'],
+];
+
+const claveGrupo = (c) => [
+  c.software || '',
+  c.codigo || '',
+  c.resultado_original || '',
+  c.desc_error || '',
+  c.clasificacion_evidencia || '',
+].join('\u001f');
+
+const grupoPayload = (g) => ({
+  software: g.software || '',
+  codigo: g.codigo || '',
+  resultado_original: g.resultado_original || '',
+  desc_error: g.desc_error || '',
+  clasificacion_evidencia: g.clasificacion_evidencia || '',
+});
+
+function GrupoPorClasificar({ grupo, onClasificar }) {
+  const [estado, setEstado] = useState('ERROR');
+  const [codigo, setCodigo] = useState(grupo.codigo || '');
+  const [descripcion, setDescripcion] = useState(grupo.desc_error || grupo.clasificacion_evidencia || '');
+  const [ocupado, setOcupado] = useState(false);
+  const enviar = async () => {
+    setOcupado(true);
+    const ok = await onClasificar(grupoPayload(grupo), {
+      estado,
+      codigo: codigo.trim(),
+      desc_error: descripcion.trim(),
+    });
+    if (!ok) setOcupado(false);
+  };
+  return <article className="clasificacion-item">
+    <div className="clasificacion-error">
+      <strong>{grupo.desc_error || grupo.clasificacion_evidencia || 'Error sin descripcion'}</strong>
+      <span>{grupo.total} copia{grupo.total === 1 ? '' : 's'} - {grupo.equipos.size} equipo{grupo.equipos.size === 1 ? '' : 's'} - {grupo.software || 'Software no indicado'}</span>
+      {grupo.clasificacion_evidencia && grupo.clasificacion_evidencia !== grupo.desc_error && <small>{grupo.clasificacion_evidencia}</small>}
+    </div>
+    <div className="clasificacion-controles">
+      <label>
+        <span>Clasificar como</span>
+        <select value={estado} disabled={ocupado} onChange={(event) => setEstado(event.target.value)}>
+          {TIPOS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      <label>
+        <span>Codigo</span>
+        <input value={codigo} disabled={ocupado || estado === 'OK'} onChange={(event) => setCodigo(event.target.value)}
+          placeholder={estado === 'OK' ? 'No aplica' : 'Ej.: ERROR_DESTINO'} />
+      </label>
+      <label className="clasificacion-descripcion">
+        <span>Descripcion</span>
+        <input value={descripcion} disabled={ocupado || estado === 'OK'} onChange={(event) => setDescripcion(event.target.value)}
+          placeholder={estado === 'OK' ? 'Se limpiara el error' : 'Motivo que quedara en el historial'} />
+      </label>
+      <button className="btn" type="button" disabled={ocupado || (estado !== 'OK' && !descripcion.trim())} onClick={enviar}>
+        {ocupado ? 'Clasificando...' : 'Aplicar'}
+      </button>
+    </div>
+  </article>;
+}
+
+export default function ClasificacionPendiente({ copias, onClasificar, onFiltrar }) {
+  const grupos = useMemo(() => {
+    const mapa = new Map();
+    (copias || []).filter((c) => c.estado === 'REVISION').forEach((c) => {
+      const key = claveGrupo(c);
+      const actual = mapa.get(key);
+      if (actual) {
+        actual.total += 1;
+        actual.equipos.add(c.equipo);
+        if (String(c.fecha) > String(actual.fecha)) actual.fecha = c.fecha;
+        return;
+      }
+      mapa.set(key, {
+        ...grupoPayload(c),
+        fecha: c.fecha,
+        total: 1,
+        equipos: new Set([c.equipo]),
+      });
+    });
+    return [...mapa.values()].sort((a, b) => b.total - a.total || String(b.fecha).localeCompare(String(a.fecha)));
+  }, [copias]);
+
+  if (!grupos.length) return null;
+  return <section className="clasificacion-pendiente" aria-labelledby="clasificacion-pendiente-titulo">
+    <div className="clasificacion-heading">
+      <div>
+        <span className="eyebrow">Por clasificar</span>
+        <h2 id="clasificacion-pendiente-titulo">Errores por clasificar</h2>
+      </div>
+      <button className="btn sec" type="button" onClick={onFiltrar}>{grupos.length} grupo{grupos.length === 1 ? '' : 's'}</button>
+    </div>
+    <div className="clasificacion-lista">
+      {grupos.map((grupo) => <GrupoPorClasificar key={claveGrupo(grupo)} grupo={grupo} onClasificar={onClasificar} />)}
+    </div>
+  </section>;
+}

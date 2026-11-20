@@ -59,11 +59,26 @@ export function useCopias(desde = '', hasta = '', enabled = true) {
     }
   }, []);
 
+  const clasificarRevision = useCallback(async (grupo, cambios) => {
+    try {
+      const j = await api('clasificar_revision', { grupo, ...cambios });
+      const actualizadas = new Set(j.actualizadas || []);
+      setRecientes((copias) => copias.map((c) => (
+        actualizadas.has(c.id) ? { ...c, ...j.clasificacion } : c
+      )));
+      return true;
+    } catch (e) {
+      alert(e.message);
+      return false;
+    }
+  }, []);
+
   return {
     data, cargando, fallo, truncado, cargar,
     revisar: (id, desc) => run('revisar', { id, desc }),
     reabrir: (id) => run('reabrir', { id }),
     seguimiento: (id, campos) => run('seguimiento', { id, ...campos }),
     nota: (id, texto) => run('nota', { id, texto }),
+    clasificarRevision,
   };
 }

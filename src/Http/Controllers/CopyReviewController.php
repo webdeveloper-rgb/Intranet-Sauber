@@ -7,6 +7,59 @@ declare(strict_types=1);
  */
 final class CopyReviewController
 {
+    private static function revisionFilter(array $group): array
+    {
+        $fields = [
+            'software' => 80,
+            'codigo' => 40,
+            'resultado_original' => 24,
+            'desc_error' => 500,
+            'clasificacion_evidencia' => 600,
+        ];
+        $where = ['estado=\'REVISION\''];
+        $params = [];
+        foreach ($fields as $field => $max) {
+            $where[] = "COALESCE({$field}, '') = ?";
+            $params[] = txt($group[$field] ?? '', $max);
+        }
+        return [implode(' AND ', $where), $params];
+    }
+
+    private static function classifyRevisionGroup(array $input, array $user): bool
+    {
+        $group = is_array($input['grupo'] ?? null) ? $input['grupo'] : [];
+        $state = strtoupper((string) ($input['estado'] ?? ''));
+        if (!in_array($state, ['OK', 'ERROR', 'WARNING', 'RUNNING'], true)) {
+            fail('ClasificaciÃ³n no vÃ¡lida');
+        }
+
+        [$where, $params] = self::revisionFilter($group);
+        $idsQuery = db()->prepare("SELECT id FROM copias WHERE {$where}");
+        $idsQuery->execute($params);
+        $ids = array_map('intval', $idsQuery->fetchAll(PDO::FETCH_COLUMN));
+        if (!$ids) {
+            fail('No quedan copias por clasificar con ese error', 404);
+        }
+
+        $code = $state === 'OK' ? '' : txt($input['codigo'] ?? ($group['codigo'] ?? ''), 40);
+        $description = $state === 'OK' ? '' : txt($input['desc_error'] ?? ($group['desc_error'] ?? ''), 500);
+        if ($state !== 'OK' && $description === '') {
+            fail('Indica una descripciÃ³n para clasificar el error');
+        }
+        $source = 'manual:' . $user['usuario'];
+        $update = db()->prepare("UPDATE copias SET estado=?, codigo=?, desc_error=?,
+            clasificacion_fuente=?, revisado=0, revisado_por=NULL, revisado_fecha=NULL,
+            revision_desc=NULL, seg=NULL, recordar=NULL WHERE {$where}");
+        $update->execute(array_merge([$state, $code !== '' ? $code : null, $description, $source], $params));
+        out(['actualizadas' => $ids, 'clasificacion' => [
+            'estado' => $state,
+            'codigo' => $code !== '' ? $code : null,
+            'desc_error' => $description,
+            'clasificacion_fuente' => $source,
+        ]]);
+        return true;
+    }
+
     private static function issueFilter(array $copy): array
     {
         $where = ['estado=\'ERROR\'', 'fecha <= ?'];
@@ -54,8 +107,12 @@ final class CopyReviewController
 
     public static function handle(string $action, array $input, array $user): bool
     {
-        if (!in_array($action, ['revisar', 'reabrir', 'seguimiento', 'nota'], true)) {
+        if (!in_array($action, ['revisar', 'reabrir', 'seguimiento', 'nota', 'clasificar_revision'], true)) {
             return false;
+        }
+
+        if ($action === 'clasificar_revision') {
+            return self::classifyRevisionGroup($input, $user);
         }
 
         $copy = copia_obtener((int) ($input['id'] ?? 0));

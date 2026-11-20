@@ -10,6 +10,7 @@ import Kpis from '../features/backups/components/Kpis';
 import Filtros from '../features/backups/components/Filtros';
 import Tabla from '../features/backups/components/Tabla';
 import Detalle from '../features/backups/components/Detalle';
+import ClasificacionPendiente from '../features/backups/components/ClasificacionPendiente';
 import Clientes from '../features/clients/pages/Clientes';
 import Usuarios from '../features/account/components/Usuarios';
 import Eventos from '../features/events/pages/Eventos';
@@ -36,7 +37,7 @@ const acumularErrores = (copias) => {
   const grupos = new Map();
   const resultado = [];
   copias.forEach((copia) => {
-    if (copia.estado !== 'ERROR' || copia.codigo === 'SIN_COPIA') {
+    if (!['ERROR', 'REVISION'].includes(copia.estado) || copia.codigo === 'SIN_COPIA') {
       resultado.push(copia);
       return;
     }
@@ -262,6 +263,8 @@ export default function App() {
             )}
             <Kpis n={n} total={data.length - n.sc} />
             <Filtros filtro={filtro} setFiltro={setFiltro} n={n} f={f} setF={setF} resultados={rows.length} total={data.length} softwares={softwaresCopia} />
+            <ClasificacionPendiente copias={data} onClasificar={copias.clasificarRevision}
+              onFiltrar={() => setFiltro('inc')} />
             {copias.truncado && <div className="estado-alertas" role="status">Este intervalo contiene más de 3.000 copias; se muestran las 3.000 más recientes. Reduce el rango de fechas para ver el resto.</div>}
             <Tabla sinCopia={filtro === 'sin'} rows={paginaCopias.items} cargando={copias.cargando} error={copias.fallo}
               onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />

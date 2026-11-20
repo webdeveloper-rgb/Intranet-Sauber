@@ -642,6 +642,73 @@ dd {
   color: var(--mut);
   font-size: 12px;
 }
+.clasificacion-pendiente {
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+.clasificacion-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.clasificacion-heading h2 {
+  margin: 2px 0 0;
+  font-size: 17px;
+}
+.clasificacion-lista {
+  display: grid;
+  gap: 10px;
+}
+.clasificacion-item {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(420px, 1.4fr);
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.clasificacion-error {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.clasificacion-error strong {
+  overflow-wrap: anywhere;
+}
+.clasificacion-error span,
+.clasificacion-error small {
+  color: var(--mut);
+  font-size: 12px;
+}
+.clasificacion-controles {
+  display: grid;
+  grid-template-columns: minmax(130px, .8fr) minmax(130px, .9fr) minmax(180px, 1.2fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.clasificacion-controles label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.clasificacion-controles label span {
+  color: var(--mut);
+  font-size: 12px;
+}
+.clasificacion-controles input,
+.clasificacion-controles select {
+  width: 100%;
+  min-width: 0;
+}
+.clasificacion-controles .btn {
+  min-height: 38px;
+}
 .hrow {
   display: flex;
   justify-content: space-between;
