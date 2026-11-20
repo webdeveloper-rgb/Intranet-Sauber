@@ -414,7 +414,14 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         $clientesConSat18 = trim((string) ($c['servicio_sat18'] ?? '')) !== ''
             ? api_sync_clientes_con_servicio($clientes, $cliservicios, (string) $c['servicio_sat18'])
             : [];
-        if (!$clientes || !$cliservicios || (!$clientesConServicio && !$clientesConSat18)) {
+        // El catálogo se compone por unión: basta con que el cliente tenga SATBK
+        // o SAT18. No se exige que tenga ambos servicios.
+        $clientesConSat = $clientesConServicio + $clientesConSat18;
+        $clientes = array_values(array_filter($clientes, static function (array $cliente) use ($clientesConSat): bool {
+            $clave = api_sync_primero($cliente, ['Clave', 'Id', 'Codigo'], 64);
+            return $clave !== null && isset($clientesConSat[$clave]);
+        }));
+        if (!$clientes || !$cliservicios || !$clientesConSat) {
             throw new ApiError('La API no devolvió clientes con ninguno de los servicios SAT configurados. No se modificó el catálogo local.');
         }
 
@@ -425,7 +432,10 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
         if (function_exists('asegurar_tablas_equipos')) asegurar_tablas_equipos($pdo);
 
         $pdo->beginTransaction();
-        $clientesActivos = (int) $pdo->query('SELECT COUNT(*) FROM clientes WHERE activo=1')->fetchColumn();
+        // Al sincronizar solo el catálogo SAT, compara la caída con el catálogo
+        // SAT anterior, no con antiguos clientes sin servicio que se retirarán.
+        $clientesActivos = (int) $pdo->query('SELECT COUNT(*) FROM clientes
+            WHERE activo=1 AND (tiene_satbk=1 OR tiene_sat18=1)')->fetchColumn();
 
         $st = $pdo->prepare(
             'INSERT INTO clientes (clave, codigo, nombre, cif, email, telefono, localidad, provincia, datos, activo, tiene_satbk, tiene_sat18, visto)
