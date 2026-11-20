@@ -43,7 +43,7 @@ function api_sync_cfg(): array
         'tabla_usuarios' => 'Usuario',
         'usuarios_permitidos' => ['dni' => [], 'correo_nombre' => []],
         'servicio_requerido' => 'VBA3KT7GN7',
-        'servicio_sat18' => '',
+        'servicio_sat18' => 'B4M6LVVHFS',
         'page_size' => 500,      // la API admite hasta 1000 por página
         'timeout' => 30,
     ];
