@@ -740,9 +740,57 @@ dd {
   font-size: 12px;
 }
 .clasificacion-controles input,
-.clasificacion-controles select {
+.clasificacion-controles select,
+.clasificacion-controles textarea {
   width: 100%;
   min-width: 0;
+}
+.clasificacion-controles input,
+.clasificacion-controles select,
+.clasificacion-controles textarea {
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--tx);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 24%, transparent);
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.clasificacion-controles input,
+.clasificacion-controles select {
+  min-height: 40px;
+  padding: 8px 11px;
+}
+.clasificacion-controles select {
+  appearance: none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--mut) 50%),
+    linear-gradient(135deg, var(--mut) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 17px,
+    calc(100% - 12px) 17px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.clasificacion-controles textarea {
+  min-height: 128px;
+  padding: 10px 11px;
+  line-height: 1.45;
+  resize: vertical;
+}
+.clasificacion-controles input:focus,
+.clasificacion-controles select:focus,
+.clasificacion-controles textarea:focus {
+  border-color: var(--brand);
+  background: var(--card);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent);
+  outline: 0;
+}
+.clasificacion-controles input:disabled,
+.clasificacion-controles select:disabled,
+.clasificacion-controles textarea:disabled {
+  cursor: not-allowed;
+  opacity: .62;
 }
 .clasificacion-controles .btn {
   min-height: 38px;

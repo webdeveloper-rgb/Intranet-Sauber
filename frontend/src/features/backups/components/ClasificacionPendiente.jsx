@@ -44,7 +44,7 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
         <span>{grupo.equipos.size} equipo{grupo.equipos.size === 1 ? '' : 's'}</span>
         <span>{grupo.software || 'Software no indicado'}</span>
       </div>
-      <strong>{grupo.desc_error || grupo.clasificacion_evidencia || 'Error sin descripcion'}</strong>
+      <strong>{grupo.desc_error || grupo.clasificacion_evidencia || 'Error sin descripción'}</strong>
       {grupo.clasificacion_evidencia && grupo.clasificacion_evidencia !== grupo.desc_error && <small>{grupo.clasificacion_evidencia}</small>}
     </div>
     <div className="clasificacion-divider" />
@@ -56,14 +56,14 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
         </select>
       </label>
       <label>
-        <span>Codigo</span>
+        <span>Código</span>
         <input value={codigo} disabled={ocupado || estado === 'OK'} onChange={(event) => setCodigo(event.target.value)}
           placeholder={estado === 'OK' ? 'No aplica' : 'Ej.: ERROR_DESTINO'} />
       </label>
       <label className="clasificacion-descripcion">
-        <span>Descripcion</span>
-        <input value={descripcion} disabled={ocupado || estado === 'OK'} onChange={(event) => setDescripcion(event.target.value)}
-          placeholder={estado === 'OK' ? 'Se limpiara el error' : 'Motivo que quedara en el historial'} />
+        <span>Descripción</span>
+        <textarea rows="5" value={descripcion} disabled={ocupado || estado === 'OK'} onChange={(event) => setDescripcion(event.target.value)}
+          placeholder={estado === 'OK' ? 'Se limpiará el error' : 'Motivo que quedará en el historial'} />
       </label>
       <button className="btn" type="button" disabled={ocupado || (estado !== 'OK' && !descripcion.trim())} onClick={enviar}>
         {ocupado ? 'Clasificando...' : 'Aplicar'}

@@ -55,12 +55,14 @@ function copia_obtener(int $id): ?array
 function copias_sin_recibir(PDO $pdo): array
 {
     $sql = "SELECT CONCAT('sin-copia-', e.id) AS id,
-            DATE_FORMAT(DATE_ADD(COALESCE(cp.ultima,e.creado), INTERVAL 24 HOUR),'%Y-%m-%d %H:%i') AS fecha,
-            DATE_FORMAT(DATE_ADD(COALESCE(cp.ultima,e.creado), INTERVAL 24 HOUR),'%Y-%m-%d') AS fecha_esperada,
+            DATE_FORMAT(DATE_ADD(DATE_SUB(CURDATE(), INTERVAL d.dias DAY), INTERVAL 1 DAY),'%Y-%m-%d %H:%i') AS fecha,
+            DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL d.dias DAY),'%Y-%m-%d') AS fecha_esperada,
             c.nombre AS cliente, e.nombre AS equipo, e.tipo, e.programa, e.software,
             DATE_FORMAT(cp.ultima,'%Y-%m-%d %H:%i') AS ultima_copia,
             'ERROR' AS estado,
-            CONCAT('ERROR CRÍTICO: no ha llegado ninguna copia en las últimas 24 horas. Última copia: ',
+            CONCAT('ERROR CRÍTICO: no llegó la copia esperada el día ',
+                DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL d.dias DAY),'%Y-%m-%d'),
+                ' y ya han pasado 24 horas. Última copia: ',
                 COALESCE(DATE_FORMAT(cp.ultima,'%Y-%m-%d %H:%i'),'nunca')) AS desc_error,
             'SIN_COPIA' AS codigo, NULL AS destino, NULL AS tamano, NULL AS duracion,
             NULL AS intentos, 0 AS revisado, NULL AS revisado_por, NULL AS revisado_fecha,
@@ -69,15 +71,32 @@ function copias_sin_recibir(PDO $pdo): array
         INNER JOIN clientes c ON c.id=e.cliente_id AND c.activo=1 AND c.tiene_satbk=1
         LEFT JOIN (SELECT equipo_id, MAX(fecha) AS ultima FROM copias WHERE equipo_id IS NOT NULL GROUP BY equipo_id) cp
             ON cp.equipo_id=e.id
+        INNER JOIN (
+            SELECT 1 AS dias UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+            UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
+        ) d ON DATE_SUB(CURDATE(), INTERVAL d.dias DAY) > DATE(COALESCE(cp.ultima,e.creado))
+            AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL d.dias DAY), INTERVAL 1 DAY) <= NOW()
+            AND SUBSTRING(e.dias_copia,
+                MOD(DAYOFWEEK(DATE_SUB(CURDATE(), INTERVAL d.dias DAY)) + 5,7) + 1,1)='1'
         WHERE e.vigilar=1
-            AND COALESCE(cp.ultima,e.creado) < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            AND NOT EXISTS (
+                SELECT 1 FROM (
+                    SELECT 1 AS dias UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                    UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
+                ) reciente
+                WHERE reciente.dias < d.dias
+                    AND DATE_SUB(CURDATE(), INTERVAL reciente.dias DAY) > DATE(COALESCE(cp.ultima,e.creado))
+                    AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL reciente.dias DAY), INTERVAL 1 DAY) <= NOW()
+                    AND SUBSTRING(e.dias_copia,
+                        MOD(DAYOFWEEK(DATE_SUB(CURDATE(), INTERVAL reciente.dias DAY)) + 5,7) + 1,1)='1'
+            )
         ORDER BY e.nombre,e.id";
     return $pdo->query($sql)->fetchAll();
 }
 
 function copias_sin_recibir_cache(PDO $pdo): array
 {
-    $key = hash('sha256', 'copias_sin_recibir:v3');
+    $key = hash('sha256', 'copias_sin_recibir:v4');
     $st = $pdo->prepare('SELECT payload FROM panel_cache WHERE cache_key=? AND expires_at>NOW()');
     $st->execute([$key]);
     $payload = $st->fetchColumn();
