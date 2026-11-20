@@ -140,6 +140,15 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'equipos_desasignar_sin_satbk') {
+            exigir_admin($user);
+            try {
+                out(['ok' => true] + equipos_desasignar_clientes_sin_satbk());
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         return false;
     }
 }

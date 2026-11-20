@@ -66,6 +66,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const [fallo, setFallo] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(null);
+  const [desasignandoMasivo, setDesasignandoMasivo] = useState(false);
   const [historial, setHistorial] = useState([]);
   const [historialFallo, setHistorialFallo] = useState('');
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
@@ -318,6 +319,22 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     finally { setGuardando(null); }
   };
 
+  const desasignarSinSatbk = async () => {
+    const cantidad = equiposClienteSinSatbk.length;
+    if (!cantidad || desasignandoMasivo) return;
+    if (!window.confirm(`Se desasignarán ${cantidad} equipo${cantidad === 1 ? '' : 's'} de clientes sin SATBK. Sus copias pasarán a “Sin asignar”. ¿Quieres continuar?`)) return;
+    setDesasignandoMasivo(true);
+    setFallo('');
+    setMensaje('');
+    try {
+      const resultado = await api('equipos_desasignar_sin_satbk', {});
+      setMensaje(`${resultado.equipos} equipo${resultado.equipos === 1 ? '' : 's'} desasignado${resultado.equipos === 1 ? '' : 's'} y ${resultado.copias} copia${resultado.copias === 1 ? '' : 's'} actualizada${resultado.copias === 1 ? '' : 's'}.`);
+      await cargar(true);
+      onNavigate('/clientes/sin-asignar', { replace: true });
+    } catch (e) { setFallo(e.message); }
+    finally { setDesasignandoMasivo(false); }
+  };
+
   const vigilar = async (equipo, valor) => {
     setGuardando(equipo.id);
     setFallo('');
@@ -531,6 +548,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
             : 'Clientes, asignaciones y equipos.'}
         actions={equipoActual?.tiene_monitor
           ? <RustDeskAcceso equipo={equipoActual} monitor={detalleMonitor?.monitor} admin={admin} />
+          : clienteAbierto === 'sin-satbk' && admin
+            ? <button className="btn danger" type="button" disabled={!equiposClienteSinSatbk.length || desasignandoMasivo} onClick={desasignarSinSatbk}>
+              {desasignandoMasivo ? 'Desasignando…' : `Desasignar ${equiposClienteSinSatbk.length} equipo${equiposClienteSinSatbk.length === 1 ? '' : 's'}`}
+            </button>
           : !equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
             <strong>{equiposSinAsignar.length}</strong><span>sin asignar</span>
           </div>} />

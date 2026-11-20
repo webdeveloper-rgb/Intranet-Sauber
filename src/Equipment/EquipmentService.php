@@ -330,6 +330,34 @@ function equipos_desasignar_cliente(int $equipoId): int
     }
 }
 
+/** Desasigna los equipos cuyo cliente activo no dispone de SATBK. */
+function equipos_desasignar_clientes_sin_satbk(): array
+{
+    $pdo = db();
+    asegurar_tablas_equipos($pdo);
+    $pdo->beginTransaction();
+    try {
+        $ids = $pdo->query('SELECT e.id FROM equipos e
+            INNER JOIN clientes c ON c.id=e.cliente_id
+            WHERE c.tiene_satbk=0 FOR UPDATE')->fetchAll(PDO::FETCH_COLUMN);
+        $ids = array_map('intval', $ids);
+        if (!$ids) {
+            $pdo->commit();
+            return ['equipos' => 0, 'copias' => 0];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $updateEquipos = $pdo->prepare("UPDATE equipos SET cliente_id=NULL WHERE id IN ({$placeholders})");
+        $updateEquipos->execute($ids);
+        $updateCopias = $pdo->prepare("UPDATE copias SET cliente='Sin asignar' WHERE equipo_id IN ({$placeholders})");
+        $updateCopias->execute($ids);
+        $pdo->commit();
+        return ['equipos' => count($ids), 'copias' => $updateCopias->rowCount()];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
 function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null): int
 {
     $pdo ??= db();

@@ -219,6 +219,8 @@ header.app-header.dashboard-topbar { margin-left: var(--sidebar-width); padding:
 .dashboard-page .page-heading .eyebrow { color: var(--mut); font-size: 11px; font-weight: 500; letter-spacing: .06em; }
 .dashboard-page .page-heading p { font-size: 14px; }
 .dashboard-refresh .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 12px; background: var(--card); box-shadow: none; }
+.btn.danger { background: var(--erb); border-color: color-mix(in srgb, var(--er) 42%, var(--bd)); color: var(--er); }
+.btn.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--erb) 68%, var(--er)); border-color: var(--er); color: #fff; }
 .topbar-notifications { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: var(--mut); cursor: pointer; }
 .topbar-notifications:hover { background: var(--bg); color: var(--tx); }
 .dashboard-topbar-actions { gap: 16px; }
