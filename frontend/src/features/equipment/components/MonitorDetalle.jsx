@@ -141,6 +141,40 @@ function agregarSeccionPdf(doc, autoTable, titulo, rows, y) {
   return doc.lastAutoTable.finalY + 10;
 }
 
+function agregarProgramasPdf(doc, autoTable, software, y) {
+  const instalados = software?.installedPrograms;
+  const sinLista = !Array.isArray(instalados);
+  if (sinLista && software?.available !== false) return y;
+  if (y > doc.internal.pageSize.getHeight() - 38) {
+    doc.addPage();
+    y = 18;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(28, 50, 74);
+  doc.setFillColor(45, 132, 170);
+  doc.rect(14, y - 4.2, 2, 6.2, 'F');
+  doc.text(sinLista ? 'Programas instalados' : `Programas instalados (${instalados.length})`, 20, y);
+  const body = sinLista
+    ? [['Pendiente de actualizar el agente', '', '']]
+    : instalados.length
+      ? instalados.map((programa) => [programa.name || '', programa.version || '—', programa.publisher || '—'])
+      : [['No se detectaron programas instalados', '', '']];
+  autoTable(doc, {
+    startY: y + 3,
+    head: [['PROGRAMA', 'VERSIÓN', 'FABRICANTE']],
+    body,
+    theme: 'grid',
+    margin: { left: 14, right: 14, top: 18, bottom: 20 },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.4, overflow: 'linebreak', lineColor: [220, 227, 234], textColor: [42, 52, 62], valign: 'middle' },
+    headStyles: { fillColor: [34, 67, 96], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, cellPadding: 3.1 },
+    alternateRowStyles: { fillColor: [245, 248, 251] },
+    columnStyles: { 0: { cellWidth: 92, fontStyle: 'bold', textColor: [65, 79, 94] }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' } },
+    rowPageBreak: 'avoid',
+  });
+  return doc.lastAutoTable.finalY + 10;
+}
+
 async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
@@ -258,8 +292,10 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
       `${alerta.severidad === 'critical' ? 'Crítica' : 'Advertencia'} · ${alerta.titulo || 'Alerta'}`,
       alerta.detalle || 'Sin detalle',
     ]);
-    agregarSeccionPdf(doc, autoTable, 'Alertas activas', filasAlertas, y);
+    y = agregarSeccionPdf(doc, autoTable, 'Alertas activas', filasAlertas, y);
   }
+
+  y = agregarProgramasPdf(doc, autoTable, monitor.software, y);
 
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {

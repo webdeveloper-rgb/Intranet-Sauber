@@ -58,18 +58,27 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
         throw new InvalidArgumentException('observedAtUtc no válido');
     }
     $canonical = [
-        'acronis' => 'Acronis', 'iperius' => 'Iperius', 'veeam' => 'Veeam',
-        'data protector' => 'Data Protector', 'micro focus' => 'Data Protector',
-        'arcserve' => 'Arcserve', 'commvault' => 'Commvault', 'veritas' => 'Veritas',
-        'nakivo' => 'NAKIVO', 'backup exec' => 'Backup Exec', 'windows server backup' => 'Windows Server Backup',
+        'acronis' => 'Acronis',
+        'iperius' => 'Iperius',
+        'veeam' => 'Veeam',
+        'data protector' => 'Data Protector',
+        'micro focus' => 'Data Protector',
+        'arcserve' => 'Arcserve',
+        'commvault' => 'Commvault',
+        'veritas' => 'Veritas',
+        'nakivo' => 'NAKIVO',
+        'backup exec' => 'Backup Exec',
+        'windows server backup' => 'Windows Server Backup',
         'synology active backup' => 'Synology Active Backup',
     ];
     $scanned = [];
     foreach (array_slice(is_array($data['scannedProducts'] ?? null) ? $data['scannedProducts'] : [], 0, 30) as $value) {
         $name = monitor_texto($value, 40);
-        if ($name === null) continue;
+        if ($name === null)
+            continue;
         $key = mb_strtolower($name);
-        if (isset($canonical[$key])) $scanned[$canonical[$key]] = true;
+        if (isset($canonical[$key]))
+            $scanned[$canonical[$key]] = true;
     }
     if (!is_array($data['activities'] ?? null) || count($data['activities']) > 200) {
         throw new InvalidArgumentException('activities no válido');
@@ -91,16 +100,20 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
 
     $normalized = [];
     foreach ($data['activities'] as $activity) {
-        if (!is_array($activity)) continue;
+        if (!is_array($activity))
+            continue;
         $state = strtolower((string) ($activity['state'] ?? ''));
-        if ($state !== 'running') continue;
+        if ($state !== 'running')
+            continue;
         $givenProduct = monitor_texto($activity['product'] ?? null, 40, true, 'product');
         $product = $canonical[mb_strtolower($givenProduct)] ?? null;
-        if ($product === null || !isset($scanned[$product])) continue;
+        if ($product === null || !isset($scanned[$product]))
+            continue;
         $target = monitor_texto($activity['targetHostname'] ?? null, 200, true, 'targetHostname');
         $session = monitor_texto($activity['sessionKey'] ?? null, 180, true, 'sessionKey');
         $startTime = strtotime((string) ($activity['startedAtUtc'] ?? ''));
-        if ($startTime === false || $startTime > time() + 300) $startTime = $observed;
+        if ($startTime === false || $startTime > time() + 300)
+            $startTime = $observed;
         $hostKey = mb_strtolower(trim($target));
         if (!array_key_exists($hostKey, $equipmentByTarget)) {
             $findByName->execute([$target, $target]);
@@ -112,19 +125,23 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
             $equipmentByTarget[$hostKey] = $matches;
         }
         $matches = $equipmentByTarget[$hostKey];
-        if (count($matches) !== 1) continue;
+        if (count($matches) !== 1)
+            continue;
         $remoteManagerProduct = in_array($product, ['Veeam', 'Data Protector'], true);
         if ($remoteManagerProduct) {
             $needle = $product === 'Data Protector' ? 'data protector' : 'veeam';
             $detected = false;
             foreach ($sourceProducts as $sourceProduct) {
-                if (str_contains($sourceProduct, $needle)
-                    || ($product === 'Data Protector' && str_contains($sourceProduct, 'micro focus'))) {
+                if (
+                    str_contains($sourceProduct, $needle)
+                    || ($product === 'Data Protector' && str_contains($sourceProduct, 'micro focus'))
+                ) {
                     $detected = true;
                     break;
                 }
             }
-            if (!$detected) continue;
+            if (!$detected)
+                continue;
         } elseif ($sourceEquipmentId === null || (int) $matches[0] !== $sourceEquipmentId) {
             continue;
         }
@@ -153,13 +170,21 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
                 observed_at=VALUES(observed_at),active_operations=VALUES(active_operations),source=VALUES(source)');
         foreach ($normalized as $activity) {
             $insert->execute([
-                $machineId, hash('sha256', $machineId), $activity['equipmentId'], $activity['product'], $activity['sessionKey'],
-                $activity['startedAt'], gmdate('Y-m-d H:i:s', $observed), $activity['activeOperations'], $activity['source'],
+                $machineId,
+                hash('sha256', $machineId),
+                $activity['equipmentId'],
+                $activity['product'],
+                $activity['sessionKey'],
+                $activity['startedAt'],
+                gmdate('Y-m-d H:i:s', $observed),
+                $activity['activeOperations'],
+                $activity['source'],
             ]);
         }
         $pdo->commit();
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction())
+            $pdo->rollBack();
         throw $e;
     }
     return count($normalized);
@@ -262,6 +287,54 @@ function monitor_lista_textos($source, int $maxItems, int $maxLength): array
     return $result;
 }
 
+/**
+ * Programas instalados enviados por el agente. Devuelve null si el agente no envía la lista
+ * (agente antiguo) y un array, posiblemente vacío, si la envía. Acepta objetos
+ * {name, version, publisher} o simples textos, elimina duplicados y ordena por nombre.
+ */
+function monitor_programas_instalados($source, int $maxItems = 2000): ?array
+{
+    if (!is_array($source)) {
+        return null;
+    }
+    $result = [];
+    $seen = [];
+    foreach ($source as $item) {
+        if (is_array($item)) {
+            $name = monitor_texto($item['name'] ?? null, 200);
+            $version = monitor_texto($item['version'] ?? null, 60);
+            $publisher = monitor_texto($item['publisher'] ?? null, 160);
+        } elseif (is_string($item)) {
+            $name = monitor_texto($item, 200);
+            $version = null;
+            $publisher = null;
+        } else {
+            continue;
+        }
+        if ($name === null) {
+            continue;
+        }
+        $key = mb_strtolower($name . "\0" . ($version ?? ''));
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $program = ['name' => $name];
+        if ($version !== null) {
+            $program['version'] = $version;
+        }
+        if ($publisher !== null) {
+            $program['publisher'] = $publisher;
+        }
+        $result[] = $program;
+        if (count($result) >= $maxItems) {
+            break;
+        }
+    }
+    usort($result, static fn(array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+    return $result;
+}
+
 function monitor_eventos_normalizar($source, int $reportTimestamp, string $eventMode = 'standard'): array
 {
     if ($source === null) {
@@ -278,14 +351,22 @@ function monitor_eventos_normalizar($source, int $reportTimestamp, string $event
         }
         $timeText = monitor_texto($event['timeUtc'] ?? null, 64, true, 'events.timeUtc');
         $eventTimestamp = strtotime($timeText);
-        if ($eventTimestamp === false
+        if (
+            $eventTimestamp === false
             || ($eventMode === 'standard' && $eventTimestamp < $reportTimestamp - 30 * 86400)
-            || $eventTimestamp > $reportTimestamp + 300) {
+            || $eventTimestamp > $reportTimestamp + 300
+        ) {
             throw new InvalidArgumentException("La fecha del evento {$index} no está dentro del intervalo permitido.");
         }
         $level = monitor_texto($event['level'] ?? null, 20, true, 'events.level');
         $knownLevel = in_array($level, [
-            'LogAlways', 'Critical', 'Error', 'Warning', 'Information', 'Verbose', 'Unknown',
+            'LogAlways',
+            'Critical',
+            'Error',
+            'Warning',
+            'Information',
+            'Verbose',
+            'Unknown',
         ], true) || preg_match('/^Level \d+$/D', $level) === 1;
         if (!$knownLevel || ($eventMode === 'standard' && !in_array($level, ['Critical', 'Error'], true))) {
             throw new InvalidArgumentException("El nivel del evento {$index} no es válido.");
@@ -348,37 +429,70 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     }
 
     $systemFields = [
-        'osName' => 'text', 'osVersion' => 'text', 'osArchitecture' => 'text',
-        'manufacturer' => 'text', 'model' => 'text', 'serialNumber' => 'text',
-        'domain' => 'text', 'totalRamBytes' => 'number', 'lastBootUtc' => 'text',
+        'osName' => 'text',
+        'osVersion' => 'text',
+        'osArchitecture' => 'text',
+        'manufacturer' => 'text',
+        'model' => 'text',
+        'serialNumber' => 'text',
+        'domain' => 'text',
+        'totalRamBytes' => 'number',
+        'lastBootUtc' => 'text',
     ];
     $boardFields = [
-        'manufacturer' => 'text', 'product' => 'text', 'serialNumber' => 'text',
-        'biosVendor' => 'text', 'biosVersion' => 'text', 'biosDate' => 'text',
+        'manufacturer' => 'text',
+        'product' => 'text',
+        'serialNumber' => 'text',
+        'biosVendor' => 'text',
+        'biosVersion' => 'text',
+        'biosDate' => 'text',
     ];
     $cpuFields = [
-        'name' => 'text', 'manufacturer' => 'text', 'cores' => 'number',
-        'logicalProcessors' => 'number', 'maxClockMHz' => 'number', 'loadPercent' => 'number',
+        'name' => 'text',
+        'manufacturer' => 'text',
+        'cores' => 'number',
+        'logicalProcessors' => 'number',
+        'maxClockMHz' => 'number',
+        'loadPercent' => 'number',
     ];
     $ramFields = [
-        'slot' => 'text', 'manufacturer' => 'text', 'partNumber' => 'text',
-        'serialNumber' => 'text', 'capacityBytes' => 'number', 'speedMHz' => 'number', 'type' => 'text',
+        'slot' => 'text',
+        'manufacturer' => 'text',
+        'partNumber' => 'text',
+        'serialNumber' => 'text',
+        'capacityBytes' => 'number',
+        'speedMHz' => 'number',
+        'type' => 'text',
     ];
     $gpuFields = ['name' => 'text', 'driverVersion' => 'text', 'adapterRamBytes' => 'number'];
     $diskFields = [
-        'model' => 'text', 'serialNumber' => 'text', 'firmwareVersion' => 'text',
-        'mediaType' => 'text', 'busType' => 'text', 'sizeBytes' => 'number',
-        'healthStatus' => 'text', 'wearPercent' => 'number', 'lifeLeftPercent' => 'number',
-        'temperatureC' => 'number', 'powerOnHours' => 'number',
-        'readErrorsTotal' => 'number', 'writeErrorsTotal' => 'number',
+        'model' => 'text',
+        'serialNumber' => 'text',
+        'firmwareVersion' => 'text',
+        'mediaType' => 'text',
+        'busType' => 'text',
+        'sizeBytes' => 'number',
+        'healthStatus' => 'text',
+        'wearPercent' => 'number',
+        'lifeLeftPercent' => 'number',
+        'temperatureC' => 'number',
+        'powerOnHours' => 'number',
+        'readErrorsTotal' => 'number',
+        'writeErrorsTotal' => 'number',
     ];
     $volumeFields = [
-        'drive' => 'text', 'label' => 'text', 'fileSystem' => 'text',
-        'sizeBytes' => 'number', 'freeBytes' => 'number',
+        'drive' => 'text',
+        'label' => 'text',
+        'fileSystem' => 'text',
+        'sizeBytes' => 'number',
+        'freeBytes' => 'number',
     ];
     $batteryFields = [
-        'name' => 'text', 'chargePercent' => 'number', 'designCapacity' => 'number',
-        'fullChargeCapacity' => 'number', 'healthPercent' => 'number',
+        'name' => 'text',
+        'chargePercent' => 'number',
+        'designCapacity' => 'number',
+        'fullChargeCapacity' => 'number',
+        'healthPercent' => 'number',
     ];
     $software = is_array($data['software'] ?? null) ? $data['software'] : [];
 
@@ -399,6 +513,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
                 ? $software['windowsLicenseStatus'] : 'unknown',
             'antivirusProducts' => monitor_lista_textos($software['antivirusProducts'] ?? null, 20, 160),
             'backupProducts' => monitor_lista_textos($software['backupProducts'] ?? null, 30, 160),
+            'installedPrograms' => monitor_programas_instalados($software['installedPrograms'] ?? null),
         ],
         'board' => monitor_campos($data['board'] ?? null, $boardFields),
         'cpus' => monitor_lista($data['cpus'] ?? null, $cpuFields, 32),
@@ -479,9 +594,11 @@ function monitor_enrollment_revocar(PDO $pdo, int $id): bool
 
 function monitor_enrollment_redimir(PDO $pdo, ?string $code, string $machineId, ?string $deviceToken): bool
 {
-    if (!monitor_enrollment_code_valido($code)
+    if (
+        !monitor_enrollment_code_valido($code)
         || !preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i', $machineId)
-        || !monitor_credencial_agente_valida($deviceToken)) {
+        || !monitor_credencial_agente_valida($deviceToken)
+    ) {
         return false;
     }
 
@@ -659,12 +776,28 @@ function monitor_cliente_texto_normalizar(string $value): string
 {
     $value = mb_strtolower(trim($value), 'UTF-8');
     $value = strtr($value, [
-        'á' => 'a', 'à' => 'a', 'ä' => 'a', 'â' => 'a',
-        'é' => 'e', 'è' => 'e', 'ë' => 'e', 'ê' => 'e',
-        'í' => 'i', 'ì' => 'i', 'ï' => 'i', 'î' => 'i',
-        'ó' => 'o', 'ò' => 'o', 'ö' => 'o', 'ô' => 'o',
-        'ú' => 'u', 'ù' => 'u', 'ü' => 'u', 'û' => 'u',
-        'ñ' => 'n', 'ç' => 'c',
+        'á' => 'a',
+        'à' => 'a',
+        'ä' => 'a',
+        'â' => 'a',
+        'é' => 'e',
+        'è' => 'e',
+        'ë' => 'e',
+        'ê' => 'e',
+        'í' => 'i',
+        'ì' => 'i',
+        'ï' => 'i',
+        'î' => 'i',
+        'ó' => 'o',
+        'ò' => 'o',
+        'ö' => 'o',
+        'ô' => 'o',
+        'ú' => 'u',
+        'ù' => 'u',
+        'ü' => 'u',
+        'û' => 'u',
+        'ñ' => 'n',
+        'ç' => 'c',
     ]);
     if (function_exists('iconv')) {
         $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
@@ -730,8 +863,10 @@ function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSa
         return null;
     }
     usort($scores, static fn($a, $b) => $b['score'] <=> $a['score']);
-    if ($scores[0]['score'] < 0.92
-        || (isset($scores[1]) && $scores[0]['score'] - $scores[1]['score'] < 0.08)) {
+    if (
+        $scores[0]['score'] < 0.92
+        || (isset($scores[1]) && $scores[0]['score'] - $scores[1]['score'] < 0.08)
+    ) {
         return null;
     }
     return $scores[0]['client'];
@@ -764,7 +899,8 @@ function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname)
     $findAlias = $pdo->prepare('SELECT equipo_id FROM equipo_nombres WHERE software=? AND nombre=? FOR UPDATE');
     $insertAlias = $pdo->prepare('INSERT INTO equipo_nombres (software,nombre,equipo_id) VALUES (?,?,?)');
     $products = [$equipment['software']];
-    if (!empty($equipment['monitor_machine_id'])) $products[] = 'MonitorAgent';
+    if (!empty($equipment['monitor_machine_id']))
+        $products[] = 'MonitorAgent';
     foreach (array_unique($products) as $product) {
         $findAlias->execute([$product, $equipment['nombre']]);
         $owner = $findAlias->fetchColumn();
@@ -772,7 +908,8 @@ function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname)
             // Una vinculacion manual anterior tiene prioridad; nunca se reasigna por un renombrado.
             continue;
         }
-        if ($owner === false) $insertAlias->execute([$product, $equipment['nombre'], $equipmentId]);
+        if ($owner === false)
+            $insertAlias->execute([$product, $equipment['nombre'], $equipmentId]);
     }
     $pdo->prepare('UPDATE equipos SET nombre=? WHERE id=?')->execute([$name, $equipmentId]);
 }
@@ -946,8 +1083,14 @@ function monitor_password_descifrar(string $encoded): string
     if (!is_string($payload) || strlen($payload) < 29) {
         throw new RuntimeException('La contraseña cifrada está dañada.');
     }
-    $plain = openssl_decrypt(substr($payload, 28), 'aes-256-gcm', monitor_password_clave(), OPENSSL_RAW_DATA,
-        substr($payload, 0, 12), substr($payload, 12, 16));
+    $plain = openssl_decrypt(
+        substr($payload, 28),
+        'aes-256-gcm',
+        monitor_password_clave(),
+        OPENSSL_RAW_DATA,
+        substr($payload, 0, 12),
+        substr($payload, 12, 16)
+    );
     if (!is_string($plain)) {
         throw new RuntimeException('No se pudo descifrar la contraseña de RustDesk. Revisa la clave del servidor.');
     }
@@ -1148,9 +1291,15 @@ function monitor_evento_nivel_sql(string $alias = 'ev'): string
 
 function monitor_eventos_listar(PDO $pdo, int $page, ?string $search, string $level, ?int $equipoId = null, ?string $dateFrom = null, ?string $dateTo = null): array
 {
-    if (!in_array($level, [
-        'all', 'Critical', 'Error', 'Warning', 'Information',
-    ], true) && preg_match('/^Level \d+$/D', $level) !== 1) {
+    if (
+        !in_array($level, [
+            'all',
+            'Critical',
+            'Error',
+            'Warning',
+            'Information',
+        ], true) && preg_match('/^Level \d+$/D', $level) !== 1
+    ) {
         throw new InvalidArgumentException('El nivel de evento no es válido.');
     }
 
