@@ -47,8 +47,13 @@ export default function Detalle({
           <Campo t="Reintentos" v={c.intentos} />
           <Campo t="Revisado por" v={c.revisado ? `${c.revisado_por || 'Usuario'}${c.revisado_fecha ? ` · ${c.revisado_fecha}` : ''}` : null} />
         </dl>
+        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && !(onRevisar && onReabrir) && (
+          <p className="detalle-revision-aviso">El OK de esta copia se marca en la ficha del equipo.</p>
+        )}
         {c.equipo_id && onAbrirEquipo && <div className="detalle-acciones">
-          <button className="btn sec" type="button" onClick={() => onAbrirEquipo(c)}>Ver ficha del equipo</button>
+          <button className="btn sec" type="button" onClick={() => onAbrirEquipo(c)}>
+            {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && !(onRevisar && onReabrir) ? 'Ir a la ficha del equipo' : 'Ver ficha del equipo'}
+          </button>
         </div>}
         {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && onRevisar && onReabrir && (
           <Revision c={c} onRevisar={onRevisar} onReabrir={onReabrir} />

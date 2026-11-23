@@ -586,6 +586,11 @@ dd {
   margin: 0;
   word-break: break-word;
 }
+.detalle-revision-aviso {
+  margin: 0 0 12px;
+  color: var(--mut);
+  font-size: 14px;
+}
 .detalle-acciones {
   display: flex;
   justify-content: flex-start;

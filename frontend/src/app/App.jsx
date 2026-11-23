@@ -216,7 +216,7 @@ export default function App() {
   const abrirEquipoDeCopia = useCallback((copia) => {
     if (!copia?.equipo_id) return;
     const cliente = copia.cliente_id || 'sin-asignar';
-    navegar(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}`);
+    navegar(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}?tab=copias`);
   }, [navegar]);
   const abrirNotificacion = useCallback((notificacion) => {
     setNotificacionesAbiertas(false);
@@ -281,8 +281,7 @@ export default function App() {
         )}
       </main>
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} onRevisar={copias.revisar} onReabrir={copias.reabrir}
-          onSeg={copias.seguimiento} onNote={copias.nota} onAbrirEquipo={abrirEquipoDeCopia} />
+        <Detalle c={cur} onClose={cerrar} onAbrirEquipo={abrirEquipoDeCopia} />
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
       {sesion && notificacionesAbiertas && <Notificaciones onClose={() => setNotificacionesAbiertas(false)}
