@@ -30,7 +30,7 @@ final class CopyReviewController
         $group = is_array($input['grupo'] ?? null) ? $input['grupo'] : [];
         $state = strtoupper((string) ($input['estado'] ?? ''));
         if (!in_array($state, ['OK', 'ERROR', 'WARNING', 'RUNNING'], true)) {
-            fail('ClasificaciÃ³n no vÃ¡lida');
+            fail('Clasificación no válida');
         }
 
         [$where, $params] = self::revisionFilter($group);
@@ -48,20 +48,23 @@ final class CopyReviewController
             $severity = 'normal';
         }
         if ($state !== 'OK' && $description === '') {
-            fail('Indica una descripciÃ³n para clasificar el error');
+            fail('Indica una descripción para clasificar el error');
         }
         $source = 'manual:' . $user['usuario'];
         $update = db()->prepare("UPDATE copias SET estado=?, severidad=?, codigo=?, desc_error=?,
             clasificacion_fuente=?, revisado=0, revisado_por=NULL, revisado_fecha=NULL,
             revision_desc=NULL, seg=NULL, recordar=NULL WHERE {$where}");
         $update->execute(array_merge([$state, $severity, $code !== '' ? $code : null, $description, $source], $params));
-        out(['actualizadas' => $ids, 'clasificacion' => [
-            'estado' => $state,
-            'severidad' => $severity,
-            'codigo' => $code !== '' ? $code : null,
-            'desc_error' => $description,
-            'clasificacion_fuente' => $source,
-        ]]);
+        out([
+            'actualizadas' => $ids,
+            'clasificacion' => [
+                'estado' => $state,
+                'severidad' => $severity,
+                'codigo' => $code !== '' ? $code : null,
+                'desc_error' => $description,
+                'clasificacion_fuente' => $source,
+            ]
+        ]);
         return true;
     }
 
