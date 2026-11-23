@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../shared/api/client';
+import { agregarLogoPdf } from '../../../shared/lib/pdfBranding';
 
 function bytes(value) {
   const number = Number(value);
@@ -106,10 +107,11 @@ function agregarDatoPdf(rows, label, value) {
   rows.push([label, String(value)]);
 }
 
-function agregarListaPdf(rows, items, prefix, fields) {
-  (items || []).forEach((item, index) => {
+function agregarListaPdf(rows, items, fields) {
+  (items || []).forEach((item) => {
     fields.forEach(([label, getValue]) => {
-      agregarDatoPdf(rows, `${prefix} ${index + 1} · ${label}`, getValue(item));
+      // The section heading already gives context; numbering every field adds noise.
+      agregarDatoPdf(rows, label, getValue(item));
     });
   });
 }
@@ -121,21 +123,22 @@ function agregarSeccionPdf(doc, autoTable, titulo, rows, y) {
     y = 18;
   }
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(28, 50, 74);
-  doc.setFillColor(45, 132, 170);
-  doc.rect(14, y - 4.2, 2, 6.2, 'F');
-  doc.text(titulo, 20, y);
+  doc.setFontSize(12);
+  doc.setTextColor(38, 57, 76);
+  doc.text(titulo, 14, y);
+  doc.setDrawColor(220, 227, 234);
+  doc.setLineWidth(0.3);
+  doc.line(14, y + 2, doc.internal.pageSize.getWidth() - 14, y + 2);
   autoTable(doc, {
-    startY: y + 3,
-    head: [['DETALLE', 'ESPECIFICACIÓN']],
+    startY: y + 4,
+    head: [['Dato', 'Información']],
     body: rows,
-    theme: 'grid',
+    theme: 'plain',
     margin: { left: 14, right: 14, top: 18, bottom: 20 },
-    styles: { font: 'helvetica', fontSize: 10, cellPadding: 3.2, overflow: 'linebreak', lineColor: [220, 227, 234], textColor: [42, 52, 62], valign: 'middle' },
-    headStyles: { fillColor: [34, 67, 96], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, cellPadding: 3.1 },
-    alternateRowStyles: { fillColor: [245, 248, 251] },
-    columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold', textColor: [65, 79, 94] }, 1: { cellWidth: 'auto' } },
+    styles: { font: 'helvetica', fontSize: 9.5, cellPadding: { top: 2.2, right: 2, bottom: 2.2, left: 2 }, overflow: 'linebreak', textColor: [42, 52, 62], valign: 'middle' },
+    headStyles: { fillColor: [242, 246, 249], textColor: [85, 99, 113], fontStyle: 'bold', fontSize: 8, cellPadding: 2 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 0: { cellWidth: 62, fontStyle: 'normal', textColor: [85, 99, 113] }, 1: { cellWidth: 'auto' } },
     rowPageBreak: 'avoid',
   });
   return doc.lastAutoTable.finalY + 10;
@@ -150,26 +153,27 @@ function agregarProgramasPdf(doc, autoTable, software, y) {
     y = 18;
   }
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(28, 50, 74);
-  doc.setFillColor(45, 132, 170);
-  doc.rect(14, y - 4.2, 2, 6.2, 'F');
-  doc.text(sinLista ? 'Programas instalados' : `Programas instalados (${instalados.length})`, 20, y);
+  doc.setFontSize(12);
+  doc.setTextColor(38, 57, 76);
+  doc.text(sinLista ? 'Programas instalados' : `Programas instalados (${instalados.length})`, 14, y);
+  doc.setDrawColor(220, 227, 234);
+  doc.setLineWidth(0.3);
+  doc.line(14, y + 2, doc.internal.pageSize.getWidth() - 14, y + 2);
   const body = sinLista
     ? [['Pendiente de actualizar el agente', '', '']]
     : instalados.length
       ? instalados.map((programa) => [programa.name || '', programa.version || '—', programa.publisher || '—'])
       : [['No se detectaron programas instalados', '', '']];
   autoTable(doc, {
-    startY: y + 3,
-    head: [['PROGRAMA', 'VERSIÓN', 'FABRICANTE']],
+    startY: y + 4,
+    head: [['Programa', 'Versión', 'Fabricante']],
     body,
-    theme: 'grid',
+    theme: 'plain',
     margin: { left: 14, right: 14, top: 18, bottom: 20 },
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.4, overflow: 'linebreak', lineColor: [220, 227, 234], textColor: [42, 52, 62], valign: 'middle' },
-    headStyles: { fillColor: [34, 67, 96], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, cellPadding: 3.1 },
-    alternateRowStyles: { fillColor: [245, 248, 251] },
-    columnStyles: { 0: { cellWidth: 92, fontStyle: 'bold', textColor: [65, 79, 94] }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' } },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.2, overflow: 'linebreak', textColor: [42, 52, 62], valign: 'middle' },
+    headStyles: { fillColor: [242, 246, 249], textColor: [85, 99, 113], fontStyle: 'bold', fontSize: 8, cellPadding: 2 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 0: { cellWidth: 92, fontStyle: 'normal', textColor: [65, 79, 94] }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' } },
     rowPageBreak: 'avoid',
   });
   return doc.lastAutoTable.finalY + 10;
@@ -184,28 +188,27 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
+  await agregarLogoPdf(doc, 14, 7, 31);
   const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
   const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
   doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
-  doc.setFillColor(27, 48, 70);
-  doc.rect(0, 0, ancho, 51, 'F');
-  doc.setFillColor(46, 145, 180);
-  doc.rect(0, 51, ancho, 2, 'F');
+  doc.setFillColor(46, 116, 151);
+  doc.rect(0, 0, ancho, 3, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(124, 205, 225);
-  doc.text('SAUBER  /  INFORME TÉCNICO', 14, 14);
+  doc.setTextColor(77, 99, 117);
+  doc.text('SAUBER  ·  INFORME DEL EQUIPO', 14, 14);
   doc.setFontSize(19);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(28, 45, 61);
   const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
   doc.text(lineasNombre, 14, 25);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(220, 230, 239);
+  doc.setTextColor(91, 105, 119);
   doc.text(subtituloEquipo || 'Estado y especificaciones del equipo', 14, 35 + (lineasNombre.length - 1) * 6);
   doc.setFontSize(9);
-  doc.setTextColor(220, 230, 239);
-  doc.text(`Preparado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
+  doc.setTextColor(91, 105, 119);
+  doc.text(`Generado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
 
   let y = 59 + (lineasNombre.length - 1) * 6;
   const identificacion = [];
@@ -236,7 +239,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   y = agregarSeccionPdf(doc, autoTable, 'Placa base y BIOS', placa, y);
 
   const procesadores = [];
-  agregarListaPdf(procesadores, monitor.cpus, 'Procesador', [
+  agregarListaPdf(procesadores, monitor.cpus, [
     ['Modelo', (cpu) => cpu.name],
     ['Núcleos / procesadores lógicos', (cpu) => [cpu.cores, cpu.logicalProcessors].filter((value) => value != null).join(' / ')],
     ['Frecuencia máxima', (cpu) => cpu.maxClockMHz != null ? `${cpu.maxClockMHz} MHz` : null],
@@ -244,7 +247,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   y = agregarSeccionPdf(doc, autoTable, 'Procesadores', procesadores, y);
 
   const memoria = [];
-  agregarListaPdf(memoria, monitor.ram, 'Módulo', [
+  agregarListaPdf(memoria, monitor.ram, [
     ['Ranura', (module) => module.slot],
     ['Capacidad', (module) => bytes(module.capacityBytes)],
     ['Tipo / velocidad', (module) => [module.type, module.speedMHz != null ? `${module.speedMHz} MHz` : null].filter(Boolean).join(' · ')],
@@ -253,14 +256,14 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   y = agregarSeccionPdf(doc, autoTable, 'Memoria RAM', memoria, y);
 
   const graficas = [];
-  agregarListaPdf(graficas, graficasFisicas(monitor.gpus), 'Gráfica', [
+  agregarListaPdf(graficas, graficasFisicas(monitor.gpus), [
     ['Modelo', (gpu) => gpu.name],
     ['Memoria', (gpu) => bytes(gpu.adapterRamBytes)],
   ]);
   y = agregarSeccionPdf(doc, autoTable, 'Gráficas', graficas, y);
 
   const discos = [];
-  agregarListaPdf(discos, monitor.disks, 'Disco', [
+  agregarListaPdf(discos, monitor.disks, [
     ['Modelo', (disk) => disk.model],
     ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
     ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
@@ -270,7 +273,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   y = agregarSeccionPdf(doc, autoTable, 'Discos', discos, y);
 
   const volumenes = [];
-  agregarListaPdf(volumenes, monitor.volumes, 'Volumen', [
+  agregarListaPdf(volumenes, monitor.volumes, [
     ['Unidad', (volume) => [volume.drive, volume.label].filter(Boolean).join(' · ')],
     ['Espacio libre / capacidad', espacioVolumen],
     ['Sistema de archivos', (volume) => volume.fileSystem],
@@ -278,7 +281,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   y = agregarSeccionPdf(doc, autoTable, 'Volúmenes', volumenes, y);
 
   const baterias = [];
-  agregarListaPdf(baterias, monitor.batteries, 'Batería', [
+  agregarListaPdf(baterias, monitor.batteries, [
     ['Nombre', (battery) => battery.name],
     ['Carga', (battery) => battery.chargePercent != null ? `${battery.chargePercent}%` : null],
     ['Salud', (battery) => battery.healthPercent != null ? `${battery.healthPercent}%` : null],
@@ -300,6 +303,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
     doc.setPage(pagina);
+    if (pagina > 1) await agregarLogoPdf(doc, 14, 6, 22);
     doc.setDrawColor(220, 227, 234);
     doc.setLineWidth(0.25);
     doc.line(14, alto - 15, ancho - 14, alto - 15);
@@ -328,27 +332,27 @@ async function generarPdfProgramas({ equipo, clienteNombre, monitor }) {
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
+  await agregarLogoPdf(doc, 14, 7, 31);
   const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
   const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
   doc.setProperties({ title: `Programas instalados - ${nombreEquipo}`, subject: 'Programas instalados en el equipo', creator: 'Intranet-Sauber' });
-  doc.setFillColor(27, 48, 70);
-  doc.rect(0, 0, ancho, 51, 'F');
-  doc.setFillColor(46, 145, 180);
-  doc.rect(0, 51, ancho, 2, 'F');
+  doc.setFillColor(46, 116, 151);
+  doc.rect(0, 0, ancho, 3, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(124, 205, 225);
-  doc.text('SAUBER  /  PROGRAMAS INSTALADOS', 14, 14);
+  doc.setTextColor(77, 99, 117);
+  doc.text('SAUBER  ·  PROGRAMAS INSTALADOS', 14, 14);
   doc.setFontSize(19);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(28, 45, 61);
   const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
   doc.text(lineasNombre, 14, 25);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(220, 230, 239);
+  doc.setTextColor(91, 105, 119);
   doc.text(subtituloEquipo || 'Programas instalados en el equipo', 14, 35 + (lineasNombre.length - 1) * 6);
   doc.setFontSize(9);
-  doc.text(`Preparado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
+  doc.setTextColor(91, 105, 119);
+  doc.text(`Generado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
   const ultimoInforme = monitor.timestampUtc;
   if (ultimoInforme) doc.text(`Último informe del agente: ${fecha(ultimoInforme)}`, ancho - 14, 20, { align: 'right' });
 
@@ -357,6 +361,7 @@ async function generarPdfProgramas({ equipo, clienteNombre, monitor }) {
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
     doc.setPage(pagina);
+    if (pagina > 1) await agregarLogoPdf(doc, 14, 6, 22);
     doc.setDrawColor(220, 227, 234);
     doc.setLineWidth(0.25);
     doc.line(14, alto - 15, ancho - 14, alto - 15);

@@ -5,6 +5,7 @@ import Tag from '../components/Tag';
 import PageHeading from '../../../shared/ui/PageHeading';
 import BarraFiltros from '../../../shared/ui/BarraFiltros';
 import { etiquetaEstado } from '../../../shared/lib/logic';
+import { agregarLogoPdf } from '../../../shared/lib/pdfBranding';
 
 const fechaLocal = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const fechaInicial = () => {
@@ -66,20 +67,28 @@ export default function InformeCopias({ onNavigate }) {
       const filtros = [consulta.desde && `Desde ${consulta.desde}`, consulta.hasta && `Hasta ${consulta.hasta}`,
         consulta.estado !== 'all' && `Estado ${consulta.estado}`, consulta.q && `Búsqueda: ${consulta.q}`].filter(Boolean).join(' · ') || 'Sin filtros';
       doc.setProperties({ title: 'Informe de copias', subject: filtros, creator: 'Intranet-Sauber' });
-      doc.setFillColor(27, 48, 70); doc.rect(0, 0, ancho, 39, 'F');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(255, 255, 255); doc.text('Informe de copias', 14, 19);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(220, 230, 239); doc.text(filtros, 14, 29);
+      doc.setFillColor(46, 116, 151); doc.rect(0, 0, ancho, 3, 'F');
+      await agregarLogoPdf(doc, 14, 7, 40);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(28, 45, 61); doc.text('Informe de copias', 62, 19);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(91, 105, 119); doc.text(filtros, 62, 29);
       doc.setTextColor(65, 79, 94); doc.setFontSize(10); doc.text(`${rows.length.toLocaleString('es-ES')} registros`, 14, 48);
       doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, ancho - 14, 48, { align: 'right' });
       autoTable(doc, { startY: 54, head: [['Fecha', 'Cliente', 'Equipo', 'Software', 'Estado', 'Detalle', 'Código', 'Destino']],
         body: rows.map((item) => [item.fecha, item.cliente, item.equipo, item.software || '—', etiquetaEstado(item),
           item.desc_error || item.clasificacion_evidencia || '—', item.codigo || '—', item.destino || '—']),
         styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 2.3, overflow: 'linebreak', valign: 'top' },
-        headStyles: { fillColor: [34, 67, 96], textColor: 255 }, alternateRowStyles: { fillColor: [245, 248, 251] },
+        headStyles: { fillColor: [242, 246, 249], textColor: [65, 79, 94] }, alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 32 }, 2: { cellWidth: 32 }, 3: { cellWidth: 23 }, 4: { cellWidth: 25 }, 5: { cellWidth: 'auto' }, 6: { cellWidth: 25 }, 7: { cellWidth: 28 } },
         margin: { left: 10, right: 10, bottom: 15 }, });
       const paginasPdf = doc.internal.getNumberOfPages();
-      for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) { doc.setPage(paginaPdf); doc.setFontSize(8); doc.setTextColor(105, 117, 129); doc.text('Intranet-Sauber · Informe de copias', 10, alto - 8); doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 10, alto - 8, { align: 'right' }); }
+      for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) {
+        doc.setPage(paginaPdf);
+        if (paginaPdf > 1) await agregarLogoPdf(doc, 10, 5, 24);
+        doc.setFontSize(8);
+        doc.setTextColor(105, 117, 129);
+        doc.text('Intranet-Sauber · Informe de copias', 10, alto - 8);
+        doc.text(`Página ${paginaPdf} de ${paginasPdf}`, ancho - 10, alto - 8, { align: 'right' });
+      }
       const nombre = `informe-copias-${consulta.desde || 'historial'}-${consulta.hasta || 'actual'}.pdf`;
       if (imprimir) { doc.autoPrint(); window.open(doc.output('bloburl'), '_blank', 'noopener'); } else doc.save(nombre);
     } catch (e) {

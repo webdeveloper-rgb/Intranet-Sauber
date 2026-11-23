@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../../shared/api/client';
+import { agregarLogoPdf } from '../../../shared/lib/pdfBranding';
 import Paginacion from '../../../shared/ui/Paginacion';
 import BarraFiltros from '../../../shared/ui/BarraFiltros';
 import PageHeading from '../../../shared/ui/PageHeading';
@@ -192,16 +193,17 @@ export default function Eventos({ equipoId = null, integrado = false }) {
       const ordenarTipos = [...tipos.values()].sort((a, b) => b.cantidad - a.cantidad || String(a.origen).localeCompare(String(b.origen)));
 
       // Portada y resumen ejecutivo.
-      doc.setFillColor(28, 53, 81);
+      doc.setFillColor(248, 250, 252);
       doc.rect(9, 9, ancho - 18, 36, 'F');
+      await agregarLogoPdf(doc, 14, 21, 40);
       doc.setFont('times', 'bold');
       doc.setFontSize(23);
-      doc.setTextColor(255, 255, 255);
-      doc.text('Informe de eventos de Windows', 16, 25);
+      doc.setTextColor(28, 45, 61);
+      doc.text('Informe de eventos de Windows', 61, 25);
       doc.setFont('times', 'normal');
       doc.setFontSize(12);
-      doc.setTextColor(225, 234, 242);
-      doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 16, 37);
+      doc.setTextColor(91, 105, 119);
+      doc.text(`Equipo: ${todos[0]?.equipo || equipoNombre}`, 61, 37);
       doc.setTextColor(40, 51, 64);
       doc.setFontSize(11);
       const filtrosPdf = [
@@ -244,7 +246,7 @@ export default function Eventos({ equipoId = null, integrado = false }) {
         head: [['Clasificación', 'Canal', 'Origen', 'Event ID', 'Cantidad']],
         body: ordenarTipos.map((tipo) => [tipo.nivel, tipo.canal, tipo.origen, tipo.eventId, tipo.cantidad]),
         styles: { font: 'times', fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
-        headStyles: { fillColor: [28, 53, 81], textColor: 255 },
+        headStyles: { fillColor: [242, 246, 249], textColor: [65, 79, 94] },
         alternateRowStyles: { fillColor: [245, 247, 250] },
         columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 25 }, 4: { cellWidth: 25, halign: 'right' } },
         margin: { left: 9, right: 9, bottom: 14 },
@@ -264,7 +266,7 @@ export default function Eventos({ equipoId = null, integrado = false }) {
         head: [['Fecha y hora', 'Clasificación', 'Nivel Windows', 'Canal', 'Origen', 'ID', 'Resumen del mensaje']],
         body: todos.map((e) => [fechaHora(e.fecha), e.nivel, e.nivel_original || e.nivel, e.canal, e.origen, e.event_id, String(e.mensaje || 'Sin mensaje').replace(/\s+/g, ' ').slice(0, 220) + (String(e.mensaje || '').length > 220 ? '…' : '')]),
         styles: { font: 'times', fontSize: 9.5, cellPadding: 2.4, overflow: 'linebreak', valign: 'top' },
-        headStyles: { fillColor: [28, 53, 81], textColor: 255 },
+        headStyles: { fillColor: [242, 246, 249], textColor: [65, 79, 94] },
         alternateRowStyles: { fillColor: [245, 247, 250] },
         columnStyles: { 0: { cellWidth: 29 }, 1: { cellWidth: 25 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 39 }, 5: { cellWidth: 14 }, 6: { cellWidth: 'auto' } },
         margin: { left: 9, right: 9, bottom: 14 },
@@ -273,6 +275,7 @@ export default function Eventos({ equipoId = null, integrado = false }) {
       const paginasPdf = doc.internal.getNumberOfPages();
       for (let paginaPdf = 1; paginaPdf <= paginasPdf; paginaPdf += 1) {
         doc.setPage(paginaPdf);
+        if (paginaPdf > 1) await agregarLogoPdf(doc, 9, 5, 24);
         doc.setDrawColor(220, 225, 231);
         doc.line(9, 201, ancho - 9, 201);
         doc.setFont('times', 'normal');
