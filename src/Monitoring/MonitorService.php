@@ -513,7 +513,8 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
                 ? $software['windowsLicenseStatus'] : 'unknown',
             'antivirusProducts' => monitor_lista_textos($software['antivirusProducts'] ?? null, 20, 160),
             'backupProducts' => monitor_lista_textos($software['backupProducts'] ?? null, 30, 160),
-            'installedPrograms' => monitor_programas_instalados($software['installedPrograms'] ?? null),
+            // El agente envía la lista en la raíz del informe (installedPrograms), y solo cada ~12 h.
+            'installedPrograms' => monitor_programas_instalados($data['installedPrograms'] ?? $software['installedPrograms'] ?? null),
         ],
         'board' => monitor_campos($data['board'] ?? null, $boardFields),
         'cpus' => monitor_lista($data['cpus'] ?? null, $cpuFields, 32),
@@ -970,6 +971,16 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
                         }
                     }
                 }
+            }
+        }
+
+        // Los informes sin lista de programas (el agente la envía solo cada ~12 h) no deben borrar la anterior.
+        if (($report['software']['installedPrograms'] ?? null) === null) {
+            $previous = $pdo->prepare('SELECT monitor_report FROM equipos WHERE id=?');
+            $previous->execute([$equipmentId]);
+            $oldReport = json_decode((string) $previous->fetchColumn(), true);
+            if (is_array($oldReport['software']['installedPrograms'] ?? null)) {
+                $report['software']['installedPrograms'] = $oldReport['software']['installedPrograms'];
             }
         }
 
