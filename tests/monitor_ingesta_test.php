@@ -65,6 +65,11 @@ $programas = $conProgramas['software']['installedPrograms'];
 $same(['alfa', 'Solo texto', 'Zeta Tool'], array_column($programas, 'name'), 'programas deduplicados, sin nombres vacíos y ordenados');
 $same(['name' => 'alfa', 'version' => '1.0'], $programas[0], 'se descartan campos no admitidos de cada programa');
 $same('Zeta', $programas[2]['publisher'], 'se conserva el fabricante');
+$enRaiz = monitor_normalizar_informe([
+    'machineId' => 'machine-123', 'hostname' => 'PC-CLIENTE', 'timestampUtc' => gmdate('c', $reportTime),
+    'installedPrograms' => [['name' => 'Chrome', 'version' => '131', 'publisher' => 'Google', 'scope' => 'machine', 'sizeMb' => 300]],
+], 'machine-123');
+$same([['name' => 'Chrome', 'version' => '131', 'publisher' => 'Google']], $enRaiz['software']['installedPrograms'], 'se lee la lista en la raíz del informe, como la envía el agente');
 $vacio = monitor_normalizar_informe([
     'machineId' => 'machine-123', 'hostname' => 'PC-CLIENTE', 'timestampUtc' => gmdate('c', $reportTime),
     'software' => ['installedPrograms' => []],
