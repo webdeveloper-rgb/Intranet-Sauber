@@ -113,7 +113,12 @@ export default function previewDemo() {
               system: { osName: 'Windows 11 Pro', osArchitecture: '64 bits', manufacturer: 'Dell', model: 'OptiPlex 7010', totalRamBytes: 17179869184 },
               cpus: [{ name: 'Intel Core i5', cores: 6, logicalProcessors: 12 }], ram: [], gpus: [], batteries: [],
               disks: [{ model: 'SSD de demostración', sizeBytes: 512000000000, healthStatus: id === 1 ? 'Unhealthy' : 'Healthy', mediaType: 'SSD' }],
-              volumes: [{ drive: 'C:', sizeBytes: 500000000000, freeBytes: 150000000000 }], software: {},
+              volumes: [{ drive: 'C:', sizeBytes: 500000000000, freeBytes: 150000000000 }],
+              software: { available: true, installedPrograms: [
+                { name: '7-Zip', version: '24.08', publisher: 'Igor Pavlov' },
+                { name: 'Google Chrome', version: '131.0', publisher: 'Google LLC' },
+                { name: 'Microsoft Office', version: '16.0', publisher: 'Microsoft Corporation' },
+              ] },
             }, alertas: id === 1 ? [{ id: 1, severidad: 'critical', titulo: 'Disco con fallo SMART previsto', detalle: 'Alerta ficticia para revisar el diseño.' }] : [],
           });
         }

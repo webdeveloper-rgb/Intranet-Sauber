@@ -262,6 +262,54 @@ function monitor_lista_textos($source, int $maxItems, int $maxLength): array
     return $result;
 }
 
+/**
+ * Programas instalados enviados por el agente. Devuelve null si el agente no envía la lista
+ * (agente antiguo) y un array, posiblemente vacío, si la envía. Acepta objetos
+ * {name, version, publisher} o simples textos, elimina duplicados y ordena por nombre.
+ */
+function monitor_programas_instalados($source, int $maxItems = 2000): ?array
+{
+    if (!is_array($source)) {
+        return null;
+    }
+    $result = [];
+    $seen = [];
+    foreach ($source as $item) {
+        if (is_array($item)) {
+            $name = monitor_texto($item['name'] ?? null, 200);
+            $version = monitor_texto($item['version'] ?? null, 60);
+            $publisher = monitor_texto($item['publisher'] ?? null, 160);
+        } elseif (is_string($item)) {
+            $name = monitor_texto($item, 200);
+            $version = null;
+            $publisher = null;
+        } else {
+            continue;
+        }
+        if ($name === null) {
+            continue;
+        }
+        $key = mb_strtolower($name . "\0" . ($version ?? ''));
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $program = ['name' => $name];
+        if ($version !== null) {
+            $program['version'] = $version;
+        }
+        if ($publisher !== null) {
+            $program['publisher'] = $publisher;
+        }
+        $result[] = $program;
+        if (count($result) >= $maxItems) {
+            break;
+        }
+    }
+    usort($result, static fn(array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+    return $result;
+}
+
 function monitor_eventos_normalizar($source, int $reportTimestamp, string $eventMode = 'standard'): array
 {
     if ($source === null) {
@@ -399,6 +447,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
                 ? $software['windowsLicenseStatus'] : 'unknown',
             'antivirusProducts' => monitor_lista_textos($software['antivirusProducts'] ?? null, 20, 160),
             'backupProducts' => monitor_lista_textos($software['backupProducts'] ?? null, 30, 160),
+            'installedPrograms' => monitor_programas_instalados($software['installedPrograms'] ?? null),
         ],
         'board' => monitor_campos($data['board'] ?? null, $boardFields),
         'cpus' => monitor_lista($data['cpus'] ?? null, $cpuFields, 32),

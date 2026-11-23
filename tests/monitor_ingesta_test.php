@@ -47,6 +47,29 @@ $report = monitor_normalizar_informe([
 
 $same('PC-CLIENTE', $report['hostname'], 'hostname normalizado');
 $same('123456789', $report['rustDeskId'], 'se conserva el ID de RustDesk');
+$same(null, $report['software']['installedPrograms'], 'sin lista de programas el informe indica agente sin actualizar');
+$conProgramas = monitor_normalizar_informe([
+    'machineId' => 'machine-123',
+    'hostname' => 'PC-CLIENTE',
+    'timestampUtc' => gmdate('c', $reportTime),
+    'software' => ['installedPrograms' => [
+        ['name' => 'Zeta Tool', 'version' => '2.0', 'publisher' => 'Zeta'],
+        ['name' => 'alfa', 'version' => '1.0', 'campoNoAdmitido' => 'no guardar'],
+        ['name' => 'alfa', 'version' => '1.0'],
+        'Solo texto',
+        ['version' => 'sin nombre'],
+        42,
+    ]],
+], 'machine-123');
+$programas = $conProgramas['software']['installedPrograms'];
+$same(['alfa', 'Solo texto', 'Zeta Tool'], array_column($programas, 'name'), 'programas deduplicados, sin nombres vacíos y ordenados');
+$same(['name' => 'alfa', 'version' => '1.0'], $programas[0], 'se descartan campos no admitidos de cada programa');
+$same('Zeta', $programas[2]['publisher'], 'se conserva el fabricante');
+$vacio = monitor_normalizar_informe([
+    'machineId' => 'machine-123', 'hostname' => 'PC-CLIENTE', 'timestampUtc' => gmdate('c', $reportTime),
+    'software' => ['installedPrograms' => []],
+], 'machine-123');
+$same([], $vacio['software']['installedPrograms'], 'una lista vacía se distingue de un agente sin actualizar');
 $clasificacionEventos = monitor_evento_nivel_sql();
 $same(true, str_contains($clasificacionEventos, 'windowsupdateclient'), 'la clasificación compartida rebaja errores conocidos de Windows Update');
 $same(true, str_contains($clasificacionEventos, "THEN 'Information'"), 'la clasificación compartida conserva casos informativos');
