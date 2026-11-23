@@ -318,6 +318,63 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   doc.save(`estado-especificaciones-${nombre}-${generado.toISOString().slice(0, 10)}.pdf`);
 }
 
+// PDF solo con los programas instalados del equipo (botón independiente del informe técnico completo).
+async function generarPdfProgramas({ equipo, clienteNombre, monitor }) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const generado = new Date();
+  const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
+  const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
+  doc.setProperties({ title: `Programas instalados - ${nombreEquipo}`, subject: 'Programas instalados en el equipo', creator: 'Intranet-Sauber' });
+  doc.setFillColor(27, 48, 70);
+  doc.rect(0, 0, ancho, 51, 'F');
+  doc.setFillColor(46, 145, 180);
+  doc.rect(0, 51, ancho, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(124, 205, 225);
+  doc.text('SAUBER  /  PROGRAMAS INSTALADOS', 14, 14);
+  doc.setFontSize(19);
+  doc.setTextColor(255, 255, 255);
+  const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
+  doc.text(lineasNombre, 14, 25);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(220, 230, 239);
+  doc.text(subtituloEquipo || 'Programas instalados en el equipo', 14, 35 + (lineasNombre.length - 1) * 6);
+  doc.setFontSize(9);
+  doc.text(`Preparado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
+  const ultimoInforme = monitor.timestampUtc;
+  if (ultimoInforme) doc.text(`Último informe del agente: ${fecha(ultimoInforme)}`, ancho - 14, 20, { align: 'right' });
+
+  agregarProgramasPdf(doc, autoTable, monitor.software, 59 + (lineasNombre.length - 1) * 6);
+
+  const paginas = doc.internal.getNumberOfPages();
+  for (let pagina = 1; pagina <= paginas; pagina += 1) {
+    doc.setPage(pagina);
+    doc.setDrawColor(220, 227, 234);
+    doc.setLineWidth(0.25);
+    doc.line(14, alto - 15, ancho - 14, alto - 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(105, 117, 129);
+    doc.text('Intranet-Sauber  ·  Programas instalados', 14, alto - 9);
+    doc.text(`Página ${pagina} de ${paginas}`, ancho - 14, alto - 8, { align: 'right' });
+  }
+
+  const nombre = String(equipo.nombre || `equipo-${equipo.id}`)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || `equipo-${equipo.id}`;
+  doc.save(`programas-instalados-${nombre}-${generado.toISOString().slice(0, 10)}.pdf`);
+}
+
 export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin = false, clienteNombre = '' }) {
   const monitor = datos?.monitor;
   const modoConfigurado = datos?.event_extraction_mode || 'standard';
@@ -328,6 +385,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
   const [modoActualizado, setModoActualizado] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [errorPdf, setErrorPdf] = useState('');
+  const [generandoPdfProgramas, setGenerandoPdfProgramas] = useState(false);
   const [horaActual, setHoraActual] = useState(() => Date.now());
   const [copiasEnCurso, setCopiasEnCurso] = useState(datos?.copias_en_curso || []);
 
@@ -415,12 +473,31 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       setGenerandoPdf(false);
     }
   };
+  const programasDisponibles = Array.isArray(monitor.software?.installedPrograms);
+  const descargarPdfProgramas = async () => {
+    setErrorPdf('');
+    setGenerandoPdfProgramas(true);
+    try {
+      await generarPdfProgramas({ equipo, clienteNombre, monitor });
+    } catch (e) {
+      setErrorPdf(e.message || 'No se pudo generar el PDF de programas.');
+    } finally {
+      setGenerandoPdfProgramas(false);
+    }
+  };
   return <section className="monitor-panel" aria-labelledby="monitor-heading">
     <div className="monitor-heading">
       <h3 id="monitor-heading">Estado y especificaciones</h3>
-      <button type="button" className="btn sec" onClick={descargarPdf} disabled={generandoPdf}>
-        {generandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="btn sec" onClick={descargarPdfProgramas}
+          disabled={generandoPdfProgramas || !programasDisponibles}
+          title={programasDisponibles ? undefined : 'El agente aún no ha enviado la lista de programas instalados'}>
+          {generandoPdfProgramas ? 'Generando PDF…' : 'Descargar programas instalados'}
+        </button>
+        <button type="button" className="btn sec" onClick={descargarPdf} disabled={generandoPdf}>
+          {generandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
+        </button>
+      </div>
     </div>
     {errorPdf && <div className="errbox" role="alert">{errorPdf}</div>}
     <section className={`monitor-agent-status monitor-agent-${estadoAgente.clase}`} aria-label="Estado del agente">
