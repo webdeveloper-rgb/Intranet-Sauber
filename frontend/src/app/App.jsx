@@ -216,7 +216,7 @@ export default function App() {
   const abrirEquipoDeCopia = useCallback((copia) => {
     if (!copia?.equipo_id) return;
     const cliente = copia.cliente_id || 'sin-asignar';
-    navegar(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}?tab=copias`);
+    navegar(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}?tab=copias&copia=${copia.id}`);
   }, [navegar]);
   const abrirNotificacion = useCallback((notificacion) => {
     setNotificacionesAbiertas(false);
@@ -254,7 +254,7 @@ export default function App() {
         ) : vista === 'eventos' ? (
           sesion ? <Eventos key={`${vista}-${ruta.equipoId || 'todos'}`} equipoId={ruta.equipoId} /> : estadoSesion
         ) : vista === 'clientes' && sesion ? (
-          <Clientes key={vista} sesion={sesion} refreshSignal={actualizacionEquipos}
+          <Clientes key={vista} copiaId={ruta.copiaId} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} pestana={ruta.pestana} onNavigate={navegar} />
         ) : (
           <>

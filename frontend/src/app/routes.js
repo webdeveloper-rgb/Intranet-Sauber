@@ -59,10 +59,12 @@ export function leerRuta() {
       const clienteId = /^\d+$/.test(cliente) ? Number(cliente) : cliente;
       const pathCliente = `/clientes/${encodeURIComponent(cliente)}`;
       const tab = new URLSearchParams(window.location.search).get('tab');
+      const copia = new URLSearchParams(window.location.search).get('copia');
       const pestana = equipo && ['copias', 'monitor', 'eventos', 'configuracion'].includes(tab) ? tab : 'resumen';
+      const copiaId = equipo && pestana === 'copias' && /^\d+$/.test(copia || '') ? Number(copia) : null;
       return {
-        vista: 'clientes', clienteId, equipoId: equipo, pestana,
-        path: equipo ? `${pathCliente}/equipos/${equipo}${pestana === 'resumen' ? '' : `?tab=${pestana}`}` : pathCliente,
+        vista: 'clientes', clienteId, equipoId: equipo, pestana, copiaId,
+        path: equipo ? `${pathCliente}/equipos/${equipo}${pestana === 'resumen' ? '' : `?tab=${pestana}${copiaId ? `&copia=${copiaId}` : ''}`}` : pathCliente,
       };
     }
     return { vista: 'clientes', clienteId: null, equipoId: null, path: '/clientes' };

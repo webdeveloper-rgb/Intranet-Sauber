@@ -41,7 +41,7 @@ function sugerirCliente(clientes, sugerido) {
   return parciales.length === 1 ? parciales[0] : undefined;
 }
 
-export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, pestana = 'resumen', onNavigate }) {
+export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, pestana = 'resumen', copiaId = null, onNavigate }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
   const [equipos, setEquipos] = useState([]);
@@ -77,6 +77,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const cargaHistorialActual = useRef(0);
   const equiposActuales = useRef([]);
   const sincronizando = useRef(false);
+
+  useEffect(() => {
+    if (!copiaId || !equipoAbierto || !historial.length) return;
+    const copia = historial.find((item) => Number(item.id) === Number(copiaId));
+    if (copia) setCopiaSeleccionada(copia);
+  }, [copiaId, equipoAbierto, historial]);
 
   const cargar = useCallback(async (silencioso = false, duranteSync = false) => {
     if (sincronizando.current && !duranteSync) return { error: '', actualizado: false };
