@@ -57,8 +57,8 @@ function Campo({ label, value, ayuda }) {
   return <div className="monitor-campo"><dt>{label}</dt><dd>{value}{ayuda && <small>{ayuda}</small>}</dd></div>;
 }
 
-function Seccion({ titulo, children }) {
-  if (!children) return null;
+function Seccion({ titulo, children, mostrar = true }) {
+  if (!mostrar || !children) return null;
   return <section className="monitor-seccion"><h4>{titulo}</h4>{children}</section>;
 }
 
@@ -613,7 +613,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       </dl>
     </Seccion>
 
-    <Seccion titulo="Procesadores">
+    <Seccion titulo="Procesadores" mostrar={monitor.cpus?.length > 0}>
       <Lista items={monitor.cpus} render={(cpu) => <>
         <Campo label="Modelo" value={cpu.name} />
         <Campo label="Núcleos / procesadores lógicos" value={[cpu.cores, cpu.logicalProcessors].filter((v) => v != null).join(' / ')} />
@@ -622,7 +622,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       </>} />
     </Seccion>
 
-    <Seccion titulo="Memoria RAM">
+    <Seccion titulo="Memoria RAM" mostrar={monitor.ram?.length > 0}>
       <Lista items={monitor.ram} render={(module) => <>
         <Campo label="Ranura" value={module.slot} />
         <Campo label="Capacidad" value={bytes(module.capacityBytes)} />
@@ -631,14 +631,14 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       </>} />
     </Seccion>
 
-    <Seccion titulo="Gráficas">
+    <Seccion titulo="Gráficas" mostrar={graficasFisicas(monitor.gpus)?.length > 0}>
       <Lista items={graficasFisicas(monitor.gpus)} render={(gpu) => <>
         <Campo label="Modelo" value={gpu.name} />
         <Campo label="Memoria" value={bytes(gpu.adapterRamBytes)} />
       </>} />
     </Seccion>
 
-    <Seccion titulo="Discos">
+    <Seccion titulo="Discos" mostrar={monitor.disks?.length > 0}>
       <Lista items={monitor.disks} render={(disk) => <>
         <Campo label="Modelo" value={disk.model} />
         <Campo label="Vida útil restante" value={disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'} />
@@ -651,7 +651,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       </>} />
     </Seccion>
 
-    <Seccion titulo="Volúmenes">
+    <Seccion titulo="Volúmenes" mostrar={monitor.volumes?.length > 0}>
       <Lista items={monitor.volumes} render={(volume) => <>
         <Campo label="Unidad" value={[volume.drive, volume.label].filter(Boolean).join(' · ')} />
         <Campo label="Espacio libre / capacidad del volumen" value={espacioVolumen(volume)} ayuda="Espacio de esta unidad lógica. Se muestra aparte de la capacidad física del disco." />
@@ -659,7 +659,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       </>} />
     </Seccion>
 
-    <Seccion titulo="Baterías">
+    <Seccion titulo="Baterías" mostrar={monitor.batteries?.length > 0}>
       <Lista items={monitor.batteries} render={(battery) => <>
         <Campo label="Batería" value={battery.name} />
         <Campo label="Carga" value={battery.chargePercent != null ? `${battery.chargePercent}%` : null} />
