@@ -466,6 +466,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     ];
     $gpuFields = ['name' => 'text', 'driverVersion' => 'text', 'adapterRamBytes' => 'number'];
     $diskFields = [
+        'deviceId' => 'text',
         'model' => 'text',
         'serialNumber' => 'text',
         'firmwareVersion' => 'text',
@@ -473,12 +474,26 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
         'busType' => 'text',
         'sizeBytes' => 'number',
         'healthStatus' => 'text',
+        'operationalStatus' => 'text',
+        'predictiveFailure' => 'boolean',
         'wearPercent' => 'number',
         'lifeLeftPercent' => 'number',
         'temperatureC' => 'number',
+        'temperatureMaxC' => 'number',
         'powerOnHours' => 'number',
-        'readErrorsTotal' => 'number',
-        'writeErrorsTotal' => 'number',
+        'readErrorsTotal' => 'text',
+        'readErrorsCorrected' => 'text',
+        'readErrorsUncorrected' => 'text',
+        'writeErrorsTotal' => 'text',
+        'writeErrorsCorrected' => 'text',
+        'writeErrorsUncorrected' => 'text',
+        'readLatencyMaxMs' => 'text',
+        'writeLatencyMaxMs' => 'text',
+        'flushLatencyMaxMs' => 'text',
+        'startStopCycleCount' => 'number',
+        'startStopCycleCountMax' => 'number',
+        'loadUnloadCycleCount' => 'number',
+        'loadUnloadCycleCountMax' => 'number',
     ];
     $volumeFields = [
         'drive' => 'text',
@@ -718,26 +733,40 @@ function monitor_token_consumir(PDO $pdo, ?string $token, string $machineId): bo
 function monitor_evaluar_alertas(array $report): array
 {
     $alerts = [];
-    if (($report['smartPredictFailure'] ?? null) === true) {
+    $diskPredictiveFailure = false;
+    foreach (($report['disks'] ?? []) as $disk) {
+        if (($disk['predictiveFailure'] ?? null) === true
+            || stripos((string) ($disk['operationalStatus'] ?? ''), 'predictive failure') !== false) {
+            $diskPredictiveFailure = true;
+            break;
+        }
+    }
+    if (($report['smartPredictFailure'] ?? null) === true && !$diskPredictiveFailure) {
         $alerts[] = [
             'key' => 'smart-predict-failure',
             'severity' => 'critical',
             'title' => 'SMART predice un fallo',
-            'detail' => 'El sistema de almacenamiento informa de un fallo SMART inminente.',
+            'detail' => 'Windows ha recibido una señal de predicción de fallo SMART, pero no ha podido asociarla con precisión a un disco concreto.',
         ];
     }
 
     foreach (($report['disks'] ?? []) as $index => $disk) {
         $health = strtolower((string) ($disk['healthStatus'] ?? ''));
-        if (!in_array($health, ['warning', 'unhealthy'], true)) {
+        $operational = (string) ($disk['operationalStatus'] ?? '');
+        $predictiveFailure = ($disk['predictiveFailure'] ?? null) === true
+            || stripos($operational, 'predictive failure') !== false;
+        if (!in_array($health, ['warning', 'unhealthy'], true) && !$predictiveFailure) {
             continue;
         }
-        $identity = strtolower((string) ($disk['serialNumber'] ?? $disk['model'] ?? ('disco-' . $index)));
+        $identity = strtolower((string) ($disk['serialNumber'] ?? $disk['deviceId'] ?? $disk['model'] ?? ('disco-' . $index)));
+        $severity = $health === 'unhealthy' || $predictiveFailure ? 'critical' : 'warning';
+        $detail = 'Disco ' . ((string) ($disk['model'] ?? '') ?: ('#' . ($index + 1))) . ': ' . ($disk['healthStatus'] ?? 'estado no disponible');
+        if ($operational !== '') $detail .= '; estado operativo: ' . $operational;
         $alerts[] = [
             'key' => 'disk-' . substr(hash('sha256', $identity), 0, 24),
-            'severity' => $health === 'unhealthy' ? 'critical' : 'warning',
-            'title' => $health === 'unhealthy' ? 'Disco en estado crítico' : 'Disco con advertencia',
-            'detail' => 'Disco ' . ((string) ($disk['model'] ?? '') ?: ('#' . ($index + 1))) . ': ' . $disk['healthStatus'],
+            'severity' => $severity,
+            'title' => $predictiveFailure ? 'Disco con predicción de fallo' : ($health === 'unhealthy' ? 'Disco en estado crítico' : 'Disco con advertencia'),
+            'detail' => $detail,
         ];
     }
 
