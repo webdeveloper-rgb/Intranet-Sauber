@@ -241,7 +241,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
-  await agregarLogoPdf(doc, 14, 7, 31);
+  await agregarLogoPdf(doc, 14, 6, 43);
   const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
   const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
   doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
@@ -250,7 +250,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(77, 99, 117);
-  doc.text('SAUBER  ·  INFORME DEL EQUIPO', 52, 14);
+  doc.text('SAUBER  ·  INFORME DEL EQUIPO', 62, 14);
   doc.setFontSize(19);
   doc.setTextColor(28, 45, 61);
   const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
@@ -350,7 +350,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
     doc.setPage(pagina);
-    if (pagina > 1) await agregarLogoPdf(doc, 14, 6, 22);
+    if (pagina > 1) await agregarLogoPdf(doc, 14, 6, 30);
     doc.setDrawColor(220, 227, 234);
     doc.setLineWidth(0.25);
     doc.line(14, alto - 15, ancho - 14, alto - 15);
