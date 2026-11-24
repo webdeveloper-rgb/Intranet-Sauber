@@ -22,6 +22,7 @@ import PageHeading from '../../../shared/ui/PageHeading';
 import BarraFiltros from '../../../shared/ui/BarraFiltros';
 import { usePagination } from '../../../shared/hooks/usePagination';
 import { agruparEquiposPorCliente, sugerirCliente, unir } from '../lib/clientes';
+import { ListaEquiposCliente, TarjetasClientes } from '../components/DirectorioListas';
 
 const fechaLocal = (value) => {
   if (!value) return null;
@@ -632,60 +633,16 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
           {!clienteActual && !equipoActual && <>
-            {clientesFiltrados.length || (!filtrosActivosClientes.length && (equiposSinAsignar.length || equiposClienteSinSatbk.length || equiposClienteInactivo.length)) ? <div className="cliente-grid">
-              {paginaClientes.items.map((cliente) => {
-                const asignados = equiposPorCliente.get(Number(cliente.id)) || [];
-                const servidores = asignados.filter((equipo) => equipo.tipo === 'servidor').length;
-                return <button type="button" className="cliente-tarjeta" key={cliente.id}
-                  onClick={() => { onNavigate(`/clientes/${cliente.id}`); setBusqueda(''); }}>
-                  <span className="cliente-tarjeta-flecha">›</span>
-                  <span className="cliente-tarjeta-titulo">
-                    <strong>{cliente.nombre}</strong>
-                    <span className={`cliente-satbk${cliente.tiene_satbk || cliente.tiene_sat18 ? ' activo' : ''}`}>
-                      <span className="cliente-satbk-punto" aria-hidden="true" />
-                      {cliente.tiene_satbk && cliente.tiene_sat18 ? 'SATBK · SAT18' : cliente.tiene_satbk ? 'SATBK' : cliente.tiene_sat18 ? 'SAT18' : 'Sin SAT'}
-                    </span>
-                  </span>
-                  <span className="cliente-conteo">{asignados.length} equipos · {servidores} servidores</span>
-                </button>;
-              })}
-              {!filtrosActivosClientes.length && equiposSinAsignar.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
-                onClick={() => { onNavigate('/clientes/sin-asignar'); setBusqueda(''); }}>
-                <span className="cliente-tarjeta-flecha">›</span>
-                <strong>Sin asignar</strong>
-                <span className="cliente-conteo">{equiposSinAsignar.length} equipos por vincular</span>
-              </button>}
-              {!filtrosActivosClientes.length && equiposClienteInactivo.length > 0 && <button type="button" className="cliente-tarjeta cliente-tarjeta-pendiente"
-                onClick={() => { onNavigate('/clientes/cliente-inactivo'); setBusqueda(''); }}>
-                <span className="cliente-tarjeta-flecha">›</span>
-                <strong>Cliente no activo</strong>
-                <span className="cliente-conteo">{equiposClienteInactivo.length} equipos conservados</span>
-              </button>}
-            </div> : <div className="mapeo-vacio">{cargando ? 'Cargando clientes y equipos…' : fallo ? 'No se pudieron cargar los clientes y equipos.' : filtrosActivosClientes.length ? 'Ningún cliente coincide con los filtros seleccionados.' : 'No hay clientes ni equipos para mostrar.'}</div>}
+            {clientesFiltrados.length || (!filtrosActivosClientes.length && (equiposSinAsignar.length || equiposClienteSinSatbk.length || equiposClienteInactivo.length)) ? <TarjetasClientes items={paginaClientes.items} equiposPorCliente={equiposPorCliente}
+              mostrarPendientes={!filtrosActivosClientes.length} equiposSinAsignar={equiposSinAsignar}
+              equiposClienteInactivo={equiposClienteInactivo}
+              onAbrir={(ruta) => { onNavigate(ruta); setBusqueda(''); }} /> : <div className="mapeo-vacio">{cargando ? 'Cargando clientes y equipos…' : fallo ? 'No se pudieron cargar los clientes y equipos.' : filtrosActivosClientes.length ? 'Ningún cliente coincide con los filtros seleccionados.' : 'No hay clientes ni equipos para mostrar.'}</div>}
             <Paginacion total={clientesFiltrados.length} pagina={paginaClientes.page} paginas={paginaClientes.pageCount}
               porPagina={paginaClientes.pageSize} onCambiar={paginaClientes.setPage} etiqueta="clientes" />
           </>}
 
           {clienteActual && !equipoActual && <>
-            {equiposFiltrados.length ? <div className="equipo-lista-navegable">
-              {paginaEquipos.items.map((equipo) => (
-                <article className="equipo-navegable" key={equipo.id}>
-                  <button type="button" className="equipo-navegable-abrir"
-                    onClick={() => onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}/equipos/${equipo.id}`)}>
-                    <span className="equipo-navegable-info">
-                      <strong>{equipo.nombre}{equipo.monitor_alias && <small className="equipo-alias-lista"> · {equipo.monitor_alias}</small>}</strong>
-                      <span>{unir(equipo.software, equipo.programa || TIPOS[equipo.tipo], equipo.fecha_creacion ? `Alta ${equipo.fecha_creacion}` : null)}</span>
-                      <span className="equipo-navegable-estados">
-                        <span className={`estado-chip${equipo.tiene_copias ? ' ok' : ''}`}>{equipo.tiene_copias ? 'Copias' : 'Sin copias'}</span>
-                        <span className={`estado-chip${equipo.tiene_monitor ? ' ok' : ''}`}>{equipo.tiene_monitor ? 'Agente' : 'Sin agente'}</span>
-                      </span>
-                    </span>
-                    <span className="equipo-tipo-pill">{equipo.tipo === 'servidor' ? 'Servidor' : 'Equipo'}</span>
-                    <span className="equipo-tarjeta-flecha">›</span>
-                  </button>
-                </article>
-              ))}
-            </div> : <div className="mapeo-vacio">{cargando ? 'Cargando equipos…' : fallo ? 'No se pudieron cargar los equipos.' : filtrosActivosEquipos.length
+            {equiposFiltrados.length ? <ListaEquiposCliente equipos={paginaEquipos.items} clienteId={clienteAbierto} onAbrir={onNavigate} /> : <div className="mapeo-vacio">{cargando ? 'Cargando equipos…' : fallo ? 'No se pudieron cargar los equipos.' : filtrosActivosEquipos.length
               ? 'Ningún equipo coincide con los filtros seleccionados.'
               : clienteAbierto === 'sin-satbk' ? 'No hay equipos asignados a clientes sin SATBK.'
                 : clienteAbierto === 'sin-asignar' ? 'No hay equipos sin asignar.'
