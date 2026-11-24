@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../../shared/api/client';
 import { norm } from '../../../shared/lib/logic';
 import { rutaHref } from '../../../app/routes';
@@ -25,6 +25,7 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
   const [errorEstados, setErrorEstados] = useState('');
   const [cargando, setCargando] = useState(true);
   const [revision, setRevision] = useState(0);
+  const cargaInicialCompletada = useRef(false);
   const q = filtros.q || '';
   const cliente = filtros.cliente || '';
   const tipo = validar(filtros.tipo, TIPOS);
@@ -51,9 +52,10 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
         setEstados(null);
         setErrorEstados(resumen.status === 'rejected' ? resumen.reason.message : 'La respuesta de estados no es válida.');
       }
-      setCargando(false); pendiente = false;
+      setCargando(false); pendiente = false; cargaInicialCompletada.current = true;
     };
-    setCargando(true); cargar();
+    if (!cargaInicialCompletada.current) setCargando(true);
+    cargar();
     const timer = setInterval(() => { if (!document.hidden) cargar(); }, 60_000);
     return () => { activo = false; clearInterval(timer); };
   }, [revision, refreshSignal]);
@@ -114,7 +116,7 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
   return <section className="equipos-page" aria-labelledby="equipos-titulo" aria-busy={cargando}>
     <PageHeading id="equipos-titulo" eyebrow="Sauber Ofimática" title="Equipos"
       description="Todos los equipos registrados, sus clientes y su estado de monitoreo."
-      actions={<button className="btn sec" disabled={cargando} onClick={() => setRevision((n) => n + 1)}>{cargando ? 'Actualizando…' : 'Actualizar'}</button>} />
+      actions={<button className="btn sec" disabled={cargando} onClick={() => { setCargando(true); setRevision((n) => n + 1); }}>{cargando ? 'Actualizando…' : 'Actualizar'}</button>} />
     {error && <div className="errbox" role="alert">No se pudo actualizar el listado: {error}. {datos && 'Se mantienen los últimos datos recibidos.'} <button className="btn sec" onClick={() => setRevision((n) => n + 1)}>Reintentar</button></div>}
     {errorEstados && <div className="estado-alertas" role="status">No se pudo actualizar el estado de monitoreo: {errorEstados}. Las incidencias de hardware, los eventos y las copias ausentes no están disponibles. <button className="btn sec" onClick={() => setRevision((n) => n + 1)}>Reintentar</button></div>}
     <BarraFiltros title="Filtrar equipos" className="equipos-filtros"

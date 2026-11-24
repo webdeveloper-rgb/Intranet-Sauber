@@ -12,6 +12,10 @@ final class MergeTestPDO extends PDO
         if ($sql === 'SHOW WARNINGS') return 'SELECT NULL WHERE 0';
         $sql = str_replace([' FOR UPDATE', 'INSERT IGNORE INTO', 'NOW()', 'ON DUPLICATE KEY UPDATE id=id'],
             ['', 'INSERT OR IGNORE INTO', 'CURRENT_TIMESTAMP', 'ON CONFLICT(huella) DO NOTHING'], $sql);
+        $sql = str_replace([
+            'CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+            'CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+        ], ['message_key', 'huella'], $sql);
         return $sql;
     }
     public function prepare(string $query, array $options = []): PDOStatement|false
@@ -40,7 +44,7 @@ function fixture(): PDO
           estado TEXT,desc_error TEXT,codigo TEXT,resultado_original TEXT,clasificacion_fuente TEXT,clasificacion_evidencia TEXT,
           software TEXT,destino TEXT,tamano TEXT,duracion TEXT,huella TEXT UNIQUE,tipo TEXT,programa TEXT,revisado INT DEFAULT 0);
         INSERT INTO copias(id,fecha,cliente,equipo,equipo_id,estado,software,huella,revisado) VALUES
-          (10,'2026-11-19','Sauber','Alba-PC',2,'ERROR','Acronis','old-copy',1),
+          (10,'2026-11-20','Sauber','Alba-PC',2,'ERROR','Acronis','old-copy',1),
           (11,'2026-11-19','Sauber','Ventas',1,'OK','Acronis','target-copy',0);
         CREATE TABLE notas(id INTEGER PRIMARY KEY,copia_id INT REFERENCES copias(id) ON DELETE CASCADE,texto TEXT);
         INSERT INTO notas VALUES(1,10,'Nota tecnica conservada');
@@ -60,6 +64,7 @@ function fixture(): PDO
           (2,2,'disk',1,'critical','2026-11-12','2026-11-19',NULL);
         CREATE TABLE equipo_nombres(id INTEGER PRIMARY KEY,software TEXT,nombre TEXT,equipo_id INT REFERENCES equipos(id) ON DELETE CASCADE,UNIQUE(software,nombre));
         CREATE TABLE equipo_combinaciones(id INTEGER PRIMARY KEY,destino_id INT,usuario TEXT,detalle TEXT);
+        CREATE TABLE panel_cache(cache_key TEXT PRIMARY KEY,value TEXT,expires_at TEXT);
         CREATE TABLE monitor_agents(machine_id TEXT PRIMARY KEY,credential_hash TEXT,active INT,last_used_at TEXT);
         INSERT INTO monitor_agents(machine_id,active) VALUES('machine-alba',1),('machine-otro',1);
         CREATE TABLE monitor_ingest_tokens(id INTEGER PRIMARY KEY,machine_id TEXT,token_hash TEXT,consumed_at TEXT,expires_at TEXT);
@@ -95,11 +100,13 @@ check((int) $p->query('SELECT COUNT(*) FROM monitor_alertas')->fetchColumn() ===
 check($p->query('SELECT severidad FROM monitor_alertas')->fetchColumn() === 'critical', 'alerta critica conservada');
 check((int) $p->query('SELECT COUNT(*) FROM equipo_combinaciones')->fetchColumn() === 1, 'auditoria guardada');
 $d = ['message_key'=>'next-copy', 'nombre'=>'Alba-PC', 'software'=>'Acronis', 'sugerido'=>null, 'tipo'=>'usuario', 'programa'=>null,
-    'origen'=>'Alba-PC', 'fecha'=>'2026-11-19', 'estado'=>'OK', 'desc_error'=>'', 'codigo'=>null, 'resultado_original'=>'OK',
+    'origen'=>'Alba-PC', 'fecha'=>'2026-11-21', 'estado'=>'OK', 'desc_error'=>'', 'codigo'=>null, 'resultado_original'=>'OK',
     'clasificacion_fuente'=>'test', 'clasificacion_evidencia'=>'', 'destino'=>null, 'tamano'=>null, 'duracion'=>null];
 ingesta_guardar($p, $d);
 check((int) $p->query("SELECT equipo_id FROM copias WHERE huella='next-copy'")->fetchColumn() === 1, 'proxima copia del nombre antiguo vinculada');
 check($p->query("SELECT equipo FROM copias WHERE huella='next-copy'")->fetchColumn() === 'Alba-PC', 'nombre recibido conservado al importar');
+check((int) $p->query("SELECT COUNT(*) FROM copias WHERE huella='old-copy'")->fetchColumn() === 0, 'un OK posterior cierra los errores anteriores');
+check((int) $p->query("SELECT COUNT(*) FROM correo_copias_eliminadas WHERE message_key='old-copy'")->fetchColumn() === 1, 'los errores cerrados no reaparecen');
 check((int) $p->query("SELECT COUNT(*) FROM equipos WHERE nombre='Alba-PC'")->fetchColumn() === 0, 'sin recrear origen');
 $p = fixture(); $plan = equipos_combinar_plan($p,1,[2]);
 $p->exec("UPDATE equipos SET nombre='Nombre cambiado' WHERE id=2");
