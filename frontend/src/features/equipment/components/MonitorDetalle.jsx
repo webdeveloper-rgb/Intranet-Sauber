@@ -31,33 +31,6 @@ function tiempoEncendido(lastBootUtc, reportTimestampUtc) {
   return [days ? `${days} d` : null, `${hours} h`, `${remainingMinutes} min`].filter(Boolean).join(' ');
 }
 
-function enteroDisco(value) {
-  if (value == null || value === '') return null;
-  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-}
-
-function resumenErroresDisco(disk, tipo) {
-  const total = disk[`${tipo}ErrorsTotal`];
-  const corregidos = disk[`${tipo}ErrorsCorrected`];
-  const noCorregidos = disk[`${tipo}ErrorsUncorrected`];
-  if (total == null && corregidos == null && noCorregidos == null) return null;
-  return `Total ${enteroDisco(total) ?? '—'} · corregidos ${enteroDisco(corregidos) ?? '—'} · no corregidos ${enteroDisco(noCorregidos) ?? '—'}`;
-}
-
-function resumenLatenciasDisco(disk) {
-  const items = [
-    ['Lectura', disk.readLatencyMaxMs], ['Escritura', disk.writeLatencyMaxMs], ['Vaciado', disk.flushLatencyMaxMs],
-  ].filter(([, value]) => value != null);
-  return items.length ? items.map(([label, value]) => `${label}: ${enteroDisco(value)} ms`).join(' · ') : null;
-}
-
-function resumenCiclosDisco(disk, prefijo, nombre) {
-  const actual = disk[`${prefijo}CycleCount`];
-  const maximo = disk[`${prefijo}CycleCountMax`];
-  if (actual == null && maximo == null) return null;
-  return `${nombre}: ${enteroDisco(actual) ?? '—'} / ${enteroDisco(maximo) ?? '—'}`;
-}
-
 function espacioVolumen(volume) {
   const free = bytes(volume.freeBytes);
   const total = bytes(volume.sizeBytes);
@@ -337,20 +310,13 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   ], y);
 
   y = agregarGridPdf(doc, 'Discos', monitor.disks, [
-    ['Identificador del disco', (disk) => disk.deviceId], ['Modelo', (disk) => disk.model],
-    ['Número de serie', (disk) => disk.serialNumber], ['Firmware', (disk) => disk.firmwareVersion],
-    ['Salud reportada por Windows', (disk) => disk.healthStatus],
-    ['Estado operativo', (disk) => disk.operationalStatus],
-    ['Predicción de fallo del proveedor', (disk) => disk.predictiveFailure == null ? 'No disponible' : disk.predictiveFailure ? 'Fallo predicho' : 'Sin señal de fallo'],
-    ['Desgaste utilizado reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
-    ['Vida estimada restante (100 − desgaste)', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : null],
+    ['Modelo', (disk) => disk.model], ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
+    ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
     ['Capacidad física / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
-    ['Temperatura actual / máxima', (disk) => disk.temperatureC != null || disk.temperatureMaxC != null ? `${disk.temperatureC ?? '—'} / ${disk.temperatureMaxC ?? '—'} °C` : null],
+    ['Temperatura', (disk) => disk.temperatureC != null ? `${disk.temperatureC} °C` : null],
+    ['Desgaste reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
     ['Uso acumulado', (disk) => disk.powerOnHours != null ? `${Number(disk.powerOnHours).toLocaleString('es-ES')} h` : null],
-    ['Errores de lectura', (disk) => resumenErroresDisco(disk, 'read')],
-    ['Errores de escritura', (disk) => resumenErroresDisco(disk, 'write')],
-    ['Latencia máxima de E/S', resumenLatenciasDisco],
-    ['Ciclos del disco', (disk) => [resumenCiclosDisco(disk, 'startStop', 'Arranque/parada'), resumenCiclosDisco(disk, 'loadUnload', 'Carga/descarga')].filter(Boolean).join(' · ') || null],
+    ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
   ], y);
 
   const volumenes = [];
@@ -579,8 +545,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
         <Campo label="Memoria total" value={bytes(monitor.system?.totalRamBytes)} />
         <Campo label="Último arranque" value={fecha(monitor.system?.lastBootUtc)} />
         <Campo label="Tiempo encendido del PC al informe" value={tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc)} ayuda="Tiempo desde el último arranque hasta el informe recibido. No son las horas acumuladas del disco." />
-        <Campo label="Señal SMART de Windows" value={monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Señal de fallo' : 'Sin señal de fallo'}
-          ayuda="Lectura global de la interfaz SMART de Windows. Algunos controladores, RAID, USB y discos NVMe no la exponen; si no hay dato, no significa que el disco esté sano." />
+        <Campo label="Predicción SMART" value={monitor.smartPredictFailure == null ? 'No disponible' : monitor.smartPredictFailure ? 'Fallo previsto' : 'Sin fallo previsto'} />
       </dl>
     </Seccion>
 
@@ -676,24 +641,14 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
 
     <Seccion titulo="Discos" mostrar={monitor.disks?.length >= 1}>
       <Lista grid items={monitor.disks} render={(disk) => <>
-        <Campo label="Identificador del disco" value={disk.deviceId} />
         <Campo label="Modelo" value={disk.model} />
-        <Campo label="Número de serie" value={disk.serialNumber} />
-        <Campo label="Firmware" value={disk.firmwareVersion} />
-        <Campo label="Salud reportada por Windows" value={disk.healthStatus} ayuda="Estado general proporcionado por el controlador o proveedor de almacenamiento; no equivale por sí solo a un diagnóstico SMART completo." />
-        <Campo label="Estado operativo" value={disk.operationalStatus} />
-        <Campo label="Predicción de fallo del proveedor" value={disk.predictiveFailure == null ? 'No disponible' : disk.predictiveFailure ? 'Fallo predicho' : 'Sin señal de fallo'} />
-        <Campo label="Desgaste utilizado reportado" value={disk.wearPercent != null ? `${disk.wearPercent}%` : null}
-          ayuda="Porcentaje del límite estimado de desgaste informado por Windows y el dispositivo; no es una predicción de fecha de fallo." />
-        <Campo label="Vida estimada restante" value={disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : null}
-          ayuda="Cálculo orientativo: 100% menos el desgaste reportado. Solo aparece cuando el dispositivo proporciona ese contador." />
+        <Campo label="Vida útil restante" value={disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'} />
+        {disk.lifeLeftPercent == null && <Campo label="Estado reportado" value={disk.healthStatus} />}
         <Campo label="Capacidad del disco físico / tipo" value={[bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')} ayuda="Capacidad del dispositivo físico; puede diferir del espacio utilizable de las particiones." />
-        <Campo label="Temperatura actual / máxima" value={disk.temperatureC != null || disk.temperatureMaxC != null ? `${disk.temperatureC ?? '—'} / ${disk.temperatureMaxC ?? '—'} °C` : null} />
+        <Campo label="Temperatura" value={disk.temperatureC != null ? `${disk.temperatureC} °C` : null} />
+        <Campo label="Desgaste reportado" value={disk.wearPercent != null ? `${disk.wearPercent}%` : null} />
         <Campo label="Uso acumulado del disco" value={disk.powerOnHours != null ? `${Number(disk.powerOnHours).toLocaleString('es-ES')} h` : null} ayuda="Contador de horas de funcionamiento del disco durante toda su vida; no se reinicia al apagar el PC." />
-        <Campo label="Errores de lectura" value={resumenErroresDisco(disk, 'read')} />
-        <Campo label="Errores de escritura" value={resumenErroresDisco(disk, 'write')} />
-        <Campo label="Latencia máxima de E/S" value={resumenLatenciasDisco(disk)} ayuda="Máximo observado por el contador de fiabilidad de Windows; puede depender del controlador y del periodo de medida." />
-        <Campo label="Ciclos del disco" value={[resumenCiclosDisco(disk, 'startStop', 'Arranque/parada'), resumenCiclosDisco(disk, 'loadUnload', 'Carga/descarga')].filter(Boolean).join(' · ')} />
+        <Campo label="Errores lectura / escritura" value={[disk.readErrorsTotal, disk.writeErrorsTotal].filter((v) => v != null).join(' / ')} />
       </>} />
     </Seccion>
 
