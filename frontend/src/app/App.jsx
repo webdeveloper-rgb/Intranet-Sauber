@@ -100,7 +100,8 @@ export default function App() {
 
   const volver = useCallback(() => {
     if (historialInterno.current.length > 0) {
-      window.history.back();
+      const destinoAnterior = historialInterno.current.pop();
+      navegar(destinoAnterior, { replace: true });
       return;
     }
     const actual = leerRuta();
