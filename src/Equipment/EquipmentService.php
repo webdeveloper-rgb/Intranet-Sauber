@@ -416,6 +416,18 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
 function correo_resolver_errores_equipo(int $equipoId, ?PDO $pdo = null): int
 {
     $pdo ??= db();
+    // Solo se cierran incidencias si la copia más reciente del equipo es correcta.
+    // Así un OK antiguo no puede ocultar errores que llegaron después.
+    $ultimaCopia = $pdo->prepare("SELECT estado FROM (
+        SELECT estado,fecha,id AS orden_id,0 AS origen FROM copias WHERE equipo_id=?
+        UNION ALL
+        SELECT estado,fecha,id AS orden_id,1 AS origen FROM correo_copias WHERE equipo_id=? AND importada=0
+    ) copias_equipo ORDER BY fecha DESC,origen DESC,orden_id DESC LIMIT 1");
+    $ultimaCopia->execute([$equipoId, $equipoId]);
+    if ($ultimaCopia->fetchColumn() !== 'OK') {
+        return 0;
+    }
+
     $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
         SELECT CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
         FROM correo_copias WHERE equipo_id=? AND estado='ERROR'

@@ -14,6 +14,9 @@ final class HistoryController
             if ($equipoId === false || $equipoId < 1) {
                 fail('Equipo no válido');
             }
+            // Repara errores antiguos si ya hay una copia posterior correcta,
+            // aunque el OK se importara antes de ejecutar la limpieza.
+            correo_resolver_errores_equipo((int) $equipoId, db());
             $query = db()->prepare("SELECT * FROM (
                 SELECT id AS copia_id,NULL AS staging_id,
                     CONVERT(DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS fecha,

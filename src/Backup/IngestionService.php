@@ -435,26 +435,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
         if ($nuevo) {
             correo_importar_equipo((int) $eq['id'], $eq['cliente_id'] !== null ? (int) $eq['cliente_id'] : null, $pdo);
             if ($d['estado'] === 'OK') {
-                    $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
-                        SELECT CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
-                        FROM correo_copias WHERE equipo_id=? AND estado='ERROR'
-                        UNION ALL
-                        SELECT CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
-                        FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL");
-                    $rememberDeleted->execute([(int) $eq['id'], (int) $eq['id']]);
-                    $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'");
-                    $deleteHistory->execute([(int) $eq['id']]);
-                    $erroresEliminados = $deleteHistory->rowCount();
-
-                    // Retira también staging para que errores aún no importados no reaparezcan.
-                    $deleteStaging = $pdo->prepare("DELETE FROM correo_copias WHERE equipo_id=? AND estado='ERROR'");
-                    $deleteStaging->execute([(int) $eq['id']]);
-                    $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')
-                        ->execute([(int) $eq['id']]);
-
-                    // La caché puede contener una alerta SIN_COPIA anterior a esta recepción.
-                    $cacheKey = hash('sha256', 'copias_sin_recibir:v5');
-                    $pdo->prepare('DELETE FROM panel_cache WHERE cache_key=?')->execute([$cacheKey]);
+                $erroresEliminados = correo_resolver_errores_equipo((int) $eq['id'], $pdo);
             }
         }
         $clienteNombre = null;
