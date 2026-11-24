@@ -411,3 +411,27 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
     }
     return $count;
 }
+
+/** Cierra los errores de copia pendientes tras una copia correcta y evita que reaparezcan. */
+function correo_resolver_errores_equipo(int $equipoId, ?PDO $pdo = null): int
+{
+    $pdo ??= db();
+    $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
+        SELECT CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
+        FROM correo_copias WHERE equipo_id=? AND estado='ERROR'
+        UNION ALL
+        SELECT CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
+        FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL");
+    $rememberDeleted->execute([$equipoId, $equipoId]);
+
+    $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'");
+    $deleteHistory->execute([$equipoId]);
+    $deleted = $deleteHistory->rowCount();
+
+    $pdo->prepare("DELETE FROM correo_copias WHERE equipo_id=? AND estado='ERROR'")->execute([$equipoId]);
+    $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')
+        ->execute([$equipoId]);
+    $cacheKey = hash('sha256', 'copias_sin_recibir:v5');
+    $pdo->prepare('DELETE FROM panel_cache WHERE cache_key=?')->execute([$cacheKey]);
+    return $deleted;
+}

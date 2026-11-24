@@ -153,6 +153,9 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
             $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=?,monitor_event_mode=?,rustdesk_password_enc=?,monitor_alias=COALESCE(monitor_alias,?) WHERE id=?')
                 ->execute([$monitor['monitor_machine_id'], $monitor['monitor_report'], $monitor['monitor_last_seen'], $monitor['monitor_event_mode'], $monitor['rustdesk_password_enc'], $monitor['monitor_alias'], $destinoId]);
         }
+        // Las filas SIN_COPIA se calculan con el ID del equipo; se regeneran para el destino.
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $pdo->prepare("DELETE FROM copias WHERE equipo_id IN ($placeholders) AND codigo='SIN_COPIA'")->execute($ids);
         foreach ($origenIds as $sourceId) {
             $pdo->prepare('UPDATE copias SET equipo_id=?,cliente=? WHERE equipo_id=?')->execute([$destinoId, $customer, $sourceId]);
             foreach (['correo_copias', 'correo_copias_eliminadas', 'monitor_eventos', 'monitor_backup_activity', 'equipo_nombres'] as $table) {
@@ -189,6 +192,14 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
         }
         $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')->execute([$destinoId]);
         correo_importar_equipo($destinoId, $destino['cliente_id'] !== null ? (int) $destino['cliente_id'] : null, $pdo);
+        $tieneCopiaCorrecta = $pdo->prepare("SELECT 1 FROM copias WHERE equipo_id=? AND estado='OK' LIMIT 1");
+        $tieneCopiaCorrecta->execute([$destinoId]);
+        if ($tieneCopiaCorrecta->fetchColumn()) {
+            correo_resolver_errores_equipo($destinoId, $pdo);
+        } else {
+            $cacheKey = hash('sha256', 'copias_sin_recibir:v5');
+            $pdo->prepare('DELETE FROM panel_cache WHERE cache_key=?')->execute([$cacheKey]);
+        }
         $q = $pdo->prepare('SELECT nombre FROM equipos WHERE id=?');
         $q->execute([$destinoId]);
         $nombre = $q->fetchColumn();

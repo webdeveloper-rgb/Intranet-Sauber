@@ -453,7 +453,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
                         ->execute([(int) $eq['id']]);
 
                     // La caché puede contener una alerta SIN_COPIA anterior a esta recepción.
-                    $cacheKey = hash('sha256', 'copias_sin_recibir:v4');
+                    $cacheKey = hash('sha256', 'copias_sin_recibir:v5');
                     $pdo->prepare('DELETE FROM panel_cache WHERE cache_key=?')->execute([$cacheKey]);
             }
         }
