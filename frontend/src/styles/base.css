@@ -4416,6 +4416,7 @@ header.app-header {
   background: var(--card);
   box-shadow: 0 24px 72px #0006;
   transform: translate(-50%, -50%);
+  animation: fade 0.15s ease-out;
   overflow-y: auto;
 }
 .monitor-pdf-dialog-header {
