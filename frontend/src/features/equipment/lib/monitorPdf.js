@@ -109,27 +109,27 @@ function agregarGridHardwareIndividualPdf(doc, grupos, y) {
   const alto = doc.internal.pageSize.getHeight();
   const margen = 14;
   const columnas = 2;
-  const gap = 4;
+  const gap = 5;
   const cardWidth = (ancho - margen * 2 - gap) / columnas;
   const tituloSeccion = 'Componentes y almacenamiento';
   const dibujarTitulo = () => {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(38, 57, 76);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(38, 57, 76);
     doc.text(tituloSeccion, margen, y);
-    doc.setDrawColor(220, 227, 234); doc.setLineWidth(0.3);
-    doc.line(margen, y + 2, ancho - margen, y + 2);
-    y += 7;
+    doc.setDrawColor(220, 227, 234); doc.setLineWidth(0.35);
+    doc.line(margen, y + 2.5, ancho - margen, y + 2.5);
+    y += 9;
   };
 
   const tarjetas = visibles.map((grupo) => {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.7);
-    const tituloLines = doc.splitTextToSize(grupo.titulo, cardWidth - 7);
-    let height = 7 + tituloLines.length * 3.2;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+    const tituloLines = doc.splitTextToSize(grupo.titulo, cardWidth - 9);
+    let height = 12 + tituloLines.length * 4;
     const filas = grupo.filas.map(([label, value]) => {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4);
-      const labelLines = doc.splitTextToSize(label, cardWidth - 7);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1);
-      const valueLines = doc.splitTextToSize(String(value), cardWidth - 7);
-      const filaHeight = labelLines.length * 2.6 + valueLines.length * 3 + 2.2;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
+      const labelLines = doc.splitTextToSize(label, cardWidth - 9);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+      const valueLines = doc.splitTextToSize(String(value), cardWidth - 9);
+      const filaHeight = labelLines.length * 3.5 + valueLines.length * 4 + 3;
       height += filaHeight;
       return { labelLines, valueLines, filaHeight };
     });
@@ -150,19 +150,20 @@ function agregarGridHardwareIndividualPdf(doc, grupos, y) {
     }
     fila.tarjetas.forEach((tarjeta, indice) => {
       const x = margen + indice * (cardWidth + gap);
-      doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
-      doc.roundedRect(x, y, cardWidth, tarjeta.height, 1.5, 1.5, 'FD');
-      let cy = y + 4;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.7); doc.setTextColor(38, 57, 76);
+      doc.setFillColor(248, 250, 252); doc.setDrawColor(210, 220, 230);
+      doc.setLineWidth(0.35);
+      doc.roundedRect(x, y, cardWidth, tarjeta.height, 2, 2, 'FD');
+      let cy = y + 6;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(38, 57, 76);
       doc.text(tarjeta.tituloLines, x + 3.5, cy);
-      cy += tarjeta.tituloLines.length * 3.2 + 1.5;
-      tarjeta.filas.forEach(({ labelLines, valueLines, filaHeight }) => {
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.setTextColor(91, 105, 119);
+      cy += tarjeta.tituloLines.length * 4 + 3;
+      tarjeta.filas.forEach(({ labelLines, valueLines }) => {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2); doc.setTextColor(91, 105, 119);
         doc.text(labelLines, x + 3.5, cy);
-        cy += labelLines.length * 2.6;
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1); doc.setTextColor(42, 52, 62);
+        cy += labelLines.length * 3.5;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3); doc.setTextColor(42, 52, 62);
         doc.text(valueLines, x + 3.5, cy);
-        cy += filaHeight - labelLines.length * 2.6;
+        cy += valueLines.length * 4 + 3;
       });
     });
     y += fila.height + gap;
