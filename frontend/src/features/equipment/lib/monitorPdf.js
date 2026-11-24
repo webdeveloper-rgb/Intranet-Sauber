@@ -108,8 +108,9 @@ function agregarGridHardwareIndividualPdf(doc, grupos, y) {
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const margen = 14;
-  const gap = 3;
-  const cardWidth = (ancho - margen * 2 - gap * (visibles.length - 1)) / visibles.length;
+  const columnas = 2;
+  const gap = 4;
+  const cardWidth = (ancho - margen * 2 - gap) / columnas;
   const tituloSeccion = 'Componentes y almacenamiento';
   const dibujarTitulo = () => {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(38, 57, 76);
@@ -128,39 +129,45 @@ function agregarGridHardwareIndividualPdf(doc, grupos, y) {
       const labelLines = doc.splitTextToSize(label, cardWidth - 7);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1);
       const valueLines = doc.splitTextToSize(String(value), cardWidth - 7);
-      const filaHeight = labelLines.length * 2.8 + valueLines.length * 3.1 + 1.7;
+      const filaHeight = labelLines.length * 2.6 + valueLines.length * 3 + 2.2;
       height += filaHeight;
       return { labelLines, valueLines, filaHeight };
     });
     return { tituloLines, filas, height };
   });
-  const cardHeight = Math.max(...tarjetas.map((tarjeta) => tarjeta.height));
-  if (y + cardHeight > alto - 22) {
-    doc.addPage();
-    y = 31;
-    dibujarTitulo();
-  } else {
-    dibujarTitulo();
+  const filasTarjetas = [];
+  for (let index = 0; index < tarjetas.length; index += columnas) {
+    const fila = tarjetas.slice(index, index + columnas);
+    filasTarjetas.push({ tarjetas: fila, height: Math.max(...fila.map((tarjeta) => tarjeta.height)) });
   }
+  dibujarTitulo();
 
-  tarjetas.forEach((tarjeta, index) => {
-    const x = margen + index * (cardWidth + gap);
-    doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
-    doc.roundedRect(x, y, cardWidth, cardHeight, 1.5, 1.5, 'FD');
-    let cy = y + 4;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.7); doc.setTextColor(38, 57, 76);
-    doc.text(tarjeta.tituloLines, x + 3.5, cy);
-    cy += tarjeta.tituloLines.length * 3.2 + 1.5;
-    tarjeta.filas.forEach(({ labelLines, valueLines, filaHeight }) => {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.setTextColor(91, 105, 119);
-      doc.text(labelLines, x + 3.5, cy);
-      cy += labelLines.length * 2.8;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1); doc.setTextColor(42, 52, 62);
-      doc.text(valueLines, x + 3.5, cy);
-      cy += filaHeight - labelLines.length * 2.8;
+  filasTarjetas.forEach((fila) => {
+    if (y + fila.height > alto - 22) {
+      doc.addPage();
+      y = 31;
+      dibujarTitulo();
+    }
+    fila.tarjetas.forEach((tarjeta, indice) => {
+      const x = margen + indice * (cardWidth + gap);
+      doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
+      doc.roundedRect(x, y, cardWidth, tarjeta.height, 1.5, 1.5, 'FD');
+      let cy = y + 4;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.7); doc.setTextColor(38, 57, 76);
+      doc.text(tarjeta.tituloLines, x + 3.5, cy);
+      cy += tarjeta.tituloLines.length * 3.2 + 1.5;
+      tarjeta.filas.forEach(({ labelLines, valueLines, filaHeight }) => {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.setTextColor(91, 105, 119);
+        doc.text(labelLines, x + 3.5, cy);
+        cy += labelLines.length * 2.6;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1); doc.setTextColor(42, 52, 62);
+        doc.text(valueLines, x + 3.5, cy);
+        cy += filaHeight - labelLines.length * 2.6;
+      });
     });
+    y += fila.height + gap;
   });
-  return y + cardHeight + 7;
+  return y + 3;
 }
 
 function agregarProgramasPdf(doc, autoTable, software, y) {
