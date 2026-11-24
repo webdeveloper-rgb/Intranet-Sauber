@@ -21,26 +21,13 @@ import SelectorCliente from '../components/SelectorCliente';
 import PageHeading from '../../../shared/ui/PageHeading';
 import BarraFiltros from '../../../shared/ui/BarraFiltros';
 import { usePagination } from '../../../shared/hooks/usePagination';
+import { agruparEquiposPorCliente, sugerirCliente, unir } from '../lib/clientes';
 
-const unir = (...v) => v.filter(Boolean).join(' · ');
 const fechaLocal = (value) => {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('es-ES');
 };
-function sugerirCliente(clientes, sugerido) {
-  const s = norm(String(sugerido).trim());
-  if (!s) return undefined;
-  const exacto = clientes.find((c) => [c.nombre, c.codigo, unir(c.nombre, c.codigo)].some((v) => v && norm(String(v)) === s));
-  if (exacto) return exacto;
-  if (s.length < 4) return undefined;
-  const parciales = clientes.filter((c) => {
-    const n = norm(String(c.nombre || ''));
-    return n.length >= 4 && (n.includes(s) || s.includes(n));
-  });
-  return parciales.length === 1 ? parciales[0] : undefined;
-}
-
 export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, equipoId = null, pestana = 'resumen', copiaId = null, onNavigate }) {
   const admin = sesion?.rol === 'admin';
   const [cat, setCat] = useState(null);
@@ -165,6 +152,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const clientesSinSatbk = clientes.filter((cliente) => !cliente.tiene_satbk);
   const softwaresEquipo = [...new Set(equipos.map((equipo) => equipo.software).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  const equiposPorCliente = useMemo(() => agruparEquiposPorCliente(equipos), [equipos]);
   const idsClientesActivos = new Set(clientes.map((cliente) => Number(cliente.id)));
   const idsClientesSinSatbk = new Set(clientesSinSatbk.map((cliente) => Number(cliente.id)));
   const equiposClienteInactivo = equipos.filter((equipo) => equipo.cliente_id && !idsClientesActivos.has(Number(equipo.cliente_id)));
@@ -217,12 +205,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     return clientes.filter((cliente) => cliente.tiene_satbk || cliente.tiene_sat18);
   }, [clientes, filtroSatbk]);
   const clientesPorEquipo = useMemo(() => clientesPorSatbk.filter((cliente) => {
-    const relacionados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
+    const relacionados = equiposPorCliente.get(Number(cliente.id)) || [];
     if (filtroAgenteCliente === 'con' && !relacionados.some((equipo) => equipo.tiene_monitor)) return false;
     if (filtroAgenteCliente === 'sin' && relacionados.some((equipo) => equipo.tiene_monitor)) return false;
     if (softwareCliente && !relacionados.some((equipo) => equipo.software === softwareCliente)) return false;
     return true;
-  }), [clientesPorSatbk, equipos, filtroAgenteCliente, softwareCliente]);
+  }), [clientesPorSatbk, equiposPorCliente, filtroAgenteCliente, softwareCliente]);
   const clientesFiltrados = useMemo(() => clientesPorEquipo.filter((cliente) => {
     const datos = unir(cliente.nombre, cliente.codigo);
     return !textoBusqueda || norm(datos).includes(textoBusqueda);
@@ -646,7 +634,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           {!clienteActual && !equipoActual && <>
             {clientesFiltrados.length || (!filtrosActivosClientes.length && (equiposSinAsignar.length || equiposClienteSinSatbk.length || equiposClienteInactivo.length)) ? <div className="cliente-grid">
               {paginaClientes.items.map((cliente) => {
-                const asignados = equipos.filter((equipo) => Number(equipo.cliente_id) === Number(cliente.id));
+                const asignados = equiposPorCliente.get(Number(cliente.id)) || [];
                 const servidores = asignados.filter((equipo) => equipo.tipo === 'servidor').length;
                 return <button type="button" className="cliente-tarjeta" key={cliente.id}
                   onClick={() => { onNavigate(`/clientes/${cliente.id}`); setBusqueda(''); }}>
