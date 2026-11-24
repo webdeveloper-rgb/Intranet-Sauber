@@ -51,11 +51,14 @@ export default function RevisionEquipo({ equipo, onSaved }) {
     <div className="equipo-error-revision-heading">
       <div><span className="eyebrow">Incidencias de copias</span>
         <h3 id="titulo-revision-equipo">Revisión de errores de {equipo.nombre}</h3></div>
+      <button type="button" className="equipo-revision-ayuda"
+        title="Marcar equipo revisado no cambia estos errores a OK. Los cierra cuando llega una copia nueva clasificada como correcta para este equipo."
+        aria-label="Ayuda: qué hace marcar el equipo como revisado">?</button>
       <strong className="equipo-error-revision-total">{totalErrores} {totalErrores === 1 ? 'error' : 'errores'}</strong>
     </div>
     {revisado
       ? <p className="equipo-error-revision-nota">Equipo revisado por {equipo.error_reviewed_by} el {equipo.error_reviewed_at}. Los errores de la lista se eliminarán cuando llegue una copia correcta de este equipo ({equipo.software}).</p>
-      : <p>Revisa las incidencias de abajo. Al marcar el equipo como revisado, la siguiente copia correcta asociada a la ficha de <strong>{equipo.nombre}</strong> eliminará estos errores.</p>}
+      : <p>Revisa las incidencias de abajo. Marcar el equipo como revisado no las cambia a OK: la siguiente copia nueva clasificada como correcta para <strong>{equipo.nombre}</strong> las cerrará.</p>}
 
     <div className="equipo-error-lista" aria-live="polite">
       {cargando ? <p className="mut">Cargando errores…</p> : error ? null : errores.length ? errores.map((item) =>

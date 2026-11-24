@@ -2713,6 +2713,22 @@ header {
 .equipo-error-revision h3 { font-size: 15px; }
 .equipo-error-revision-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .equipo-error-revision-heading .eyebrow { margin: 0 0 3px; color: var(--wa); }
+.equipo-revision-ayuda {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--bd);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--mut);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+  cursor: help;
+}
+.equipo-revision-ayuda:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .equipo-error-revision-total { flex: 0 0 auto; padding: 5px 10px; border: 1px solid var(--er); border-radius: 999px; background: var(--erb); color: var(--er); font-size: 13px; }
 .equipo-error-revision-nota { color: var(--ok); }
 .equipo-error-lista { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; }
@@ -3946,7 +3962,8 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   background: color-mix(in srgb, var(--wab) 22%, var(--card));
 }
 .cliente-tarjeta-titulo {
-  align-items: center;
+  align-items: flex-start;
+  padding-right: 20px;
 }
 .cliente-tarjeta-titulo strong,
 .cliente-tarjeta > strong {
@@ -3954,6 +3971,8 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
 }
 .cliente-satbk {
   margin-top: 0;
+  align-self: flex-start;
+  transform: translateY(-3px);
   padding: 3px 7px;
   border: 1px solid var(--bd);
   border-radius: 999px;
