@@ -200,25 +200,13 @@ function agregarGridPdf(doc, titulo, items, fields, y) {
 function agregarProgramasPdf(doc, autoTable, software, y) {
   const instalados = software?.installedPrograms;
   const sinLista = !Array.isArray(instalados);
-  if (sinLista && software?.available !== false) return y;
-  if (y > doc.internal.pageSize.getHeight() - 38) {
-    doc.addPage();
-    y = 31;
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(38, 57, 76);
-  doc.text(sinLista ? 'Programas instalados' : `Programas instalados (${instalados.length})`, 14, y);
-  doc.setDrawColor(220, 227, 234);
-  doc.setLineWidth(0.3);
-  doc.line(14, y + 2, doc.internal.pageSize.getWidth() - 14, y + 2);
   const body = sinLista
     ? [['Pendiente de actualizar el agente', '', '']]
     : instalados.length
       ? instalados.map((programa) => [programa.name || '', programa.version || '—', programa.publisher || '—'])
       : [['No se detectaron programas instalados', '', '']];
   autoTable(doc, {
-    startY: y + 4,
+    startY: y,
     head: [['Programa', 'Versión', 'Fabricante']],
     body,
     theme: 'plain',
@@ -229,10 +217,69 @@ function agregarProgramasPdf(doc, autoTable, software, y) {
     columnStyles: { 0: { cellWidth: 92, fontStyle: 'normal', textColor: [65, 79, 94] }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' } },
     rowPageBreak: 'avoid',
   });
-  return doc.lastAutoTable.finalY + 10;
 }
 
-async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, incluirProgramas }) {
+async function generarPdfProgramasEquipo({ equipo, clienteNombre, monitor }) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const generado = new Date();
+  const anchoLogo = 86;
+  const xLogo = ancho - 14 - anchoLogo;
+  await agregarLogoPdf(doc, xLogo, 5, anchoLogo);
+
+  const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
+  doc.setProperties({ title: `Programas instalados - ${nombreEquipo}`, subject: 'Inventario de programas', creator: 'Intranet-Sauber' });
+  doc.setFillColor(46, 116, 151);
+  doc.rect(0, 0, ancho, 3, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(77, 99, 117);
+  doc.text('SAUBER · PROGRAMAS INSTALADOS', 14, 14);
+  doc.setFontSize(19);
+  doc.setTextColor(28, 45, 61);
+  const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
+  doc.text(lineasNombre, 14, 31);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(91, 105, 119);
+  doc.text(clienteNombre || 'Inventario de software del equipo', 14, 41 + (lineasNombre.length - 1) * 6);
+
+  const programas = monitor.software?.installedPrograms || [];
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(38, 57, 76);
+  doc.text(`Programas instalados (${programas.length})`, 14, 57 + (lineasNombre.length - 1) * 6);
+  doc.setDrawColor(220, 227, 234);
+  doc.setLineWidth(0.3);
+  doc.line(14, 59 + (lineasNombre.length - 1) * 6, ancho - 14, 59 + (lineasNombre.length - 1) * 6);
+  agregarProgramasPdf(doc, autoTable, monitor.software, 63 + (lineasNombre.length - 1) * 6);
+
+  const paginas = doc.internal.getNumberOfPages();
+  for (let pagina = 1; pagina <= paginas; pagina += 1) {
+    doc.setPage(pagina);
+    if (pagina > 1) await agregarLogoPdf(doc, xLogo, 5, anchoLogo);
+    doc.setDrawColor(220, 227, 234);
+    doc.setLineWidth(0.25);
+    doc.line(14, alto - 15, ancho - 14, alto - 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(105, 117, 129);
+    doc.text('Intranet-Sauber · Programas instalados', 14, alto - 9);
+    doc.text(`Página ${pagina} de ${paginas}`, ancho - 14, alto - 8, { align: 'right' });
+  }
+
+  const nombreSeguro = String(equipo.nombre || `equipo-${equipo.id}`)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+    || `equipo-${equipo.id}`;
+  doc.save(`programas-instalados-${nombreSeguro}-${generado.toISOString().slice(0, 10)}.pdf`);
+}
+
+async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -317,13 +364,11 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
     ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
   ], y);
 
-  const volumenes = [];
-  agregarListaPdf(volumenes, monitor.volumes, [
+  y = agregarGridPdf(doc, 'Volúmenes', monitor.volumes, [
     ['Unidad', (volume) => [volume.drive, volume.label].filter(Boolean).join(' · ')],
     ['Espacio libre / capacidad', espacioVolumen],
     ['Sistema de archivos', (volume) => volume.fileSystem],
-  ]);
-  y = agregarSeccionPdf(doc, autoTable, 'Volúmenes', volumenes, y);
+  ], y);
 
   const baterias = [];
   agregarListaPdf(baterias, monitor.batteries, [
@@ -342,8 +387,6 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
     ]);
     y = agregarSeccionPdf(doc, autoTable, 'Alertas activas', filasAlertas, y);
   }
-
-  if (incluirProgramas) y = agregarProgramasPdf(doc, autoTable, monitor.software, y);
 
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
@@ -461,7 +504,8 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     setDialogoPdf(false);
     setGenerandoPdf(true);
     try {
-      await generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts, incluirProgramas });
+      await generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts });
+      if (incluirProgramas) await generarPdfProgramasEquipo({ equipo, clienteNombre, monitor });
     } catch (e) {
       setErrorPdf(e.message || 'No se pudo generar el PDF.');
     } finally {
@@ -485,18 +529,18 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
       <header className="monitor-pdf-dialog-header">
         <span className="monitor-pdf-dialog-icon" aria-hidden="true">PDF</span>
         <div><h2 id="monitor-pdf-dialog-title">Preparar informe PDF</h2>
-          <p id="monitor-pdf-dialog-description">Elige el contenido del informe de este equipo.</p></div>
+          <p id="monitor-pdf-dialog-description">Si incluyes los programas, se descargarán en un segundo PDF separado.</p></div>
         <button type="button" className="monitor-pdf-dialog-close" aria-label="Cerrar diálogo" onClick={() => setDialogoPdf(false)}>×</button>
       </header>
       <label className={`monitor-pdf-option${programasDisponibles ? '' : ' disabled'}`}>
         <input type="checkbox" checked={incluirProgramas} disabled={!programasDisponibles}
           onChange={(event) => setIncluirProgramas(event.target.checked)} />
-        <span><strong>Programas instalados</strong><small>Incluye el nombre, la versión y el fabricante de cada programa.</small></span>
+        <span><strong>Programas instalados</strong><small>Descarga un segundo PDF con el nombre, la versión y el fabricante de cada programa.</small></span>
       </label>
       {!programasDisponibles && <p className="monitor-pdf-unavailable">El agente todavía no ha enviado la lista de programas.</p>}
       <footer className="monitor-pdf-dialog-actions">
         <button type="button" className="btn sec" onClick={() => setDialogoPdf(false)}>Cancelar</button>
-        <button type="button" className="btn" onClick={descargarPdf}>Descargar PDF</button>
+        <button type="button" className="btn" onClick={descargarPdf}>{incluirProgramas ? 'Descargar 2 PDF' : 'Descargar PDF'}</button>
       </footer>
     </aside>}
     <section className={`monitor-agent-status monitor-agent-${estadoAgente.clase}`} aria-label="Estado del agente">
@@ -651,7 +695,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     </Seccion>
 
     <Seccion titulo="Volúmenes" mostrar={monitor.volumes?.length >= 1}>
-      <Lista items={monitor.volumes} render={(volume) => <>
+      <Lista grid items={monitor.volumes} render={(volume) => <>
         <Campo label="Unidad" value={[volume.drive, volume.label].filter(Boolean).join(' · ')} />
         <Campo label="Espacio libre / capacidad del volumen" value={espacioVolumen(volume)} ayuda="Espacio de esta unidad lógica. Se muestra aparte de la capacidad física del disco." />
         <Campo label="Sistema de archivos" value={volume.fileSystem} />
