@@ -77,6 +77,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const cargaHistorialActual = useRef(0);
   const equiposActuales = useRef([]);
   const sincronizando = useRef(false);
+  const equipoMonitorActual = useRef(null);
 
   useEffect(() => {
     if (!copiaId || !equipoAbierto || !historial.length) return;
@@ -183,12 +184,16 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   useEffect(() => {
     let activa = true;
     if (!equipoActual?.tiene_monitor) {
+      equipoMonitorActual.current = null;
       setDetalleMonitor(null);
       setFalloMonitor('');
       setCargandoMonitor(false);
       return () => { activa = false; };
     }
-    setDetalleMonitor(null);
+    if (equipoMonitorActual.current !== equipoActual.id) {
+      equipoMonitorActual.current = equipoActual.id;
+      setDetalleMonitor(null);
+    }
     setFalloMonitor('');
     setCargandoMonitor(true);
     api(`monitor_equipo&id=${encodeURIComponent(equipoActual.id)}`)
