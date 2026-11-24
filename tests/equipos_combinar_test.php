@@ -13,9 +13,10 @@ final class MergeTestPDO extends PDO
         $sql = str_replace([' FOR UPDATE', 'INSERT IGNORE INTO', 'NOW()', 'ON DUPLICATE KEY UPDATE id=id'],
             ['', 'INSERT OR IGNORE INTO', 'CURRENT_TIMESTAMP', 'ON CONFLICT(huella) DO NOTHING'], $sql);
         $sql = str_replace([
+            'CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci',
             'CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci',
             'CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci',
-        ], ['message_key', 'huella'], $sql);
+        ], ['estado', 'message_key', 'huella'], $sql);
         return $sql;
     }
     public function prepare(string $query, array $options = []): PDOStatement|false
