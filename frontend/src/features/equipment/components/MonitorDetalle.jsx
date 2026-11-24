@@ -197,6 +197,73 @@ function agregarGridPdf(doc, titulo, items, fields, y) {
   return y;
 }
 
+function agregarGridHardwareIndividualPdf(doc, grupos, y) {
+  const visibles = grupos.filter((grupo) => grupo.items?.length).map((grupo) => {
+    const item = grupo.items[0];
+    const filas = grupo.fields.map(([label, getValue]) => [label, getValue(item)])
+      .filter(([, value]) => value != null && value !== '');
+    return { titulo: grupo.titulo, filas };
+  }).filter((grupo) => grupo.filas.length);
+  if (visibles.length < 2) return y;
+
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const margen = 14;
+  const gap = 3;
+  const cardWidth = (ancho - margen * 2 - gap * (visibles.length - 1)) / visibles.length;
+  const tituloSeccion = 'Componentes y almacenamiento';
+  const dibujarTitulo = () => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(38, 57, 76);
+    doc.text(tituloSeccion, margen, y);
+    doc.setDrawColor(220, 227, 234); doc.setLineWidth(0.3);
+    doc.line(margen, y + 2, ancho - margen, y + 2);
+    y += 7;
+  };
+
+  const tarjetas = visibles.map((grupo) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.7);
+    const tituloLines = doc.splitTextToSize(grupo.titulo, cardWidth - 7);
+    let height = 7 + tituloLines.length * 3.2;
+    const filas = grupo.filas.map(([label, value]) => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4);
+      const labelLines = doc.splitTextToSize(label, cardWidth - 7);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1);
+      const valueLines = doc.splitTextToSize(String(value), cardWidth - 7);
+      const filaHeight = labelLines.length * 2.8 + valueLines.length * 3.1 + 1.7;
+      height += filaHeight;
+      return { labelLines, valueLines, filaHeight };
+    });
+    return { tituloLines, filas, height };
+  });
+  const cardHeight = Math.max(...tarjetas.map((tarjeta) => tarjeta.height));
+  if (y + cardHeight > alto - 22) {
+    doc.addPage();
+    y = 31;
+    dibujarTitulo();
+  } else {
+    dibujarTitulo();
+  }
+
+  tarjetas.forEach((tarjeta, index) => {
+    const x = margen + index * (cardWidth + gap);
+    doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
+    doc.roundedRect(x, y, cardWidth, cardHeight, 1.5, 1.5, 'FD');
+    let cy = y + 4;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.7); doc.setTextColor(38, 57, 76);
+    doc.text(tarjeta.tituloLines, x + 3.5, cy);
+    cy += tarjeta.tituloLines.length * 3.2 + 1.5;
+    tarjeta.filas.forEach(({ labelLines, valueLines, filaHeight }) => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.setTextColor(91, 105, 119);
+      doc.text(labelLines, x + 3.5, cy);
+      cy += labelLines.length * 2.8;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.1); doc.setTextColor(42, 52, 62);
+      doc.text(valueLines, x + 3.5, cy);
+      cy += filaHeight - labelLines.length * 2.8;
+    });
+  });
+  return y + cardHeight + 7;
+}
+
 function agregarProgramasPdf(doc, autoTable, software, y) {
   const instalados = software?.installedPrograms;
   const sinLista = !Array.isArray(instalados);
@@ -344,31 +411,39 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas }) {
   ]);
   y = agregarSeccionPdf(doc, autoTable, 'Procesadores', procesadores, y);
 
-  y = agregarGridPdf(doc, 'Memoria RAM', monitor.ram, [
-    ['Ranura', (module) => module.slot], ['Capacidad', (module) => bytes(module.capacityBytes)],
-    ['Tipo / velocidad', (module) => [module.type, module.speedMHz != null ? `${module.speedMHz} MHz` : null].filter(Boolean).join(' · ')],
-    ['Fabricante / referencia', (module) => [module.manufacturer, module.partNumber].filter(Boolean).join(' · ')],
-  ], y);
-
-  y = agregarGridPdf(doc, 'Gráficas', graficasFisicas(monitor.gpus), [
-    ['Modelo', (gpu) => gpu.name], ['Memoria', (gpu) => bytes(gpu.adapterRamBytes)],
-  ], y);
-
-  y = agregarGridPdf(doc, 'Discos', monitor.disks, [
-    ['Modelo', (disk) => disk.model], ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
-    ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
-    ['Capacidad física / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
-    ['Temperatura', (disk) => disk.temperatureC != null ? `${disk.temperatureC} °C` : null],
-    ['Desgaste reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
-    ['Uso acumulado', (disk) => disk.powerOnHours != null ? `${Number(disk.powerOnHours).toLocaleString('es-ES')} h` : null],
-    ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
-  ], y);
-
-  y = agregarGridPdf(doc, 'Volúmenes', monitor.volumes, [
-    ['Unidad', (volume) => [volume.drive, volume.label].filter(Boolean).join(' · ')],
-    ['Espacio libre / capacidad', espacioVolumen],
-    ['Sistema de archivos', (volume) => volume.fileSystem],
-  ], y);
+  const graficas = graficasFisicas(monitor.gpus);
+  const gruposHardwarePdf = [
+    { titulo: 'Memoria RAM', items: monitor.ram, fields: [
+      ['Ranura', (module) => module.slot], ['Capacidad', (module) => bytes(module.capacityBytes)],
+      ['Tipo / velocidad', (module) => [module.type, module.speedMHz != null ? `${module.speedMHz} MHz` : null].filter(Boolean).join(' · ')],
+      ['Fabricante / referencia', (module) => [module.manufacturer, module.partNumber].filter(Boolean).join(' · ')],
+    ] },
+    { titulo: 'Gráficas', items: graficas, fields: [
+      ['Modelo', (gpu) => gpu.name], ['Memoria', (gpu) => bytes(gpu.adapterRamBytes)],
+    ] },
+    { titulo: 'Discos', items: monitor.disks, fields: [
+      ['Modelo', (disk) => disk.model], ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
+      ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
+      ['Capacidad física / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
+      ['Temperatura', (disk) => disk.temperatureC != null ? `${disk.temperatureC} °C` : null],
+      ['Desgaste reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
+      ['Uso acumulado', (disk) => disk.powerOnHours != null ? `${Number(disk.powerOnHours).toLocaleString('es-ES')} h` : null],
+      ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
+    ] },
+    { titulo: 'Volúmenes', items: monitor.volumes, fields: [
+      ['Unidad', (volume) => [volume.drive, volume.label].filter(Boolean).join(' · ')],
+      ['Espacio libre / capacidad', espacioVolumen],
+      ['Sistema de archivos', (volume) => volume.fileSystem],
+    ] },
+  ];
+  if (gruposHardwarePdf.some((grupo) => (grupo.items || []).length > 1)
+    || gruposHardwarePdf.filter((grupo) => (grupo.items || []).length > 0).length < 2) {
+    gruposHardwarePdf.forEach((grupo) => {
+      y = agregarGridPdf(doc, grupo.titulo, grupo.items, grupo.fields, y);
+    });
+  } else {
+    y = agregarGridHardwareIndividualPdf(doc, gruposHardwarePdf, y);
+  }
 
   const baterias = [];
   agregarListaPdf(baterias, monitor.batteries, [
