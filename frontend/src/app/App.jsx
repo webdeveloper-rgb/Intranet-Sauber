@@ -115,7 +115,9 @@ export default function App() {
     } else if (actual.vista === 'copias' && actual.copiaId) {
       destino = '/copias';
     }
-    navegar(destino);
+    // Si no hay una ruta interna anterior, salir de esta vista sustituyendo
+    // la entrada actual; empujarla de nuevo al historial crea un ciclo al volver.
+    navegar(destino, { replace: true });
   }, [navegar]);
 
   useEffect(() => {
