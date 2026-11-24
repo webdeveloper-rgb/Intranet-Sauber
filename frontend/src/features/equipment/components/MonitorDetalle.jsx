@@ -120,7 +120,7 @@ function agregarSeccionPdf(doc, autoTable, titulo, rows, y) {
   if (!rows.length) return y;
   if (y > doc.internal.pageSize.getHeight() - 38) {
     doc.addPage();
-    y = 18;
+    y = 31;
   }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
@@ -134,7 +134,7 @@ function agregarSeccionPdf(doc, autoTable, titulo, rows, y) {
     head: [['Dato', 'Información']],
     body: rows,
     theme: 'plain',
-    margin: { left: 14, right: 14, top: 18, bottom: 20 },
+    margin: { left: 14, right: 14, top: 30, bottom: 20 },
     styles: { font: 'helvetica', fontSize: 9.5, cellPadding: { top: 2.2, right: 2, bottom: 2.2, left: 2 }, overflow: 'linebreak', textColor: [42, 52, 62], valign: 'middle' },
     headStyles: { fillColor: [242, 246, 249], textColor: [85, 99, 113], fontStyle: 'bold', fontSize: 8, cellPadding: 2 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -177,7 +177,7 @@ function agregarGridPdf(doc, titulo, items, fields, y) {
       return { rows, prepared, height };
     });
     const rowHeight = Math.max(...cards.map((card) => card.height));
-    if (y + rowHeight > alto - 22) { doc.addPage(); y = 18; dibujarTitulo(); }
+    if (y + rowHeight > alto - 22) { doc.addPage(); y = 31; dibujarTitulo(); }
     cards.forEach((card, column) => {
       const x = margen + column * (cardWidth + gap);
       doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
@@ -203,7 +203,7 @@ function agregarProgramasPdf(doc, autoTable, software, y) {
   if (sinLista && software?.available !== false) return y;
   if (y > doc.internal.pageSize.getHeight() - 38) {
     doc.addPage();
-    y = 18;
+    y = 31;
   }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
@@ -222,7 +222,7 @@ function agregarProgramasPdf(doc, autoTable, software, y) {
     head: [['Programa', 'Versión', 'Fabricante']],
     body,
     theme: 'plain',
-    margin: { left: 14, right: 14, top: 18, bottom: 20 },
+    margin: { left: 14, right: 14, top: 30, bottom: 20 },
     styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.2, overflow: 'linebreak', textColor: [42, 52, 62], valign: 'middle' },
     headStyles: { fillColor: [242, 246, 249], textColor: [85, 99, 113], fontStyle: 'bold', fontSize: 8, cellPadding: 2 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -241,7 +241,9 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   const ancho = doc.internal.pageSize.getWidth();
   const alto = doc.internal.pageSize.getHeight();
   const generado = new Date();
-  await agregarLogoPdf(doc, 14, 5, 58);
+  const anchoLogo = 86;
+  const xLogo = ancho - 14 - anchoLogo;
+  await agregarLogoPdf(doc, xLogo, 5, anchoLogo);
   const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
   const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
   doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
@@ -250,7 +252,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(77, 99, 117);
-  doc.text('SAUBER  ·  INFORME DEL EQUIPO', 78, 14);
+  doc.text('SAUBER  ·  INFORME DEL EQUIPO', 14, 14);
   doc.setFontSize(19);
   doc.setTextColor(28, 45, 61);
   const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
@@ -259,10 +261,6 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   doc.setFontSize(10);
   doc.setTextColor(91, 105, 119);
   doc.text(subtituloEquipo || 'Estado y especificaciones del equipo', 14, 41 + (lineasNombre.length - 1) * 6);
-  doc.setFontSize(9);
-  doc.setTextColor(91, 105, 119);
-  doc.text(`Generado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
-
   let y = 61 + (lineasNombre.length - 1) * 6;
   const identificacion = [];
   agregarDatoPdf(identificacion, 'Cliente', clienteNombre);
@@ -350,7 +348,7 @@ async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, inclu
   const paginas = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
     doc.setPage(pagina);
-    if (pagina > 1) await agregarLogoPdf(doc, 14, 5, 40);
+    if (pagina > 1) await agregarLogoPdf(doc, xLogo, 5, anchoLogo);
     doc.setDrawColor(220, 227, 234);
     doc.setLineWidth(0.25);
     doc.line(14, alto - 15, ancho - 14, alto - 15);
