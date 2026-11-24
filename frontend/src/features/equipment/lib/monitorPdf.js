@@ -60,7 +60,7 @@ function agregarGridPdf(doc, titulo, items, fields, y) {
     doc.line(margen, y + 2, ancho - margen, y + 2);
     y += 8;
   };
-  dibujarTitulo();
+  let tituloDibujado = false;
   for (let i = 0; i < visibles.length; i += 2) {
     const cards = visibles.slice(i, i + 2).map((rows) => {
       let height = 8;
@@ -76,7 +76,17 @@ function agregarGridPdf(doc, titulo, items, fields, y) {
       return { rows, prepared, height };
     });
     const rowHeight = Math.max(...cards.map((card) => card.height));
-    if (y + rowHeight > alto - 22) { doc.addPage(); y = 31; dibujarTitulo(); }
+    if (!tituloDibujado) {
+      // Reserva el espacio de la primera fila antes de pintar el encabezado,
+      // para que nunca quede huérfano al final de la página anterior.
+      if (y + 8 + rowHeight > alto - 22) { doc.addPage(); y = 31; }
+      dibujarTitulo();
+      tituloDibujado = true;
+    } else if (y + rowHeight > alto - 22) {
+      doc.addPage();
+      y = 31;
+      dibujarTitulo();
+    }
     cards.forEach((card, column) => {
       const x = margen + column * (cardWidth + gap);
       doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
