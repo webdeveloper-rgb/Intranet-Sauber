@@ -482,13 +482,24 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     </div>
     {errorPdf && <div className="errbox" role="alert">{errorPdf}</div>}
     {dialogoPdf && <div className="ov" onClick={() => setDialogoPdf(false)} />}
-    {dialogoPdf && <aside className="monitor-pdf-dialog" role="dialog" aria-modal="true" aria-labelledby="monitor-pdf-dialog-title">
-      <h2 id="monitor-pdf-dialog-title">Preparar informe PDF</h2>
-      <p>¿Quieres incluir también la lista de programas instalados?</p>
-      <label><input type="checkbox" checked={incluirProgramas} disabled={!programasDisponibles} onChange={(event) => setIncluirProgramas(event.target.checked)} /> Incluir programas instalados</label>
-      {!programasDisponibles && <small>El agente aún no ha enviado esa lista.</small>}
-      <div><button type="button" className="btn sec" onClick={() => setDialogoPdf(false)}>Cancelar</button>
-        <button type="button" className="btn" onClick={descargarPdf}>Descargar PDF</button></div>
+    {dialogoPdf && <aside className="monitor-pdf-dialog" role="dialog" aria-modal="true"
+      aria-labelledby="monitor-pdf-dialog-title" aria-describedby="monitor-pdf-dialog-description">
+      <header className="monitor-pdf-dialog-header">
+        <span className="monitor-pdf-dialog-icon" aria-hidden="true">PDF</span>
+        <div><h2 id="monitor-pdf-dialog-title">Preparar informe PDF</h2>
+          <p id="monitor-pdf-dialog-description">Elige el contenido del informe de este equipo.</p></div>
+        <button type="button" className="monitor-pdf-dialog-close" aria-label="Cerrar diálogo" onClick={() => setDialogoPdf(false)}>×</button>
+      </header>
+      <label className={`monitor-pdf-option${programasDisponibles ? '' : ' disabled'}`}>
+        <input type="checkbox" checked={incluirProgramas} disabled={!programasDisponibles}
+          onChange={(event) => setIncluirProgramas(event.target.checked)} />
+        <span><strong>Programas instalados</strong><small>Incluye el nombre, la versión y el fabricante de cada programa.</small></span>
+      </label>
+      {!programasDisponibles && <p className="monitor-pdf-unavailable">El agente todavía no ha enviado la lista de programas.</p>}
+      <footer className="monitor-pdf-dialog-actions">
+        <button type="button" className="btn sec" onClick={() => setDialogoPdf(false)}>Cancelar</button>
+        <button type="button" className="btn" onClick={descargarPdf}>Descargar PDF</button>
+      </footer>
     </aside>}
     <section className={`monitor-agent-status monitor-agent-${estadoAgente.clase}`} aria-label="Estado del agente">
       <div className="monitor-agent-status-titulo">
