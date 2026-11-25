@@ -4,6 +4,7 @@ import TipoEquipoEditor from '../../equipment/components/TipoEquipoEditor';
 import RustDeskAcceso from '../../equipment/components/RustDeskAcceso';
 import HorarioSemana from '../../equipment/components/HorarioSemana';
 import CombinarEquipos from '../../equipment/components/CombinarEquipos';
+import CombinarDuplicados from '../../equipment/components/CombinarDuplicados';
 /**
  * Vistas jerarquicas de clientes, equipos, asignacion y detalle del historial por equipo.
  */
@@ -633,6 +634,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       {cargando && !equipos.length && !cat ? <div className="mapeo-vacio">Cargando clientes…</div> : (
         <>
           {!clienteActual && !equipoActual && <>
+            {admin && <CombinarDuplicados equipos={equipos} onFinished={async () => {
+              setRevisionCombinacion((n) => n + 1);
+              await cargar(true);
+            }} />}
             {clientesFiltrados.length || (!filtrosActivosClientes.length && (equiposSinAsignar.length || equiposClienteSinSatbk.length || equiposClienteInactivo.length)) ? <TarjetasClientes items={paginaClientes.items} equiposPorCliente={equiposPorCliente}
               mostrarPendientes={!filtrosActivosClientes.length} equiposSinAsignar={equiposSinAsignar}
               equiposClienteInactivo={equiposClienteInactivo}

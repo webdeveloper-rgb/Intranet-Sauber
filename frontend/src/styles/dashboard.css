@@ -6,6 +6,7 @@
 .filter-bar:has(.clientes-actualizar) .filter-bar-actions { flex: 0 1 auto; max-width: 100%; margin-left: auto; }
 @media (prefers-reduced-motion: reduce) { .clientes-actualizar .fa-spin { animation: none; } }
 .equipo-combinar { padding: 20px; border: 1px solid var(--bd); border-radius: 8px; display: grid; gap: 14px; min-width: 0; }
+.duplicados-lote { margin-bottom: 20px; }
 .equipo-combinar h3, .equipo-combinar h4, .equipo-combinar p { margin: 0; }
 .equipo-combinar p, .equipo-combinar small { color: var(--mut); }
 .equipo-combinar fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
