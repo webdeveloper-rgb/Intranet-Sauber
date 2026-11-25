@@ -10,8 +10,8 @@ final class MergeTestPDO extends PDO
     private function translate(string $sql): string
     {
         if ($sql === 'SHOW WARNINGS') return 'SELECT NULL WHERE 0';
-        $sql = str_replace([' FOR UPDATE', 'INSERT IGNORE INTO', 'NOW()', 'ON DUPLICATE KEY UPDATE id=id'],
-            ['', 'INSERT OR IGNORE INTO', 'CURRENT_TIMESTAMP', 'ON CONFLICT(huella) DO NOTHING'], $sql);
+        $sql = str_replace([' FOR UPDATE', 'INSERT IGNORE INTO', 'NOW()', 'ON DUPLICATE KEY UPDATE id=id', '<=>'],
+            ['', 'INSERT OR IGNORE INTO', 'CURRENT_TIMESTAMP', 'ON CONFLICT(huella) DO NOTHING', 'IS'], $sql);
         $sql = str_replace([
             'CONVERT(estado USING utf8mb4) COLLATE utf8mb4_unicode_ci',
             'CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci',
@@ -41,16 +41,16 @@ function fixture(): PDO
         INSERT INTO equipos(id,nombre,software,cliente_id,monitor_machine_id) VALUES
           (1,'SAUBER OFIMATICA - PC Ventas','Acronis',1,NULL),(2,'Alba-PC','Acronis',1,'machine-alba'),(3,'Alba anterior','Iperius',NULL,NULL),
           (4,'Otra empresa','Acronis',2,NULL),(5,'Otro agente','MonitorAgent',1,'machine-otro');
-        CREATE TABLE copias(id INTEGER PRIMARY KEY,fecha TEXT,cliente TEXT,equipo TEXT,equipo_id INT REFERENCES equipos(id),
-          estado TEXT,desc_error TEXT,codigo TEXT,resultado_original TEXT,clasificacion_fuente TEXT,clasificacion_evidencia TEXT,
+        CREATE TABLE copias(id INTEGER PRIMARY KEY,fecha TEXT,cliente TEXT,equipo TEXT,maquina_virtual TEXT,tarea TEXT,equipo_id INT REFERENCES equipos(id),
+          estado TEXT,severidad TEXT DEFAULT 'normal',desc_error TEXT,codigo TEXT,resultado_original TEXT,clasificacion_fuente TEXT,clasificacion_evidencia TEXT,
           software TEXT,destino TEXT,tamano TEXT,duracion TEXT,huella TEXT UNIQUE,tipo TEXT,programa TEXT,revisado INT DEFAULT 0);
         INSERT INTO copias(id,fecha,cliente,equipo,equipo_id,estado,software,huella,revisado) VALUES
           (10,'2026-11-20','Sauber','Alba-PC',2,'ERROR','Acronis','old-copy',1),
           (11,'2026-11-19','Sauber','Ventas',1,'OK','Acronis','target-copy',0);
         CREATE TABLE notas(id INTEGER PRIMARY KEY,copia_id INT REFERENCES copias(id) ON DELETE CASCADE,texto TEXT);
         INSERT INTO notas VALUES(1,10,'Nota tecnica conservada');
-        CREATE TABLE correo_copias(id INTEGER PRIMARY KEY,message_key TEXT UNIQUE,equipo_id INT REFERENCES equipos(id),nombre_recibido TEXT,fecha TEXT,
-          estado TEXT,desc_error TEXT DEFAULT '',codigo TEXT,resultado_original TEXT DEFAULT '',clasificacion_fuente TEXT DEFAULT '',
+        CREATE TABLE correo_copias(id INTEGER PRIMARY KEY,message_key TEXT UNIQUE,equipo_id INT REFERENCES equipos(id),nombre_recibido TEXT,maquina_virtual TEXT,tarea TEXT,fecha TEXT,
+          estado TEXT,severidad TEXT DEFAULT 'normal',desc_error TEXT DEFAULT '',codigo TEXT,resultado_original TEXT DEFAULT '',clasificacion_fuente TEXT DEFAULT '',
           clasificacion_evidencia TEXT DEFAULT '',software TEXT,destino TEXT,tamano TEXT,duracion TEXT,importada INT DEFAULT 0);
         INSERT INTO correo_copias(id,message_key,equipo_id,fecha,estado,software) VALUES(1,'pending-copy',3,'2026-11-19','OK','Iperius');
         CREATE TABLE correo_copias_eliminadas(message_key TEXT PRIMARY KEY,equipo_id INT);

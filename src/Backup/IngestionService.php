@@ -12,6 +12,59 @@ declare(strict_types=1);
 const INGESTA_SOFTWARE = ['Acronis', 'Iperius', 'MicroFocus', 'Veeam', 'VMware', 'Otro'];
 const INGESTA_MAX_ITEMS = 100;
 
+/** Conflicto de datos que debe resolver una persona (p. ej. fichas duplicadas); no es un fallo interno. */
+final class IngestaConflicto extends RuntimeException
+{
+}
+
+/**
+ * Los informes de VM Explorer agrupan varias maquinas virtuales en un unico correo.
+ * Cada resultado se guarda como una copia independiente, vinculada al equipo padre.
+ *
+ * La clave identifica la EJECUCION (equipo + VM + tarea + inicio), no el correo ni el informe:
+ * el mismo informe reenviado, o dos informes que cubren la misma ejecucion, generan la misma
+ * clave y el panel los trata como duplicados en vez de crear filas repetidas.
+ */
+function ingesta_expandir_maquinas(array $items): array
+{
+    $texto = static fn($v): string => is_scalar($v) ? mb_strtolower(trim((string) $v)) : '';
+    $expandidos = [];
+    foreach ($items as $item) {
+        $maquinas = is_array($item) ? ($item['maquinas'] ?? null) : null;
+        if (!is_array($maquinas) || $maquinas === []) {
+            $expandidos[] = $item;
+            continue;
+        }
+        foreach ($maquinas as $maquina) {
+            if (!is_array($maquina)) {
+                $expandidos[] = $maquina;
+                continue;
+            }
+            $fecha = $maquina['fecha'] ?? $item['fecha'] ?? '';
+            $fecha = is_scalar($fecha) ? trim((string) $fecha) : '';
+            // Mismo instante con distinto formato (Z / +01:00) => misma clave.
+            $ts = $fecha !== '' ? strtotime($fecha) : false;
+            $fechaClave = $ts !== false ? gmdate('c', $ts) : $fecha;
+            $identidad = implode("\0", [
+                $texto($item['equipo'] ?? $item['nombre'] ?? ''),
+                $texto($maquina['nombre'] ?? ''),
+                $texto($maquina['tarea'] ?? ''),
+                $fechaClave,
+            ]);
+            $expandidos[] = array_replace($item, [
+                'message_id' => 'vmx:' . hash('sha256', $identidad),
+                'maquina_virtual' => $maquina['nombre'] ?? null,
+                'tarea' => $maquina['tarea'] ?? $item['tarea'] ?? null,
+                'resultado' => $maquina['resultado'] ?? null,
+                'motivo' => $maquina['motivo'] ?? '',
+                'fecha' => $maquina['fecha'] ?? $item['fecha'] ?? null,
+                'maquinas' => [],
+            ]);
+        }
+    }
+    return $expandidos;
+}
+
 /** Detecta avisos de prueba sin confundir nombres de equipos o pruebas de restauracion. */
 function ingesta_es_prueba($item): bool
 {
@@ -164,6 +217,10 @@ function ingesta_parsear_asunto(string $asunto): array
     if (preg_match('/Notificaci[oó]n de Acronis True Image de\s+(.+)$/iu', $asunto, $m)) {
         $origen = trim($m[1]);
         $r['software'] = 'Acronis';
+        // Sin host en el asunto (p. ej. "... de fallo 2026-04-15") no se inventa un equipo.
+        if (preg_match('/\b\d{4}-\d{2}-\d{2}\b/', $origen)) {
+            return $r;
+        }
         $r['nombre'] = $origen;
         if (($emp = ingesta_clasificar_nombre($origen)['empresa']) !== null) {
             $r['sugerido'] = $emp;
@@ -176,10 +233,8 @@ function ingesta_parsear_asunto(string $asunto): array
         }
     } elseif (preg_match('/^(Copia de seguridad .+?) - (.+) - Iperius Backup$/iu', $asunto, $m)) {
         $r['software'] = 'Iperius';
-        $r['nombre'] = trim($m[2]);
-        $r['sugerido'] = ingesta_clasificar_nombre($r['nombre'])['empresa'];
-        $r['software'] = 'Iperius';
         $nombre = trim($m[2]);
+        // Si el "nombre" es solo una fecha, el asunto no identifica ningun equipo.
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $nombre)) {
             $r['nombre'] = $nombre;
             $r['sugerido'] = ingesta_clasificar_nombre($nombre)['empresa'];
@@ -449,7 +504,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
             $matches = $sameName->fetchAll();
         }
         if (count($matches) > 1) {
-            throw new RuntimeException('El nombre de recepción coincide con varias fichas. Hay que combinar o revisar esos equipos antes de importar más copias.');
+            throw new IngestaConflicto('El nombre de recepción «' . $d['nombre'] . '» coincide con varias fichas. Hay que combinar o revisar esos equipos antes de importar más copias.');
         }
         if (count($matches) === 1) {
             $eq = $matches[0];

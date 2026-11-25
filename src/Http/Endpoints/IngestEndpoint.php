@@ -57,39 +57,8 @@ try {
     if (count($items) > INGESTA_MAX_ITEMS)
         respuesta(['error' => 'Máximo ' . INGESTA_MAX_ITEMS . ' copias por petición'], 413);
 
-    // VM Explorer agrupa varias máquinas virtuales dentro de un único informe.
-    // Se persiste cada resultado como una copia independiente, vinculada al equipo
-    // padre indicado por el flujo, para que estados y revisiones no se mezclen.
-    $itemsExpandidos = [];
-    foreach ($items as $item) {
-        $maquinas = is_array($item) ? ($item['maquinas'] ?? null) : null;
-        if (!is_array($maquinas) || $maquinas === []) {
-            $itemsExpandidos[] = $item;
-            continue;
-        }
-        foreach ($maquinas as $maquina) {
-            if (!is_array($maquina)) {
-                $itemsExpandidos[] = $maquina;
-                continue;
-            }
-            $identidad = implode("\0", [
-                (string) ($item['message_id'] ?? ''),
-                mb_strtolower(trim((string) ($maquina['nombre'] ?? ''))),
-                mb_strtolower(trim((string) ($maquina['tarea'] ?? ''))),
-                (string) ($maquina['fecha'] ?? $item['fecha'] ?? ''),
-            ]);
-            $itemsExpandidos[] = array_replace($item, [
-                'message_id' => 'vmx:' . hash('sha256', $identidad),
-                'maquina_virtual' => $maquina['nombre'] ?? null,
-                'tarea' => $maquina['tarea'] ?? $item['tarea'] ?? null,
-                'resultado' => $maquina['resultado'] ?? null,
-                'motivo' => $maquina['motivo'] ?? '',
-                'fecha' => $maquina['fecha'] ?? $item['fecha'] ?? null,
-                'maquinas' => [],
-            ]);
-        }
-    }
-    $items = $itemsExpandidos;
+    // VM Explorer: un informe = varias VM; cada una se guarda como copia independiente.
+    $items = ingesta_expandir_maquinas($items);
     if (count($items) > INGESTA_MAX_ITEMS)
         respuesta(['error' => 'El informe contiene demasiados resultados de copia'], 413);
 
@@ -117,7 +86,7 @@ try {
                 'nuevo' => $r['nuevo'],
                 'errores_eliminados' => (int) ($r['errores_eliminados'] ?? 0),
             ];
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException | IngestaConflicto $e) {
             $errores[] = ['indice' => $i, 'error' => $e->getMessage()];
         } catch (Throwable $e) {
             $referencia = bin2hex(random_bytes(6));
@@ -157,7 +126,7 @@ try {
         'ignorados' => $pruebasIgnoradas,
         'detalle' => $detalle,
         'errores' => $errores
-    ], $nuevos + $duplicados > 0 || !$errores ? 200 : 422);
+    ], $errores ? 422 : 200);   // cualquier rechazo debe ser visible para n8n (reintentar es seguro: la ingesta es idempotente)
 } catch (Throwable $e) {
     error_log('[copias] ingest: ' . $e->getMessage());
     respuesta(['error' => cfg('debug') ? $e->getMessage() : 'Error interno del servidor'], 500);
