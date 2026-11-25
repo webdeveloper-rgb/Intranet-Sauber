@@ -58,10 +58,10 @@ export default function Detalle({
         {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && onRevisar && onReabrir && (
           <Revision c={c} onRevisar={onRevisar} onReabrir={onReabrir} />
         )}
-        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && c.revisado && onSeg && (
+        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && Boolean(c.revisado) && onSeg && (
           <Seguimiento c={c} onSeg={onSeg} />
         )}
-        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && c.revisado && onNote && (
+        {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && Boolean(c.revisado) && onNote && (
           <Notas c={c} onNote={onNote} />
         )}
       </aside>
