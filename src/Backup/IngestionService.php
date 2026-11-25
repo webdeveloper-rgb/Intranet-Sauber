@@ -377,11 +377,25 @@ function ingesta_guardar(PDO $pdo, array $d): array
             WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2 FOR UPDATE');
         $st->execute([$d['nombre']]);
         $monitorMatches = $aliasMatches ?: $st->fetchAll();
-        if (count($monitorMatches) === 1) {
-            $eq = $monitorMatches[0];
+        $matches = $monitorMatches;
+        if (!$matches) {
+            // El mismo hostname puede recibir copias de distintos programas. Reutiliza
+            // la ficha existente solo si el nombre identifica un unico equipo.
+            $sameName = $pdo->prepare('SELECT id,cliente_id FROM equipos WHERE nombre=? LIMIT 2 FOR UPDATE');
+            $sameName->execute([$d['nombre']]);
+            $matches = $sameName->fetchAll();
+        }
+        if (count($matches) > 1) {
+            throw new RuntimeException('El nombre de recepciÃ³n coincide con varias fichas. Hay que combinar o revisar esos equipos antes de importar mÃ¡s copias.');
+        }
+        if (count($matches) === 1) {
+            $eq = $matches[0];
             $pdo->prepare('UPDATE equipos SET sugerido=COALESCE(?,sugerido),
                     tipo=COALESCE(tipo_manual,COALESCE(?,tipo)),programa=COALESCE(?,programa) WHERE id=?')
                 ->execute([$d['sugerido'], $d['tipo'], $d['programa'], $eq['id']]);
+            // Guarda también el nombre recibido para este software como alias estable.
+            $saveAlias = $pdo->prepare('INSERT IGNORE INTO equipo_nombres (software,nombre,equipo_id) VALUES (?,?,?)');
+            $saveAlias->execute([$d['software'], $d['nombre'], $eq['id']]);
         } else {
             // Una copia posterior se asocia a la ficha ya creada por Monitor-Equipos.
             $pdo->prepare('INSERT INTO equipos (nombre,software,origen,sugerido,tipo,programa) VALUES (?,?,?,?,?,?)
