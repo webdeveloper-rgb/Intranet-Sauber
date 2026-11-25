@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS correo_copias (
   message_key CHAR(40) NOT NULL,
   equipo_id INT UNSIGNED NOT NULL,
   nombre_recibido VARCHAR(200) NULL, -- Nombre del aviso, independiente del hostname del agente.
+  maquina_virtual VARCHAR(200) NULL, -- VM concreta descrita por informes de VM Explorer.
+  tarea VARCHAR(200) NULL, -- Tarea del informe que generó el resultado de la VM.
   fecha DATETIME NOT NULL,
   estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL,
   severidad ENUM('leve','normal','grave','critico') NOT NULL DEFAULT 'normal',

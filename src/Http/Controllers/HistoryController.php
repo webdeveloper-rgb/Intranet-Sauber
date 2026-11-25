@@ -14,9 +14,21 @@ final class HistoryController
             if ($equipoId === false || $equipoId < 1) {
                 fail('Equipo no válido');
             }
-            // Repara errores antiguos si ya hay una copia posterior correcta,
-            // aunque el OK se importara antes de ejecutar la limpieza.
-            correo_resolver_errores_equipo((int) $equipoId, db());
+            // Repara los errores por VM para que el OK de una máquina no borre
+            // incidencias abiertas de otra VM del mismo informe.
+            $pdo = db();
+            $maquinas = [];
+            foreach (['copias', 'correo_copias'] as $table) {
+                $stmt = $pdo->prepare("SELECT DISTINCT maquina_virtual,tarea FROM `{$table}` WHERE equipo_id=?" . ($table === 'correo_copias' ? ' AND importada=0' : ''));
+                $stmt->execute([(int) $equipoId]);
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $registro) {
+                    $key = serialize([$registro['maquina_virtual'], $registro['tarea']]);
+                    $maquinas[$key] = [$registro['maquina_virtual'], $registro['tarea']];
+                }
+            }
+            foreach ($maquinas as [$maquinaVirtual, $tarea]) {
+                correo_resolver_errores_equipo((int) $equipoId, $pdo, $maquinaVirtual, $tarea);
+            }
             $query = db()->prepare("SELECT * FROM (
                 SELECT id AS copia_id,NULL AS staging_id,
                     CONVERT(DATE_FORMAT(fecha,'%Y-%m-%d %H:%i') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS fecha,
@@ -27,7 +39,9 @@ final class HistoryController
                     CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
                     CONVERT(resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci AS resultado_original,
                     CONVERT(clasificacion_fuente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_fuente,
-                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,0 AS staging
+                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,
+                    CONVERT(maquina_virtual USING utf8mb4) COLLATE utf8mb4_unicode_ci AS maquina_virtual,
+                    CONVERT(tarea USING utf8mb4) COLLATE utf8mb4_unicode_ci AS tarea,0 AS staging
                     FROM copias WHERE equipo_id=? AND estado='ERROR'
                 UNION ALL
                 SELECT NULL AS copia_id,id AS staging_id,
@@ -39,7 +53,9 @@ final class HistoryController
                     CONVERT(desc_error USING utf8mb4) COLLATE utf8mb4_unicode_ci AS desc_error,
                     CONVERT(resultado_original USING utf8mb4) COLLATE utf8mb4_unicode_ci AS resultado_original,
                     CONVERT(clasificacion_fuente USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_fuente,
-                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,1 AS staging
+                    CONVERT(clasificacion_evidencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS clasificacion_evidencia,
+                    CONVERT(maquina_virtual USING utf8mb4) COLLATE utf8mb4_unicode_ci AS maquina_virtual,
+                    CONVERT(tarea USING utf8mb4) COLLATE utf8mb4_unicode_ci AS tarea,1 AS staging
                     FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR'
             ) errores ORDER BY fecha DESC,staging_id DESC,copia_id DESC LIMIT 50");
             $query->execute([$equipoId, $equipoId]);
@@ -97,7 +113,19 @@ final class HistoryController
                 $row['notas'] = $notas[$row['id']] ?? [];
             }
             unset($row);
-            out(['copias' => $rows, 'hay_mas_historial' => $hasMore]);
+
+            $virtualMachines = $pdo->prepare("SELECT cp.maquina_virtual,cp.tarea,cp.estado,cp.severidad,cp.fecha,cp.id,cp.desc_error,cp.codigo,
+                    (SELECT COUNT(*) FROM copias total WHERE total.equipo_id=cp.equipo_id
+                        AND total.maquina_virtual=cp.maquina_virtual AND total.tarea <=> cp.tarea) AS total_copias
+                FROM copias cp
+                WHERE cp.equipo_id=? AND cp.maquina_virtual IS NOT NULL AND cp.maquina_virtual<>''
+                    AND NOT EXISTS (SELECT 1 FROM copias newer WHERE newer.equipo_id=cp.equipo_id
+                        AND newer.maquina_virtual=cp.maquina_virtual
+                        AND newer.tarea <=> cp.tarea
+                        AND (newer.fecha>cp.fecha OR (newer.fecha=cp.fecha AND newer.id>cp.id)))
+                ORDER BY cp.maquina_virtual,cp.tarea");
+            $virtualMachines->execute([$equipoId]);
+            out(['copias' => $rows, 'hay_mas_historial' => $hasMore, 'maquinas_virtuales' => $virtualMachines->fetchAll()]);
         }
 
         if ($action !== 'history') {

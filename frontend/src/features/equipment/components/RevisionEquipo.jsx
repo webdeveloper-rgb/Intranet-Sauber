@@ -64,6 +64,8 @@ export default function RevisionEquipo({ equipo, onSaved }) {
       {cargando ? <p className="mut">Cargando errores…</p> : error ? null : errores.length ? errores.map((item) =>
         <article className="equipo-error-item" key={item.copia_id ? `c-${item.copia_id}` : `s-${item.staging_id}`}>
           <div className="equipo-error-item-meta"><time>{item.fecha}</time><span>{item.software || equipo.software}</span>
+            {item.maquina_virtual && <span>VM: {item.maquina_virtual}</span>}
+            {item.tarea && <span>Tarea: {item.tarea}</span>}
             <span>{SEVERIDAD[item.severidad || 'normal'] || SEVERIDAD.normal}</span>
             {item.codigo && <code>{item.codigo}</code>}{item.staging === 1 && <span className="equipo-error-pendiente">Pendiente de importar</span>}</div>
           <p>{item.desc_error || 'Error sin descripción.'}</p>

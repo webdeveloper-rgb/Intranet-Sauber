@@ -252,6 +252,8 @@ function ingesta_adaptar($it)
         'fecha' => $it['fecha'] ?? null,
         'software' => $software,
         'nombre' => $nombre,
+        'maquina_virtual' => $it['maquina_virtual'] ?? null,
+        'tarea' => $it['tarea'] ?? null,
         'origen' => $asunto !== '' ? $asunto : $nombre,
         'sugerido' => $cliente !== '' ? $cliente : (ingesta_clasificar_nombre($nombre)['empresa'] ?? $p['sugerido']),
         'estado' => $estado,
@@ -291,6 +293,8 @@ function ingesta_normalizar($it): array
         throw new InvalidArgumentException("'estado' debe ser OK, ERROR, WARNING, RUNNING o REVISION");
 
     $nombre = ingesta_texto($it['nombre'] ?? null, 200, true, 'nombre');
+    $maquinaVirtual = ingesta_texto($it['maquina_virtual'] ?? null, 200);
+    $tarea = ingesta_texto($it['tarea'] ?? null, 200);
 
     // Convierte la fecha y evita aceptar notificaciones con fecha futura no razonable.
     $ts = strtotime((string) ($it['fecha'] ?? ''));
@@ -322,6 +326,8 @@ function ingesta_normalizar($it): array
         'message_key' => sha1('n8n|' . strtolower($mid)),
         'software' => $software,
         'nombre' => $nombre,
+        'maquina_virtual' => $maquinaVirtual,
+        'tarea' => $tarea,
         'tipo' => $tipo,
         'programa' => $cl['programa'],
         'origen' => ingesta_texto($it['origen'] ?? null, 200) ?? $nombre,
@@ -481,13 +487,15 @@ function ingesta_guardar(PDO $pdo, array $d): array
 
         // Los reenvios de una copia existente se ignoran y se informan como duplicados.
         $ins = $pdo->prepare('INSERT IGNORE INTO correo_copias
-            (message_key,equipo_id,nombre_recibido,fecha,estado,severidad,desc_error,codigo,resultado_original,clasificacion_fuente,
+            (message_key,equipo_id,nombre_recibido,maquina_virtual,tarea,fecha,estado,severidad,desc_error,codigo,resultado_original,clasificacion_fuente,
                 clasificacion_evidencia,software,destino,tamano,duracion)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $ins->execute([
             $d['message_key'],
             $eq['id'],
             $d['nombre'],
+            $d['maquina_virtual'],
+            $d['tarea'],
             $d['fecha'],
             $d['estado'],
             $d['severidad'],
@@ -506,7 +514,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
         if ($nuevo) {
             correo_importar_equipo((int) $eq['id'], $eq['cliente_id'] !== null ? (int) $eq['cliente_id'] : null, $pdo);
             if ($d['estado'] === 'OK') {
-                $erroresEliminados = correo_resolver_errores_equipo((int) $eq['id'], $pdo);
+                $erroresEliminados = correo_resolver_errores_equipo((int) $eq['id'], $pdo, $d['maquina_virtual'], $d['tarea']);
             }
         }
         $clienteNombre = null;

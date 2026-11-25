@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS copias (
   fecha DATETIME NOT NULL,
   cliente VARCHAR(200) NOT NULL,
   equipo VARCHAR(200) NOT NULL,
+  maquina_virtual VARCHAR(200) NULL,
+  tarea VARCHAR(200) NULL,
   equipo_id INT UNSIGNED NULL,
   huella CHAR(40) NULL,
   estado ENUM('OK','ERROR','WARNING','RUNNING','REVISION') NOT NULL,

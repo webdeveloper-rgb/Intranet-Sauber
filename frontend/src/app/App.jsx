@@ -29,6 +29,8 @@ const filtrosIniciales = () => {
 };
 const claveIncidenciaCopia = (c) => [
   c.equipo_id || `${c.cliente}|${c.equipo}`,
+  c.maquina_virtual || '',
+  c.tarea || '',
   c.software || '',
   c.severidad || 'normal',
   c.codigo || '',

@@ -273,6 +273,21 @@ try {
         }
     };
 
+    $migrations[23] = static function (PDO $pdo): void {
+        foreach (['copias', 'correo_copias'] as $table) {
+            $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+                WHERE table_schema=DATABASE() AND table_name='{$table}'")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('maquina_virtual', $columns, true)) {
+                $after = $table === 'copias' ? 'equipo' : 'nombre_recibido';
+                $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN maquina_virtual VARCHAR(200) NULL AFTER `{$after}`");
+                $columns[] = 'maquina_virtual';
+            }
+            if (!in_array('tarea', $columns, true)) {
+                $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN tarea VARCHAR(200) NULL AFTER maquina_virtual");
+            }
+        }
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

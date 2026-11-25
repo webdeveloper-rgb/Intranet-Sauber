@@ -192,14 +192,20 @@ function equipos_combinar(PDO $pdo, int $destinoId, array $origenIds, string $to
         }
         $pdo->prepare('UPDATE equipos SET error_reviewed_at=NULL,error_reviewed_by=NULL,error_review_desc=NULL WHERE id=?')->execute([$destinoId]);
         correo_importar_equipo($destinoId, $destino['cliente_id'] !== null ? (int) $destino['cliente_id'] : null, $pdo);
-        $tieneCopiaCorrecta = $pdo->prepare("SELECT 1 FROM copias WHERE equipo_id=? AND estado='OK' LIMIT 1");
-        $tieneCopiaCorrecta->execute([$destinoId]);
-        if ($tieneCopiaCorrecta->fetchColumn()) {
-            correo_resolver_errores_equipo($destinoId, $pdo);
-        } else {
-            $cacheKey = hash('sha256', 'copias_sin_recibir:v5');
-            $pdo->prepare('DELETE FROM panel_cache WHERE cache_key=?')->execute([$cacheKey]);
+        $maquinas = [];
+        foreach (['copias', 'correo_copias'] as $table) {
+            $q = $pdo->prepare("SELECT DISTINCT maquina_virtual,tarea FROM `$table` WHERE equipo_id=?" . ($table === 'correo_copias' ? ' AND importada=0' : ''));
+            $q->execute([$destinoId]);
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $registro) {
+                $key = serialize([$registro['maquina_virtual'], $registro['tarea']]);
+                $maquinas[$key] = [$registro['maquina_virtual'], $registro['tarea']];
+            }
         }
+        foreach ($maquinas as [$maquinaVirtual, $tarea]) {
+            correo_resolver_errores_equipo($destinoId, $pdo, $maquinaVirtual, $tarea);
+        }
+        $cacheKey = hash('sha256', 'copias_sin_recibir:v5');
+        $pdo->prepare('DELETE FROM panel_cache WHERE cache_key=?')->execute([$cacheKey]);
         $q = $pdo->prepare('SELECT nombre FROM equipos WHERE id=?');
         $q->execute([$destinoId]);
         $nombre = $q->fetchColumn();

@@ -37,6 +37,8 @@ export default function Detalle({
           <Campo t="Fecha" v={c.fecha} />
           <Campo t="Cliente" v={c.cliente} />
           <Campo t="Equipo" v={c.equipo} />
+          <Campo t="Máquina virtual" v={c.maquina_virtual} />
+          <Campo t="Tarea de copia" v={c.tarea} />
           <Campo t="Nombre recibido en la copia" v={c.nombre_recibido} />
           <Campo t="Tipo" v={c.tipo ? etiquetaTipo(c) : null} />
           <Campo t="Software" v={c.software} />

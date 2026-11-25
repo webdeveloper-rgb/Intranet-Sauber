@@ -19,6 +19,8 @@ const claveGrupo = (c) => [
   c.resultado_original || '',
   c.desc_error || '',
   c.clasificacion_evidencia || '',
+  c.maquina_virtual || '',
+  c.tarea || '',
 ].join('\u001f');
 
 const grupoPayload = (g) => ({
@@ -28,6 +30,8 @@ const grupoPayload = (g) => ({
   resultado_original: g.resultado_original || '',
   desc_error: g.desc_error || '',
   clasificacion_evidencia: g.clasificacion_evidencia || '',
+  maquina_virtual: g.maquina_virtual || '',
+  tarea: g.tarea || '',
 });
 
 function GrupoPorClasificar({ grupo, onClasificar }) {
@@ -52,6 +56,8 @@ function GrupoPorClasificar({ grupo, onClasificar }) {
         <span>{grupo.total} copia{grupo.total === 1 ? '' : 's'}</span>
         <span>{grupo.equipos.size} equipo{grupo.equipos.size === 1 ? '' : 's'}</span>
         <span>{grupo.software || 'Software no indicado'}</span>
+        {grupo.maquina_virtual && <span>VM: {grupo.maquina_virtual}</span>}
+        {grupo.tarea && <span>Tarea: {grupo.tarea}</span>}
       </div>
       <strong>{grupo.desc_error || grupo.clasificacion_evidencia || 'Error sin descripción'}</strong>
       {grupo.clasificacion_evidencia && grupo.clasificacion_evidencia !== grupo.desc_error && <small>{grupo.clasificacion_evidencia}</small>}

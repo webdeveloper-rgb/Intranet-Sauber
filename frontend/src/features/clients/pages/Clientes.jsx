@@ -57,6 +57,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const [guardando, setGuardando] = useState(null);
   const [desasignandoMasivo, setDesasignandoMasivo] = useState(false);
   const [historial, setHistorial] = useState([]);
+  const [maquinasVirtuales, setMaquinasVirtuales] = useState([]);
   const [historialFallo, setHistorialFallo] = useState('');
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
@@ -111,6 +112,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         ...(cursor ? { cursor_fecha: cursor.cursor_fecha, cursor_id: cursor.id } : {}),
       });
       if (carga !== cargaHistorialActual.current) return;
+      setMaquinasVirtuales(respuesta.maquinas_virtuales || []);
       setHistorial((actual) => anexar ? [...actual, ...respuesta.copias] : respuesta.copias);
       setHayMasHistorial(Boolean(respuesta.hay_mas_historial));
     } catch (e) {
@@ -140,10 +142,12 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     if (equipoAbierto === null) {
       cargaHistorialActual.current += 1;
       setHistorial([]);
+      setMaquinasVirtuales([]);
       setHistorialFallo('');
       setHayMasHistorial(false);
       return;
     }
+    setMaquinasVirtuales([]);
     setHistorial([]);
     cargarHistorial(equipoAbierto);
   }, [equipoAbierto, cargarHistorial]);
@@ -426,6 +430,13 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     onNavigate(`${grupo}/equipos/${otro.id}`);
   };
 
+  const maquinasVirtualesAgrupadas = [...maquinasVirtuales.reduce((grupos, tarea) => {
+    const nombre = tarea.maquina_virtual;
+    if (!grupos.has(nombre)) grupos.set(nombre, []);
+    grupos.get(nombre).push(tarea);
+    return grupos;
+  }, new Map())].map(([nombre, tareas]) => ({ nombre, tareas }));
+
   const resumenFicha = equipoActual && (<div className="equipo-resumen-grid equipo-resumen-compacto" aria-label="Resumen del equipo">
         <div><span>Cliente</span><strong>{clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar'}</strong></div>
         <div><span>Datos recibidos</span><strong className="equipo-fuentes">
@@ -498,6 +509,26 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   </>;
   const copiasFicha = equipoActual && <div className="ficha-copias">
     <RevisionEquipo equipo={equipoActual} onSaved={actualizarRevisionEquipo} />
+    {!!maquinasVirtualesAgrupadas.length && <section className="historial-equipo" aria-labelledby="titulo-maquinas-virtuales">
+      <div className="historial-equipo-heading">
+        <h3 id="titulo-maquinas-virtuales">Máquinas virtuales</h3>
+        <span>{maquinasVirtualesAgrupadas.length}</span>
+      </div>
+      <div className="maquinas-virtuales-grid">
+        {maquinasVirtualesAgrupadas.map((vm) => <article className="maquina-virtual-card" key={vm.nombre}>
+          <strong>{vm.nombre}</strong>
+          <div className="maquina-virtual-tareas">
+            {vm.tareas.map((tarea) => <div className="maquina-virtual-tarea" key={tarea.tarea || 'sin-tarea'}>
+              <span>{tarea.tarea || 'Resultado'}</span>
+              <Tag c={tarea} />
+              <time>{tarea.fecha}</time>
+              <small>{tarea.total_copias} copias</small>
+              {tarea.desc_error && <span className="historial-equipo-error">{tarea.codigo ? `${tarea.codigo} · ` : ''}{tarea.desc_error}</span>}
+            </div>)}
+          </div>
+        </article>)}
+      </div>
+    </section>}
     <details className="equipo-vigilancia">
               <summary><span>Avisos por falta de copias</span><strong>{equipoActual.vigilar !== 0 ? 'Activos' : 'Desactivados'}</strong></summary>
               <div className="equipo-vigilancia-contenido">
@@ -518,6 +549,8 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                     {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
                       onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
                       <time>{copia.fecha}</time>
+                      {copia.maquina_virtual && <strong className="historial-equipo-vm">VM: {copia.maquina_virtual}</strong>}
+                      {copia.tarea && <span className="historial-equipo-tarea">{copia.tarea}</span>}
                       <Tag c={copia} />
                       {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
                     </button>)}

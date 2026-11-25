@@ -22,6 +22,10 @@ final class CopyReviewController
             $where[] = "COALESCE({$field}, '') = ?";
             $params[] = txt($group[$field] ?? '', $max);
         }
+        $where[] = "COALESCE(maquina_virtual, '') = ?";
+        $params[] = txt($group['maquina_virtual'] ?? '', 200);
+        $where[] = "COALESCE(tarea, '') = ?";
+        $params[] = txt($group['tarea'] ?? '', 200);
         return [implode(' AND ', $where), $params];
     }
 
@@ -86,9 +90,13 @@ final class CopyReviewController
         $where[] = 'COALESCE(software, \'\') = ?';
         $where[] = 'COALESCE(codigo, \'\') = ?';
         $where[] = 'COALESCE(desc_error, \'\') = ?';
+        $where[] = 'COALESCE(maquina_virtual, \'\') = ?';
+        $where[] = 'COALESCE(tarea, \'\') = ?';
         $params[] = (string) ($copy['software'] ?? '');
         $params[] = (string) ($copy['codigo'] ?? '');
         $params[] = (string) ($copy['desc_error'] ?? '');
+        $params[] = (string) ($copy['maquina_virtual'] ?? '');
+        $params[] = (string) ($copy['tarea'] ?? '');
 
         return [implode(' AND ', $where), $params];
     }
