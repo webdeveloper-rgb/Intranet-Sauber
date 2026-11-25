@@ -50,7 +50,7 @@ export default function Detalle({
         {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && !(onRevisar && onReabrir) && (
           <p className="detalle-revision-aviso">El OK de esta copia se marca en la ficha del equipo.</p>
         )}
-        {c.equipo_id && onAbrirEquipo && <div className="detalle-acciones">
+        {Boolean(c.equipo_id) && onAbrirEquipo && <div className="detalle-acciones">
           <button className="btn sec" type="button" onClick={() => onAbrirEquipo(c)}>
             {c.estado === 'ERROR' && c.codigo !== 'SIN_COPIA' && !(onRevisar && onReabrir) ? 'Ir a la ficha del equipo' : 'Ver ficha del equipo'}
           </button>
