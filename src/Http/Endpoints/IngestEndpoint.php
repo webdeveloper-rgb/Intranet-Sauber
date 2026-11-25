@@ -57,6 +57,42 @@ try {
     if (count($items) > INGESTA_MAX_ITEMS)
         respuesta(['error' => 'Máximo ' . INGESTA_MAX_ITEMS . ' copias por petición'], 413);
 
+    // VM Explorer agrupa varias máquinas virtuales dentro de un único informe.
+    // Se persiste cada resultado como una copia independiente, vinculada al equipo
+    // padre indicado por el flujo, para que estados y revisiones no se mezclen.
+    $itemsExpandidos = [];
+    foreach ($items as $item) {
+        $maquinas = is_array($item) ? ($item['maquinas'] ?? null) : null;
+        if (!is_array($maquinas) || $maquinas === []) {
+            $itemsExpandidos[] = $item;
+            continue;
+        }
+        foreach ($maquinas as $maquina) {
+            if (!is_array($maquina)) {
+                $itemsExpandidos[] = $maquina;
+                continue;
+            }
+            $identidad = implode("\0", [
+                (string) ($item['message_id'] ?? ''),
+                mb_strtolower(trim((string) ($maquina['nombre'] ?? ''))),
+                mb_strtolower(trim((string) ($maquina['tarea'] ?? ''))),
+                (string) ($maquina['fecha'] ?? $item['fecha'] ?? ''),
+            ]);
+            $itemsExpandidos[] = array_replace($item, [
+                'message_id' => 'vmx:' . hash('sha256', $identidad),
+                'maquina_virtual' => $maquina['nombre'] ?? null,
+                'tarea' => $maquina['tarea'] ?? $item['tarea'] ?? null,
+                'resultado' => $maquina['resultado'] ?? null,
+                'motivo' => $maquina['motivo'] ?? '',
+                'fecha' => $maquina['fecha'] ?? $item['fecha'] ?? null,
+                'maquinas' => [],
+            ]);
+        }
+    }
+    $items = $itemsExpandidos;
+    if (count($items) > INGESTA_MAX_ITEMS)
+        respuesta(['error' => 'El informe contiene demasiados resultados de copia'], 413);
+
     $pdo = db();
     asegurar_tablas_equipos($pdo);
 
