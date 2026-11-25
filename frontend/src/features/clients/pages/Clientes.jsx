@@ -548,10 +548,14 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                   : historial.length ? <div className="historial-equipo-lista">
                     {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
                       onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
-                      <time>{copia.fecha}</time>
-                      {copia.maquina_virtual && <strong className="historial-equipo-vm">VM: {copia.maquina_virtual}</strong>}
-                      {copia.tarea && <span className="historial-equipo-tarea">{copia.tarea}</span>}
-                      <Tag c={copia} />
+                      <span className="historial-equipo-datos">
+                        <time>{copia.fecha}</time>
+                        {copia.tarea && <span className="historial-equipo-tarea">{copia.tarea}</span>}
+                      </span>
+                      <span className="historial-equipo-etiquetas">
+                        {copia.maquina_virtual && <strong className="historial-equipo-vm">VM: {copia.maquina_virtual}</strong>}
+                        <Tag c={copia} />
+                      </span>
                       {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
                     </button>)}
                   </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}

@@ -4073,6 +4073,49 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
 .historial-equipo-fila {
   padding: 10px 2px;
 }
+.historial-equipo-datos {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  min-width: 0;
+}
+.historial-equipo-etiquetas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.historial-equipo-vm {
+  max-width: min(34vw, 320px);
+  padding: 4px 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--bd));
+  border-radius: 999px;
+  background: var(--brand-s);
+  color: var(--brand-t);
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.historial-equipo-fila .tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.historial-equipo-fila .tag.INC {
+  border-color: color-mix(in srgb, var(--wa) 35%, var(--bd));
+  background: var(--wab);
+  color: var(--wa);
+}
 .okmsg,
 .errbox,
 .estado-alertas {
