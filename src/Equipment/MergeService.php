@@ -58,8 +58,8 @@ function equipos_combinar_plan(PDO $pdo, int $destinoId, array $origenIds, bool 
     $q = $pdo->prepare("SELECT DISTINCT software,equipo AS nombre,equipo_id FROM copias WHERE equipo_id IN ($in) AND software IS NOT NULL");
     $q->execute($ids);
     $names = array_merge($names, $q->fetchAll(PDO::FETCH_ASSOC));
-    $q = $pdo->prepare("SELECT DISTINCT cc.software,e.nombre,cc.equipo_id FROM correo_copias cc
-        JOIN equipos e ON e.id=cc.equipo_id WHERE cc.equipo_id IN ($in) AND cc.software IS NOT NULL");
+    $q = $pdo->prepare("SELECT DISTINCT cc.software,cc.nombre_recibido AS nombre,cc.equipo_id FROM correo_copias cc
+        WHERE cc.equipo_id IN ($in) AND cc.software IS NOT NULL AND cc.nombre_recibido IS NOT NULL");
     $q->execute($ids);
     $names = array_merge($names, $q->fetchAll(PDO::FETCH_ASSOC));
     $seen = [];

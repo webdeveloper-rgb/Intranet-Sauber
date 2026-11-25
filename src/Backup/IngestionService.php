@@ -366,27 +366,84 @@ function ingesta_guardar(PDO $pdo, array $d): array
             ];
         }
 
+        $matchesById = [];
+        $collectMatches = static function (array $rows) use (&$matchesById): void {
+            foreach ($rows as $row) {
+                $matchesById[(int) $row['id']] = $row;
+            }
+        };
         $alias = $pdo->prepare("SELECT DISTINCT e.id,e.cliente_id FROM equipo_nombres n JOIN equipos e ON e.id=n.equipo_id
-            WHERE n.nombre=? AND (n.software=? OR n.software='MonitorAgent') LIMIT 2 FOR UPDATE");
+            WHERE n.nombre=? AND (n.software=? OR n.software='MonitorAgent') LIMIT 3 FOR UPDATE");
         $alias->execute([$d['nombre'], $d['software']]);
-        $aliasMatches = $alias->fetchAll();
-        if (count($aliasMatches) > 1) {
-            throw new RuntimeException('El nombre de recepción coincide con varios equipos combinados.');
+        $collectMatches($alias->fetchAll());
+
+        // Recupera alias que todavía no existían cuando se combinó el equipo.
+        // Ambos campos conservan el nombre tal como llegó en el correo.
+        $history = $pdo->prepare('SELECT DISTINCT e.id,e.cliente_id FROM copias cp
+            JOIN equipos e ON e.id=cp.equipo_id WHERE cp.equipo=? AND cp.software=? LIMIT 3 FOR UPDATE');
+        $history->execute([$d['nombre'], $d['software']]);
+        $collectMatches($history->fetchAll());
+        $stagedHistory = $pdo->prepare('SELECT DISTINCT e.id,e.cliente_id FROM correo_copias cc
+            JOIN equipos e ON e.id=cc.equipo_id WHERE cc.nombre_recibido=? AND cc.software=? LIMIT 3 FOR UPDATE');
+        $stagedHistory->execute([$d['nombre'], $d['software']]);
+        $collectMatches($stagedHistory->fetchAll());
+
+        // El hostname del agente también puede ser un alias válido para el equipo combinado.
+        $monitor = $pdo->prepare('SELECT id,cliente_id FROM equipos
+            WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 3 FOR UPDATE');
+        $monitor->execute([$d['nombre']]);
+        $collectMatches($monitor->fetchAll());
+
+        // Algunos avisos añaden el cliente al final del hostname, por ejemplo
+        // "BACKUP_XFRAMED-RADIO ORIHUELA". Solo se acepta si el cliente existe
+        // con ese nombre y la ficha base pertenece a él de forma inequívoca.
+        $suggestedCustomer = trim((string) ($d['sugerido'] ?? ''));
+        if ($suggestedCustomer !== '') {
+            $customerQuery = $pdo->prepare('SELECT id,nombre FROM clientes WHERE LOWER(nombre)=LOWER(?) LIMIT 2 FOR UPDATE');
+            $customerQuery->execute([$suggestedCustomer]);
+            $customers = $customerQuery->fetchAll();
+            if (count($customers) === 1) {
+                $customerName = preg_replace('/\s+/u', ' ', trim((string) $customers[0]['nombre']));
+                $receivedName = preg_replace('/\s+/u', ' ', trim((string) $d['nombre']));
+                $pattern = '/^(.+?)[\\s_-]+' . preg_quote($customerName, '/') . '$/iu';
+                if (preg_match($pattern, $receivedName, $parts)) {
+                    $baseName = trim($parts[1]);
+                    $byCustomer = $pdo->prepare('SELECT id,cliente_id FROM equipos
+                        WHERE cliente_id=? AND nombre=? LIMIT 3 FOR UPDATE');
+                    $byCustomer->execute([(int) $customers[0]['id'], $baseName]);
+                    $collectMatches($byCustomer->fetchAll());
+                }
+            }
         }
-        $st = $pdo->prepare('SELECT id,cliente_id FROM equipos
-            WHERE nombre=? AND monitor_machine_id IS NOT NULL LIMIT 2 FOR UPDATE');
-        $st->execute([$d['nombre']]);
-        $monitorMatches = $aliasMatches ?: $st->fetchAll();
-        $matches = $monitorMatches;
+
+        // Si n8n no envió el cliente sugerido, prueba las separaciones del nombre
+        // contra clientes reales. La pareja base + cliente debe ser exacta.
+        $compositeQuery = $pdo->prepare('SELECT e.id,e.cliente_id FROM equipos e
+            JOIN clientes c ON c.id=e.cliente_id
+            WHERE e.nombre=? AND LOWER(c.nombre)=LOWER(?) LIMIT 3 FOR UPDATE');
+        $receivedName = preg_replace('/\s+/u', ' ', trim((string) $d['nombre']));
+        if (preg_match_all('/[-_\s]+/u', $receivedName, $separators, PREG_OFFSET_CAPTURE)) {
+            foreach ($separators[0] as [$separator, $offset]) {
+                $baseName = trim(substr($receivedName, 0, $offset), " \t\n\r\0\x0B_-");
+                $customerName = trim(substr($receivedName, $offset + strlen($separator)));
+                if ($baseName === '' || $customerName === '') {
+                    continue;
+                }
+                $compositeQuery->execute([$baseName, $customerName]);
+                $collectMatches($compositeQuery->fetchAll());
+            }
+        }
+
+        $matches = array_values($matchesById);
         if (!$matches) {
             // El mismo hostname puede recibir copias de distintos programas. Reutiliza
             // la ficha existente solo si el nombre identifica un unico equipo.
-            $sameName = $pdo->prepare('SELECT id,cliente_id FROM equipos WHERE nombre=? LIMIT 2 FOR UPDATE');
+            $sameName = $pdo->prepare('SELECT id,cliente_id FROM equipos WHERE nombre=? LIMIT 3 FOR UPDATE');
             $sameName->execute([$d['nombre']]);
             $matches = $sameName->fetchAll();
         }
         if (count($matches) > 1) {
-            throw new RuntimeException('El nombre de recepciÃ³n coincide con varias fichas. Hay que combinar o revisar esos equipos antes de importar mÃ¡s copias.');
+            throw new RuntimeException('El nombre de recepción coincide con varias fichas. Hay que combinar o revisar esos equipos antes de importar más copias.');
         }
         if (count($matches) === 1) {
             $eq = $matches[0];
