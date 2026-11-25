@@ -69,11 +69,29 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const sincronizando = useRef(false);
   const equipoMonitorActual = useRef(null);
 
+  // La copia de la URL (?tab=copias&copia=ID) se abre UNA vez por enlace. Antes se reabría cada vez que
+  // cambiaba `historial` (cada refresco automático), así que el detalle reaparecía solo tras cerrarlo.
+  const copiaRutaAbierta = useRef(null);
   useEffect(() => {
-    if (!copiaId || !equipoAbierto || !historial.length) return;
+    if (!copiaId) {
+      copiaRutaAbierta.current = null;
+      return;
+    }
+    if (!equipoAbierto || !historial.length || copiaRutaAbierta.current === copiaId) return;
     const copia = historial.find((item) => Number(item.id) === Number(copiaId));
-    if (copia) setCopiaSeleccionada(copia);
+    if (copia) {
+      copiaRutaAbierta.current = copiaId;
+      setCopiaSeleccionada(copia);
+    }
   }, [copiaId, equipoAbierto, historial]);
+
+  const cerrarDetalleCopia = () => {
+    setCopiaSeleccionada(null);
+    // Quita &copia= de la URL para que recargar o volver atrás no vuelva a abrir el detalle.
+    if (copiaId && clienteAbierto !== null && equipoAbierto !== null) {
+      onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}/equipos/${equipoAbierto}?tab=copias`, { replace: true });
+    }
+  };
 
   const cargar = useCallback(async (silencioso = false, duranteSync = false) => {
     if (sincronizando.current && !duranteSync) return { error: '', actualizado: false };
@@ -703,7 +721,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       )}
     </section>
     {copiaSeleccionada && <Detalle modo="dialog" c={copiaSeleccionada}
-      onClose={() => setCopiaSeleccionada(null)} onRevisar={accionesCopia.revisar}
+      onClose={cerrarDetalleCopia} onRevisar={accionesCopia.revisar}
       onReabrir={accionesCopia.reabrir} onSeg={accionesCopia.seguimiento} onNote={accionesCopia.nota}
       onAbrirEquipo={(copia) => {
         setCopiaSeleccionada(null);
