@@ -16,7 +16,7 @@ async function cargarLogo() {
   return logoDataUrl;
 }
 
-export async function agregarLogoPdf(doc, x, y, width = 31) {
+export async function agregarLogoPdf(doc, x, y, width = 46) {
   const data = await cargarLogo();
   doc.addImage(data, 'PNG', x, y, width, width / (1466 / 363));
 }

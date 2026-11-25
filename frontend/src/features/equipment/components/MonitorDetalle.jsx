@@ -1,57 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../shared/api/client';
-import { agregarLogoPdf } from '../../../shared/lib/pdfBranding';
+import { bytes, tiempoEncendido, espacioVolumen, graficasFisicas, fecha, productosSoftware, licenciaWindows } from '../lib/monitorFormatters';
+import { generarPdfEquipo, generarPdfProgramasEquipo } from '../lib/monitorPdf';
 
-function bytes(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) return null;
-  if (number < 1024) return `${number} B`;
-  const binaryUnits = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
-  const decimalUnits = ['kB', 'MB', 'GB', 'TB', 'PB'];
-  let binarySize = number;
-  let decimalSize = number;
-  let unit = -1;
-  do {
-    binarySize /= 1024;
-    decimalSize /= 1000;
-    unit += 1;
-  } while (binarySize >= 1024 && unit < binaryUnits.length - 1);
-  return `${binarySize.toFixed(1)} ${binaryUnits[unit]} (${decimalSize.toFixed(1)} ${decimalUnits[unit]})`;
-}
 
-function tiempoEncendido(lastBootUtc, reportTimestampUtc) {
-  if (!lastBootUtc || !reportTimestampUtc) return null;
-  const lastBoot = new Date(lastBootUtc).getTime();
-  const reportedAt = new Date(reportTimestampUtc).getTime();
-  if (!Number.isFinite(lastBoot) || !Number.isFinite(reportedAt) || reportedAt < lastBoot) return null;
-  const minutes = Math.floor((reportedAt - lastBoot) / 60000);
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  const remainingMinutes = minutes % 60;
-  return [days ? `${days} d` : null, `${hours} h`, `${remainingMinutes} min`].filter(Boolean).join(' ');
-}
 
-function espacioVolumen(volume) {
-  const free = bytes(volume.freeBytes);
-  const total = bytes(volume.sizeBytes);
-  if (!free && !total) return null;
-  const percent = Number(volume.sizeBytes) > 0 && Number.isFinite(Number(volume.freeBytes))
-    ? ` · ${((Number(volume.freeBytes) / Number(volume.sizeBytes)) * 100).toFixed(1)}% libre`
-    : '';
-  return `${free || '—'} libres / ${total || '—'} capacidad${percent}`;
-}
 
-function graficasFisicas(graficas = []) {
-  const controladoresRemotos = [
-    'anyviewer', 'anydesk', 'rustdesk', 'supremo', 'teamviewer', 'splashtop',
-    'chrome remote desktop', 'connectwise', 'screenconnect', 'ultraviewer',
-    'zoho assist', 'logmein', 'goto resolve', 'meshcentral',
-  ];
-  return graficas.filter((grafica) => {
-    const nombre = String(grafica.name || '').toLocaleLowerCase();
-    return !controladoresRemotos.some((marca) => nombre.includes(marca));
-  });
-}
 
 function Campo({ label, value, ayuda }) {
   if (value == null || value === '') return null;
@@ -72,11 +26,6 @@ function Lista({ items, render, grid = false }) {
   ))}</div>;
 }
 
-function fecha(value) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('es-ES');
-}
 
 function tiempoDesde(value, ahora) {
   const timestamp = Date.parse(value || '');
@@ -90,286 +39,8 @@ function tiempoDesde(value, ahora) {
   return `hace ${dias} día${dias === 1 ? '' : 's'}`;
 }
 
-function productosSoftware(software, field) {
-  if (!software || software.available === false) return 'Pendiente de actualizar el agente';
-  return software[field]?.length ? software[field].join(', ') : 'No detectado';
-}
 
-function licenciaWindows(software) {
-  if (!software || software.available === false) return 'Pendiente de actualizar el agente';
-  if (software.windowsLicenseStatus === 'licensed') return 'Activa';
-  if (software.windowsLicenseStatus === 'not_licensed') return 'No activa';
-  return 'No disponible';
-}
 
-function agregarDatoPdf(rows, label, value) {
-  if (value == null || value === '') return;
-  rows.push([label, String(value)]);
-}
-
-function agregarListaPdf(rows, items, fields) {
-  (items || []).forEach((item) => {
-    fields.forEach(([label, getValue]) => {
-      // The section heading already gives context; numbering every field adds noise.
-      agregarDatoPdf(rows, label, getValue(item));
-    });
-  });
-}
-
-function agregarSeccionPdf(doc, autoTable, titulo, rows, y) {
-  if (!rows.length) return y;
-  if (y > doc.internal.pageSize.getHeight() - 38) {
-    doc.addPage();
-    y = 18;
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(38, 57, 76);
-  doc.text(titulo, 14, y);
-  doc.setDrawColor(220, 227, 234);
-  doc.setLineWidth(0.3);
-  doc.line(14, y + 2, doc.internal.pageSize.getWidth() - 14, y + 2);
-  autoTable(doc, {
-    startY: y + 4,
-    head: [['Dato', 'Información']],
-    body: rows,
-    theme: 'plain',
-    margin: { left: 14, right: 14, top: 18, bottom: 20 },
-    styles: { font: 'helvetica', fontSize: 9.5, cellPadding: { top: 2.2, right: 2, bottom: 2.2, left: 2 }, overflow: 'linebreak', textColor: [42, 52, 62], valign: 'middle' },
-    headStyles: { fillColor: [242, 246, 249], textColor: [85, 99, 113], fontStyle: 'bold', fontSize: 8, cellPadding: 2 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    columnStyles: { 0: { cellWidth: 62, fontStyle: 'normal', textColor: [85, 99, 113] }, 1: { cellWidth: 'auto' } },
-    rowPageBreak: 'avoid',
-  });
-  return doc.lastAutoTable.finalY + 10;
-}
-
-function agregarGridPdf(doc, titulo, items, fields, y) {
-  const visibles = (items || []).map((item) => fields.map(([label, getValue]) => [label, getValue(item)])
-    .filter(([, value]) => value != null && value !== ''))
-    .filter((rows) => rows.length);
-  if (!visibles.length) return y;
-  const ancho = doc.internal.pageSize.getWidth();
-  const alto = doc.internal.pageSize.getHeight();
-  const margen = 14;
-  const gap = 5;
-  const cardWidth = (ancho - margen * 2 - gap) / 2;
-  const dibujarTitulo = () => {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(38, 57, 76);
-    doc.text(titulo, margen, y);
-    doc.setDrawColor(220, 227, 234); doc.setLineWidth(0.3);
-    doc.line(margen, y + 2, ancho - margen, y + 2);
-    y += 8;
-  };
-  dibujarTitulo();
-  for (let i = 0; i < visibles.length; i += 2) {
-    const cards = visibles.slice(i, i + 2).map((rows) => {
-      let height = 8;
-      const prepared = rows.map(([label, value]) => {
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-        const labelLines = doc.splitTextToSize(label, cardWidth - 8);
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-        const valueLines = doc.splitTextToSize(String(value), cardWidth - 8);
-        const blockHeight = labelLines.length * 3.5 + valueLines.length * 4 + 3;
-        height += blockHeight;
-        return { labelLines, valueLines, blockHeight };
-      });
-      return { rows, prepared, height };
-    });
-    const rowHeight = Math.max(...cards.map((card) => card.height));
-    if (y + rowHeight > alto - 22) { doc.addPage(); y = 18; dibujarTitulo(); }
-    cards.forEach((card, column) => {
-      const x = margen + column * (cardWidth + gap);
-      doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 238);
-      doc.roundedRect(x, y, cardWidth, rowHeight, 2, 2, 'FD');
-      let cy = y + 5;
-      card.prepared.forEach(({ labelLines, valueLines, blockHeight }) => {
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(91, 105, 119);
-        doc.text(labelLines, x + 4, cy);
-        cy += labelLines.length * 3.5;
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(42, 52, 62);
-        doc.text(valueLines, x + 4, cy);
-        cy += blockHeight - labelLines.length * 3.5;
-      });
-    });
-    y += rowHeight + 5;
-  }
-  return y;
-}
-
-function agregarProgramasPdf(doc, autoTable, software, y) {
-  const instalados = software?.installedPrograms;
-  const sinLista = !Array.isArray(instalados);
-  if (sinLista && software?.available !== false) return y;
-  if (y > doc.internal.pageSize.getHeight() - 38) {
-    doc.addPage();
-    y = 18;
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(38, 57, 76);
-  doc.text(sinLista ? 'Programas instalados' : `Programas instalados (${instalados.length})`, 14, y);
-  doc.setDrawColor(220, 227, 234);
-  doc.setLineWidth(0.3);
-  doc.line(14, y + 2, doc.internal.pageSize.getWidth() - 14, y + 2);
-  const body = sinLista
-    ? [['Pendiente de actualizar el agente', '', '']]
-    : instalados.length
-      ? instalados.map((programa) => [programa.name || '', programa.version || '—', programa.publisher || '—'])
-      : [['No se detectaron programas instalados', '', '']];
-  autoTable(doc, {
-    startY: y + 4,
-    head: [['Programa', 'Versión', 'Fabricante']],
-    body,
-    theme: 'plain',
-    margin: { left: 14, right: 14, top: 18, bottom: 20 },
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.2, overflow: 'linebreak', textColor: [42, 52, 62], valign: 'middle' },
-    headStyles: { fillColor: [242, 246, 249], textColor: [85, 99, 113], fontStyle: 'bold', fontSize: 8, cellPadding: 2 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    columnStyles: { 0: { cellWidth: 92, fontStyle: 'normal', textColor: [65, 79, 94] }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' } },
-    rowPageBreak: 'avoid',
-  });
-  return doc.lastAutoTable.finalY + 10;
-}
-
-async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas, incluirProgramas }) {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-    import('jspdf'),
-    import('jspdf-autotable'),
-  ]);
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const ancho = doc.internal.pageSize.getWidth();
-  const alto = doc.internal.pageSize.getHeight();
-  const generado = new Date();
-  await agregarLogoPdf(doc, 14, 6, 43);
-  const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
-  const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
-  doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
-  doc.setFillColor(46, 116, 151);
-  doc.rect(0, 0, ancho, 3, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(77, 99, 117);
-  doc.text('SAUBER  ·  INFORME DEL EQUIPO', 62, 14);
-  doc.setFontSize(19);
-  doc.setTextColor(28, 45, 61);
-  const lineasNombre = doc.splitTextToSize(nombreEquipo, ancho - 28);
-  doc.text(lineasNombre, 14, 31);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(91, 105, 119);
-  doc.text(subtituloEquipo || 'Estado y especificaciones del equipo', 14, 41 + (lineasNombre.length - 1) * 6);
-  doc.setFontSize(9);
-  doc.setTextColor(91, 105, 119);
-  doc.text(`Generado el ${fecha(generado)}`, ancho - 14, 14, { align: 'right' });
-
-  let y = 61 + (lineasNombre.length - 1) * 6;
-  const identificacion = [];
-  agregarDatoPdf(identificacion, 'Cliente', clienteNombre);
-  y = agregarSeccionPdf(doc, autoTable, 'Resumen del equipo', identificacion, y);
-
-  const sistema = [];
-  agregarDatoPdf(sistema, 'ID de RustDesk', monitor.rustDeskId);
-  agregarDatoPdf(sistema, 'Sistema operativo', [monitor.system?.osName, monitor.system?.osVersion, monitor.system?.osArchitecture].filter(Boolean).join(' · '));
-  agregarDatoPdf(sistema, 'Versión de Windows', monitor.software?.windowsRelease);
-  agregarDatoPdf(sistema, 'Fabricante y modelo', [monitor.system?.manufacturer, monitor.system?.model].filter(Boolean).join(' · '));
-  agregarDatoPdf(sistema, 'Número de serie', monitor.system?.serialNumber);
-  agregarDatoPdf(sistema, 'Dominio', monitor.system?.domain);
-  agregarDatoPdf(sistema, 'Memoria total', bytes(monitor.system?.totalRamBytes));
-  agregarDatoPdf(sistema, 'Último arranque de Windows', fecha(monitor.system?.lastBootUtc));
-  agregarDatoPdf(sistema, 'Tiempo encendido del PC al informe', tiempoEncendido(monitor.system?.lastBootUtc, monitor.timestampUtc));
-  y = agregarSeccionPdf(doc, autoTable, 'Sistema', sistema, y);
-
-  const software = [];
-  agregarDatoPdf(software, 'Antivirus detectado', productosSoftware(monitor.software, 'antivirusProducts'));
-  agregarDatoPdf(software, 'Software de copias detectado', productosSoftware(monitor.software, 'backupProducts'));
-  agregarDatoPdf(software, 'Licencia de Windows', licenciaWindows(monitor.software));
-  y = agregarSeccionPdf(doc, autoTable, 'Protección, copias y licencia', software, y);
-
-  const placa = [];
-  agregarDatoPdf(placa, 'Placa base', [monitor.board?.manufacturer, monitor.board?.product].filter(Boolean).join(' · '));
-  agregarDatoPdf(placa, 'BIOS', [monitor.board?.biosVendor, monitor.board?.biosVersion, monitor.board?.biosDate].filter(Boolean).join(' · '));
-  y = agregarSeccionPdf(doc, autoTable, 'Placa base y BIOS', placa, y);
-
-  const procesadores = [];
-  agregarListaPdf(procesadores, monitor.cpus, [
-    ['Modelo', (cpu) => cpu.name],
-    ['Núcleos / procesadores lógicos', (cpu) => [cpu.cores, cpu.logicalProcessors].filter((value) => value != null).join(' / ')],
-    ['Frecuencia máxima', (cpu) => cpu.maxClockMHz != null ? `${cpu.maxClockMHz} MHz` : null],
-  ]);
-  y = agregarSeccionPdf(doc, autoTable, 'Procesadores', procesadores, y);
-
-  y = agregarGridPdf(doc, 'Memoria RAM', monitor.ram, [
-    ['Ranura', (module) => module.slot], ['Capacidad', (module) => bytes(module.capacityBytes)],
-    ['Tipo / velocidad', (module) => [module.type, module.speedMHz != null ? `${module.speedMHz} MHz` : null].filter(Boolean).join(' · ')],
-    ['Fabricante / referencia', (module) => [module.manufacturer, module.partNumber].filter(Boolean).join(' · ')],
-  ], y);
-
-  y = agregarGridPdf(doc, 'Gráficas', graficasFisicas(monitor.gpus), [
-    ['Modelo', (gpu) => gpu.name], ['Memoria', (gpu) => bytes(gpu.adapterRamBytes)],
-  ], y);
-
-  y = agregarGridPdf(doc, 'Discos', monitor.disks, [
-    ['Modelo', (disk) => disk.model], ['Vida útil restante', (disk) => disk.lifeLeftPercent != null ? `${disk.lifeLeftPercent}%` : 'No disponible'],
-    ['Estado reportado', (disk) => disk.lifeLeftPercent == null ? disk.healthStatus : null],
-    ['Capacidad física / tipo', (disk) => [bytes(disk.sizeBytes), disk.mediaType, disk.busType].filter(Boolean).join(' · ')],
-    ['Temperatura', (disk) => disk.temperatureC != null ? `${disk.temperatureC} °C` : null],
-    ['Desgaste reportado', (disk) => disk.wearPercent != null ? `${disk.wearPercent}%` : null],
-    ['Uso acumulado', (disk) => disk.powerOnHours != null ? `${Number(disk.powerOnHours).toLocaleString('es-ES')} h` : null],
-    ['Errores lectura / escritura', (disk) => [disk.readErrorsTotal, disk.writeErrorsTotal].filter((value) => value != null).join(' / ')],
-  ], y);
-
-  const volumenes = [];
-  agregarListaPdf(volumenes, monitor.volumes, [
-    ['Unidad', (volume) => [volume.drive, volume.label].filter(Boolean).join(' · ')],
-    ['Espacio libre / capacidad', espacioVolumen],
-    ['Sistema de archivos', (volume) => volume.fileSystem],
-  ]);
-  y = agregarSeccionPdf(doc, autoTable, 'Volúmenes', volumenes, y);
-
-  const baterias = [];
-  agregarListaPdf(baterias, monitor.batteries, [
-    ['Nombre', (battery) => battery.name],
-    ['Carga', (battery) => battery.chargePercent != null ? `${battery.chargePercent}%` : null],
-    ['Salud', (battery) => battery.healthPercent != null ? `${battery.healthPercent}%` : null],
-    ['Capacidad de diseño / actual', (battery) => [bytes(battery.designCapacity), bytes(battery.fullChargeCapacity)].filter(Boolean).join(' / ')],
-  ]);
-  y = agregarSeccionPdf(doc, autoTable, 'Baterías', baterias, y);
-
-  const alertasPdf = alertas.filter((alerta) => !(alerta.severidad === 'warning' && alerta.titulo === 'Poco espacio libre'));
-  if (alertasPdf.length) {
-    const filasAlertas = alertasPdf.map((alerta) => [
-      `${alerta.severidad === 'critical' ? 'Crítica' : 'Advertencia'} · ${alerta.titulo || 'Alerta'}`,
-      alerta.detalle || 'Sin detalle',
-    ]);
-    y = agregarSeccionPdf(doc, autoTable, 'Alertas activas', filasAlertas, y);
-  }
-
-  if (incluirProgramas) y = agregarProgramasPdf(doc, autoTable, monitor.software, y);
-
-  const paginas = doc.internal.getNumberOfPages();
-  for (let pagina = 1; pagina <= paginas; pagina += 1) {
-    doc.setPage(pagina);
-    if (pagina > 1) await agregarLogoPdf(doc, 14, 6, 30);
-    doc.setDrawColor(220, 227, 234);
-    doc.setLineWidth(0.25);
-    doc.line(14, alto - 15, ancho - 14, alto - 15);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(105, 117, 129);
-    doc.text('Intranet-Sauber  ·  Informe técnico de equipo', 14, alto - 9);
-    doc.text(`Página ${pagina} de ${paginas}`, ancho - 14, alto - 8, { align: 'right' });
-  }
-
-  const nombre = String(equipo.nombre || `equipo-${equipo.id}`)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '') || `equipo-${equipo.id}`;
-  doc.save(`estado-especificaciones-${nombre}-${generado.toISOString().slice(0, 10)}.pdf`);
-}
-
-// PDF solo con los programas instalados del equipo (botón independiente del informe técnico completo).
 export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin = false, clienteNombre = '' }) {
   const monitor = datos?.monitor;
   const modoConfigurado = datos?.event_extraction_mode || 'standard';
@@ -463,7 +134,8 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     setDialogoPdf(false);
     setGenerandoPdf(true);
     try {
-      await generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts, incluirProgramas });
+      await generarPdfEquipo({ equipo, clienteNombre, monitor, alertas: alerts });
+      if (incluirProgramas) await generarPdfProgramasEquipo({ equipo, clienteNombre, monitor });
     } catch (e) {
       setErrorPdf(e.message || 'No se pudo generar el PDF.');
     } finally {
@@ -482,13 +154,24 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     </div>
     {errorPdf && <div className="errbox" role="alert">{errorPdf}</div>}
     {dialogoPdf && <div className="ov" onClick={() => setDialogoPdf(false)} />}
-    {dialogoPdf && <aside className="monitor-pdf-dialog" role="dialog" aria-modal="true" aria-labelledby="monitor-pdf-dialog-title">
-      <h2 id="monitor-pdf-dialog-title">Preparar informe PDF</h2>
-      <p>¿Quieres incluir también la lista de programas instalados?</p>
-      <label><input type="checkbox" checked={incluirProgramas} disabled={!programasDisponibles} onChange={(event) => setIncluirProgramas(event.target.checked)} /> Incluir programas instalados</label>
-      {!programasDisponibles && <small>El agente aún no ha enviado esa lista.</small>}
-      <div><button type="button" className="btn sec" onClick={() => setDialogoPdf(false)}>Cancelar</button>
-        <button type="button" className="btn" onClick={descargarPdf}>Descargar PDF</button></div>
+    {dialogoPdf && <aside className="monitor-pdf-dialog" role="dialog" aria-modal="true"
+      aria-labelledby="monitor-pdf-dialog-title" aria-describedby="monitor-pdf-dialog-description">
+      <header className="monitor-pdf-dialog-header">
+        <span className="monitor-pdf-dialog-icon" aria-hidden="true">PDF</span>
+        <div><h2 id="monitor-pdf-dialog-title">Preparar informe PDF</h2>
+          <p id="monitor-pdf-dialog-description">Si incluyes los programas, se descargarán en un segundo PDF separado.</p></div>
+        <button type="button" className="monitor-pdf-dialog-close" aria-label="Cerrar diálogo" onClick={() => setDialogoPdf(false)}>×</button>
+      </header>
+      <label className={`monitor-pdf-option${programasDisponibles ? '' : ' disabled'}`}>
+        <input type="checkbox" checked={incluirProgramas} disabled={!programasDisponibles}
+          onChange={(event) => setIncluirProgramas(event.target.checked)} />
+        <span><strong>Programas instalados</strong><small>Descarga un segundo PDF con el nombre, la versión y el fabricante de cada programa.</small></span>
+      </label>
+      {!programasDisponibles && <p className="monitor-pdf-unavailable">El agente todavía no ha enviado la lista de programas.</p>}
+      <footer className="monitor-pdf-dialog-actions">
+        <button type="button" className="btn sec" onClick={() => setDialogoPdf(false)}>Cancelar</button>
+        <button type="button" className="btn" onClick={descargarPdf}>{incluirProgramas ? 'Descargar 2 PDF' : 'Descargar PDF'}</button>
+      </footer>
     </aside>}
     <section className={`monitor-agent-status monitor-agent-${estadoAgente.clase}`} aria-label="Estado del agente">
       <div className="monitor-agent-status-titulo">
@@ -642,7 +325,7 @@ export default function MonitorDetalle({ equipo, datos, cargando, error, esAdmin
     </Seccion>
 
     <Seccion titulo="Volúmenes" mostrar={monitor.volumes?.length >= 1}>
-      <Lista items={monitor.volumes} render={(volume) => <>
+      <Lista grid items={monitor.volumes} render={(volume) => <>
         <Campo label="Unidad" value={[volume.drive, volume.label].filter(Boolean).join(' · ')} />
         <Campo label="Espacio libre / capacidad del volumen" value={espacioVolumen(volume)} ayuda="Espacio de esta unidad lógica. Se muestra aparte de la capacidad física del disco." />
         <Campo label="Sistema de archivos" value={volume.fileSystem} />

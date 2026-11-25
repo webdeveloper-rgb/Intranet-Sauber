@@ -30,7 +30,7 @@ export default function RevisionEquipo({ equipo, onSaved }) {
     return () => { activo = false; };
   }, [equipo.id, equipo.errores_pendientes]);
 
-  if (!totalErrores && !equipo.error_reviewed_at) return null;
+  if (!totalErrores) return null;
 
   const guardar = async (event) => {
     event.preventDefault();

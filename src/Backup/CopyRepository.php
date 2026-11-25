@@ -100,8 +100,25 @@ function copias_sin_recibir(PDO $pdo): array
  * La consulta sigue devolviendo el estado actual para los indicadores, pero el
  * historial se apoya ya en la tabla copias y conserva la trazabilidad.
  */
-function copias_sin_recibir_registrar(PDO $pdo, array $rows): void
+function copias_sin_recibir_registrar(PDO $pdo, array $rows, bool $limpiarObsoletas = false): void
 {
+    if ($limpiarObsoletas) {
+        $huellasEsperadas = [];
+        foreach ($rows as $row) {
+            $equipoId = (int) ($row['equipo_id'] ?? 0);
+            $esperada = (string) ($row['fecha_esperada'] ?? '');
+            if ($equipoId > 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $esperada)) {
+                $huellasEsperadas[] = sha1("sin-copia:{$equipoId}:{$esperada}");
+            }
+        }
+        if (!$huellasEsperadas) {
+            $pdo->exec("DELETE FROM copias WHERE codigo='SIN_COPIA'");
+        } else {
+            $placeholders = implode(',', array_fill(0, count($huellasEsperadas), '?'));
+            $pdo->prepare("DELETE FROM copias WHERE codigo='SIN_COPIA' AND (huella IS NULL OR huella NOT IN ($placeholders))")
+                ->execute($huellasEsperadas);
+        }
+    }
     if (!$rows) return;
     $insert = $pdo->prepare("INSERT IGNORE INTO copias
         (fecha,cliente,equipo,equipo_id,huella,estado,severidad,desc_error,codigo,
@@ -123,7 +140,7 @@ function copias_sin_recibir_registrar(PDO $pdo, array $rows): void
 
 function copias_sin_recibir_cache(PDO $pdo): array
 {
-    $key = hash('sha256', 'copias_sin_recibir:v4');
+    $key = hash('sha256', 'copias_sin_recibir:v5');
     $st = $pdo->prepare('SELECT payload FROM panel_cache WHERE cache_key=? AND expires_at>NOW()');
     $st->execute([$key]);
     $payload = $st->fetchColumn();
@@ -136,7 +153,7 @@ function copias_sin_recibir_cache(PDO $pdo): array
     }
 
     $rows = copias_sin_recibir($pdo);
-    copias_sin_recibir_registrar($pdo, $rows);
+    copias_sin_recibir_registrar($pdo, $rows, true);
     $payload = json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     if ($payload === false) {
         throw new RuntimeException('No se pudo serializar la caché de equipos sin copia.');

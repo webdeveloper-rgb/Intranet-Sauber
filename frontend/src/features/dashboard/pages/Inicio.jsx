@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../../shared/api/client';
 import { rutaHref } from '../../../app/routes';
 import PageHeading from '../../../shared/ui/PageHeading';
@@ -8,6 +8,7 @@ const normalizar = (valor) => String(valor || '').normalize('NFD').replace(/[\u0
 
 export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onNavigate }) {
   const [equipos, setEquipos] = useState([]);
+  const tieneDatos = useRef(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [actualizar, setActualizar] = useState(0);
@@ -22,10 +23,10 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
     let activo = true;
     if (!sesion) return () => { activo = false; };
 
-    setCargando(true);
+    if (!tieneDatos.current || equipoId) setCargando(true);
     if (!equipoId) {
       api('panel_inicio').then((data) => {
-        if (activo) { setEquipos(data.equipos || []); setError(''); }
+        if (activo) { setEquipos(data.equipos || []); tieneDatos.current = true; setError(''); }
       }).catch((e) => { if (activo) setError(e.message || 'No se pudo cargar el inicio.'); })
         .finally(() => { if (activo) setCargando(false); });
       const timer = setInterval(() => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../../shared/api/client';
 import { norm } from '../../../shared/lib/logic';
 import { rutaHref } from '../../../app/routes';
@@ -18,6 +18,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(true);
   const [revision, setRevision] = useState(0);
+  const cargaInicialCompletada = useRef(false);
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState('todos');
   useEffect(() => {
@@ -30,9 +31,15 @@ export default function Resumen({ refreshSignal, onNavigate }) {
         const data = await api('dashboard_resumen');
         if (activo) { setDatos(data); setError(''); }
       } catch (e) { if (activo) setError(e.message); }
-      finally { pendiente = false; if (activo) setCargando(false); }
+      finally {
+        pendiente = false;
+        if (activo) {
+          cargaInicialCompletada.current = true;
+          setCargando(false);
+        }
+      }
     };
-    setCargando(true);
+    if (!cargaInicialCompletada.current) setCargando(true);
     cargar();
     const timer = setInterval(() => { if (!document.hidden) cargar(); }, 60_000);
     return () => { activo = false; clearInterval(timer); };
@@ -75,7 +82,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
     <PageHeading id="resumen-titulo" eyebrow="Sauber Ofimática" title="Monitoreo de copias y equipos"
       description="Estado de las copias de seguridad y los equipos de los clientes."
       actions={<div className="dashboard-refresh"><span>{datos ? `Actualizado a las ${new Date(datos.actualizado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Esperando datos'}</span>
-        <button className="btn sec" disabled={cargando} onClick={() => setRevision((n) => n + 1)}><Icon name="refresh" size={15} />{cargando ? 'Actualizando…' : 'Actualizar'}</button></div>} />
+        <button className="btn sec" disabled={cargando} onClick={() => { setCargando(true); setRevision((n) => n + 1); }}><Icon name="refresh" size={15} />{cargando ? 'Actualizando…' : 'Actualizar'}</button></div>} />
     {error && <div className="errbox" role="alert">{error}. {datos ? 'Se mantienen los últimos datos recibidos.' : 'No se pudo cargar el resumen.'} <button className="btn sec" onClick={() => setRevision((n) => n + 1)}>Reintentar</button></div>}
     <div className="dashboard-health" role="group" aria-label="Estado general de equipos, copias e integraciones">
     <div className="dashboard-metrics" aria-label="Indicadores de todos los equipos">
