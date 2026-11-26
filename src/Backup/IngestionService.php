@@ -106,7 +106,21 @@ function ingesta_recibir(PDO $pdo, $item): array
     if (ingesta_es_prueba($item)) {
         return ['ignorado' => true, 'motivo' => 'mensaje_de_prueba'];
     }
-    return ingesta_guardar($pdo, ingesta_normalizar(ingesta_adaptar($item)));
+    $datos = ingesta_normalizar(ingesta_adaptar($item));
+    // InnoDB puede abortar una de varias peticiones simultaneas que bloquean
+    // las mismas fichas. El guardado revierte la transaccion antes de propagar
+    // el error; repetir es seguro porque message_key hace idempotente la ingesta.
+    for ($intento = 0; ; $intento++) {
+        try {
+            return ingesta_guardar($pdo, $datos);
+        } catch (PDOException $e) {
+            $errorMysql = (int) ($e->errorInfo[1] ?? 0);
+            if ($intento >= 3 || ($e->getCode() !== '40001' && $errorMysql !== 1213)) {
+                throw $e;
+            }
+            usleep((50_000 * (2 ** $intento)) + random_int(0, 50_000));
+        }
+    }
 }
 // Programas (software de gestión del cliente) que se copian aparte de los equipos de usuario y los servidores.
 const INGESTA_PROGRAMAS = ['EuroAgro', 'EuroPos', 'EuroExtintor', 'EuroMetrics', 'DivaCon', 'DivaGes', 'BDP'];
