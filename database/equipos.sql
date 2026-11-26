@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS equipos (
   -- Un equipo se identifica por software y nombre; cliente_id puede quedar vacio hasta asignacion manual.
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(200) NOT NULL,
+  nombre_manual TINYINT(1) NOT NULL DEFAULT 0,
   monitor_alias VARCHAR(100) NULL,
   rustdesk_password_enc TEXT NULL,
   software VARCHAR(80) NOT NULL DEFAULT '',

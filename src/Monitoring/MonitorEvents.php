@@ -46,6 +46,56 @@ function monitor_alias_guardar(PDO $pdo, int $equipmentId, $alias): ?string
     return $normalized;
 }
 
+function equipo_nombre_guardar(PDO $pdo, int $equipmentId, $nombre): string
+{
+    if ($equipmentId < 1 || !is_string($nombre)) {
+        throw new ApiError('El equipo o el nombre no es válido.');
+    }
+    $nombre = trim(preg_replace('/\\s+/u', ' ', $nombre) ?? '');
+    if ($nombre === '' || mb_strlen($nombre) > 200) {
+        throw new ApiError('El nombre debe tener entre 1 y 200 caracteres.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT nombre,software,monitor_machine_id FROM equipos WHERE id=? FOR UPDATE');
+        $st->execute([$equipmentId]);
+        $equipment = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$equipment) {
+            throw new ApiError('Equipo no encontrado.');
+        }
+        $duplicate = $pdo->prepare('SELECT id FROM equipos WHERE software=? AND nombre=? AND id<>?');
+        $duplicate->execute([$equipment['software'], $nombre, $equipmentId]);
+        if ($duplicate->fetchColumn()) {
+            throw new ApiError('Ya existe otro equipo con ese nombre y software.');
+        }
+
+        if ($equipment['nombre'] !== $nombre) {
+            $products = [(string) $equipment['software']];
+            if (!empty($equipment['monitor_machine_id'])) $products[] = 'MonitorAgent';
+            $find = $pdo->prepare('SELECT equipo_id FROM equipo_nombres WHERE software=? AND nombre=? FOR UPDATE');
+            $insert = $pdo->prepare('INSERT IGNORE INTO equipo_nombres (software,nombre,equipo_id) VALUES (?,?,?)');
+            foreach (array_unique($products) as $product) {
+                if ($product === '') continue;
+                $find->execute([$product, $equipment['nombre']]);
+                $owner = $find->fetchColumn();
+                if ($owner === false || (int) $owner === $equipmentId) {
+                    $insert->execute([$product, $equipment['nombre'], $equipmentId]);
+                }
+            }
+            $update = $pdo->prepare('UPDATE equipos SET nombre=?,nombre_manual=1 WHERE id=?');
+            $update->execute([$nombre, $equipmentId]);
+        } else {
+            $pdo->prepare('UPDATE equipos SET nombre_manual=1 WHERE id=?')->execute([$equipmentId]);
+        }
+        $pdo->commit();
+        return $nombre;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
 function monitor_detalle_equipo(PDO $pdo, int $equipmentId): ?array
 {
     $st = $pdo->prepare('SELECT monitor_report,monitor_last_seen,monitor_event_mode,monitor_alias FROM equipos WHERE id=? AND monitor_report IS NOT NULL');

@@ -1,5 +1,5 @@
 import Icon from '../../../shared/ui/Icon';
-import AliasEquipo from '../../equipment/components/AliasEquipo';
+import NombreEquipoEditor from '../../equipment/components/NombreEquipoEditor';
 import TipoEquipoEditor from '../../equipment/components/TipoEquipoEditor';
 import RustDeskAcceso from '../../equipment/components/RustDeskAcceso';
 import HorarioSemana from '../../equipment/components/HorarioSemana';
@@ -241,7 +241,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   }).sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }) * (ordenClientes === 'az' ? 1 : -1)),
   [clientesPorEquipo, textoBusqueda, ordenClientes]);
   const equiposFiltrados = useMemo(() => equiposCliente.filter((equipo) => {
-    if (textoBusqueda && !norm(unir(equipo.nombre, equipo.monitor_alias, equipo.software, equipo.programa, equipo.sugerido, equipo.origen, equipo.tipo)).includes(textoBusqueda)) return false;
+    if (textoBusqueda && !norm(unir(equipo.nombre, equipo.software, equipo.programa, equipo.sugerido, equipo.origen, equipo.tipo)).includes(textoBusqueda)) return false;
     if (filtrosEquipo.agente === 'con' && !equipo.tiene_monitor) return false;
     if (filtrosEquipo.agente === 'sin' && equipo.tiene_monitor) return false;
     if (filtrosEquipo.copias === 'con' && !equipo.tiene_copias) return false;
@@ -372,8 +372,8 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     setEquipos(actualizar);
   };
 
-  const actualizarAlias = (id, alias) => {
-    const actualizar = (lista) => lista.map((item) => item.id === id ? { ...item, monitor_alias: alias || null } : item);
+  const actualizarNombreEquipo = (id, nombre) => {
+    const actualizar = (lista) => lista.map((item) => item.id === id ? { ...item, nombre, nombre_manual: 1 } : item);
     cargaActual.current += 1;
     equiposActuales.current = actualizar(equiposActuales.current);
     setEquipos(actualizar);
@@ -504,7 +504,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         </div>
       </section>
     {admin && <div className="equipo-editores">
-        <AliasEquipo equipo={equipoActual} admin={admin} onSaved={actualizarAlias} />
+        <NombreEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarNombreEquipo} />
         <TipoEquipoEditor equipo={equipoActual} admin={admin} onSaved={actualizarTipo} />
       </div>}
     {admin && <CombinarEquipos equipo={equipoActual} equipos={equipos} onSaved={async (destino) => {
@@ -595,7 +595,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       <PageHeading id="titulo-mapeo" className={equipoActual
         ? `equipo-detalle-heading${equipoActual.tiene_monitor ? ' con-rustdesk' : ''}` : ''}
         eyebrow={equipoActual ? 'Equipo' : clienteActual ? 'Cliente' : 'Directorio de clientes'}
-        title={equipoActual ? <>{equipoActual.nombre}{equipoActual.monitor_alias && <span className="equipo-alias-titulo"> · {equipoActual.monitor_alias}</span>}</>
+        title={equipoActual ? equipoActual.nombre
           : clienteActual ? clienteActual.nombre : 'Clientes'}
         description={equipoActual
           ? unir(clienteAsignadoActual?.nombre || equipoActual.cliente || 'Sin asignar', equipoActual.software, equipoActual.tipo ? TIPOS[equipoActual.tipo] : null)

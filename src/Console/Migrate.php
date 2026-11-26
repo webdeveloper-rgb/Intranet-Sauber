@@ -292,6 +292,14 @@ try {
         monitor_migrar_esquema($pdo);
     };
 
+    $migrations[25] = static function (PDO $pdo): void {
+        $columns = $pdo->query("SELECT column_name FROM information_schema.columns
+            WHERE table_schema=DATABASE() AND table_name='equipos'")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('nombre_manual', $columns, true)) {
+            $pdo->exec('ALTER TABLE equipos ADD COLUMN nombre_manual TINYINT(1) NOT NULL DEFAULT 0 AFTER nombre');
+        }
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

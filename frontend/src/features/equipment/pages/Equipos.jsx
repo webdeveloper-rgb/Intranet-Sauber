@@ -70,7 +70,7 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
   const filtroNoDisponible = estados === null && requiereResumen(estado);
   const filas = useMemo(() => equipos.filter((e) => {
     if (filtroNoDisponible) return false;
-    if (q && !norm([e.nombre, e.monitor_alias, e.cliente, e.software, e.programa].filter(Boolean).join(' ')).includes(norm(q.trim()))) return false;
+    if (q && !norm([e.nombre, e.cliente, e.software, e.programa].filter(Boolean).join(' ')).includes(norm(q.trim()))) return false;
     if (cliente && (cliente === 'sin-asignar' ? Boolean(e.cliente_id) : String(e.cliente_id) !== cliente)) return false;
     if (tipo && e.tipo !== tipo) return false;
     if (agente && Boolean(e.tiene_monitor) !== (agente === 'con')) return false;
@@ -137,8 +137,8 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
               event.preventDefault();
               onNavigate(path);
             }
-          }}><td><a href={rutaHref(path)} onClick={(event) => abrir(event, path)}>{e.monitor_alias || e.nombre}</a>
-          <small>{e.monitor_alias ? `${e.nombre} · ` : ''}{e.tipo === 'servidor' ? 'Servidor' : e.tipo === 'usuario' ? 'Equipo de usuario' : e.tipo === 'programa' ? 'Programa' : 'Sin tipo'}</small></td>
+          }}><td><a href={rutaHref(path)} onClick={(event) => abrir(event, path)}>{e.nombre}</a>
+          <small>{e.tipo === 'servidor' ? 'Servidor' : e.tipo === 'usuario' ? 'Equipo de usuario' : e.tipo === 'programa' ? 'Programa' : 'Sin tipo'}</small></td>
           <td>{e.cliente_id ? <a href={rutaHref(`/clientes/${e.cliente_id}`)} onClick={(event) => abrir(event, `/clientes/${e.cliente_id}`)}>{e.cliente || 'Ver cliente'}</a> : <span className="equipos-muted">Sin asignar</span>}</td>
           <td><span className={Number(e.errores_pendientes) || e.sin_copia ? 'equipos-warning' : ''}>{e.sin_copia ? 'Error crítico sin copia' : Number(e.errores_pendientes) ? `${e.errores_pendientes} ${Number(e.errores_pendientes) === 1 ? 'fallo' : 'fallos'} de copia` : !e.tiene_copias ? 'Sin copias recibidas' : Number(e.copias_en_curso) ? 'Copia en curso' : 'Sin fallos de copia registrados'}</span>
             <small>{e.ultima_copia ? `Última: ${e.ultima_copia}` : e.tiene_copias ? 'Fecha no disponible' : '—'}{e.software ? ` · ${e.software}` : ''}</small></td>

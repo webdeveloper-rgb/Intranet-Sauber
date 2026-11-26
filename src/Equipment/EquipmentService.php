@@ -110,7 +110,7 @@ function equipos_listado(): array
 {
     $pdo = db();
     asegurar_tablas_equipos($pdo);
-    $rows = $pdo->query("SELECT e.id,e.nombre,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.tipo_manual,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
+    $rows = $pdo->query("SELECT e.id,e.nombre,e.nombre_manual,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.tipo_manual,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
         e.error_reviewed_at,e.error_reviewed_by,e.error_review_desc,
         ((SELECT COUNT(*) FROM copias review_cp WHERE review_cp.equipo_id=e.id AND review_cp.estado='ERROR')
             + (SELECT COUNT(*) FROM correo_copias review_cc WHERE review_cc.equipo_id=e.id AND review_cc.importada=0 AND review_cc.estado='ERROR')) AS errores_pendientes,

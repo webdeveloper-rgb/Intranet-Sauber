@@ -176,10 +176,25 @@ function monitor_cliente_coincidir_nota(PDO $pdo, string $note, bool $requiresSa
 /** El nombre puede cambiar; la identidad del agente y el historial se conservan. */
 function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname): void
 {
-    $st = $pdo->prepare('SELECT nombre,software,monitor_machine_id FROM equipos WHERE id=? FOR UPDATE');
+    $st = $pdo->prepare('SELECT nombre,software,monitor_machine_id,nombre_manual FROM equipos WHERE id=? FOR UPDATE');
     $st->execute([$equipmentId]);
     $equipment = $st->fetch(PDO::FETCH_ASSOC);
     if (!$equipment || $equipment['nombre'] === $hostname) {
+        return;
+    }
+
+    if (!empty($equipment['nombre_manual'])) {
+        // El administrador fijó el nombre visible. Guardamos el hostname reportado como referencia
+        // para que los siguientes informes del agente sigan asociándose a esta ficha.
+        if (!empty($equipment['monitor_machine_id'])) {
+            $find = $pdo->prepare('SELECT equipo_id FROM equipo_nombres WHERE software=? AND nombre=? FOR UPDATE');
+            $find->execute(['MonitorAgent', $hostname]);
+            $owner = $find->fetchColumn();
+            if ($owner === false || (int) $owner === $equipmentId) {
+                $pdo->prepare('INSERT IGNORE INTO equipo_nombres (software,nombre,equipo_id) VALUES (?,?,?)')
+                    ->execute(['MonitorAgent', $hostname, $equipmentId]);
+            }
+        }
         return;
     }
 

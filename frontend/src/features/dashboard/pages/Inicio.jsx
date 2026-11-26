@@ -93,7 +93,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         && String(item.cliente_id) !== clienteFiltro) return false;
       if (softwareFiltro !== 'todos' && item.software !== softwareFiltro) return false;
       if (consulta && !normalizar([
-        item.nombre, item.monitor_alias, item.cliente, item.software, item.programa,
+        item.nombre, item.cliente, item.software, item.programa,
         ...(item.productos_copia_en_curso || []),
         ...(item.errores_evento || []).map((evento) => evento.titulo),
       ].join(' ')).includes(consulta)) return false;
@@ -178,7 +178,7 @@ export default function Inicio({ equipoId = null, sesion, refreshSignal = 0, onN
         return <a className={`inicio-equipo prioridad-${prioridad}`} key={item.id} href={rutaHref(destino)}
         onClick={(event) => { event.preventDefault(); onNavigate(destino); }}>
         <div className="inicio-equipo-titulo"><div><span className="eyebrow">{item.cliente || 'Sin asignar'}</span>
-          <h3>{item.monitor_alias || item.nombre}</h3><p>{[item.software, item.programa, item.tipo === 'servidor' ? 'Servidor' : item.tipo === 'usuario' ? 'Equipo' : null].filter(Boolean).join(' · ')}</p></div>
+          <h3>{item.nombre}</h3><p>{[item.software, item.programa, item.tipo === 'servidor' ? 'Servidor' : item.tipo === 'usuario' ? 'Equipo' : null].filter(Boolean).join(' · ')}</p></div>
           <span aria-hidden="true" className="inicio-equipo-flecha">›</span></div>
         <div className="inicio-equipo-conteos">
           <span className={tieneCopias ? 'badge error' : 'badge'}>Copias: {item.errores_pendientes}</span>

@@ -56,7 +56,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
     if (filtro === 'sin-copia' && !e.sin_copia) return false;
     if (filtro === 'sin-informe' && !e.sin_informe) return false;
     if (filtro === 'en-curso' && !Number(e.copias_en_curso)) return false;
-    return norm([e.nombre, e.monitor_alias, e.cliente, e.software].filter(Boolean).join(' ')).includes(norm(busqueda.trim()));
+    return norm([e.nombre, e.cliente, e.software].filter(Boolean).join(' ')).includes(norm(busqueda.trim()));
   }).sort((a, b) => prioridad(b) - prioridad(a)
     || (Number(b.errores_pendientes) + Number(b.total_errores_evento)) - (Number(a.errores_pendientes) + Number(a.total_errores_evento))
     || a.nombre.localeCompare(b.nombre, 'es')), [datos, busqueda, filtro]);
@@ -120,7 +120,7 @@ export default function Resumen({ refreshSignal, onNavigate }) {
       {!filas.length && <div className="empty-state" role="status">{!datos ? cargando ? 'Cargando equipos…' : 'Datos no disponibles' : equipos.length ? 'No hay equipos que coincidan con los filtros.' : 'No hay incidencias ni copias activas en este momento.'}</div>}
       <div className="dashboard-table-wrap" hidden={!filas.length}><table className="dashboard-table"><thead><tr><th>Prioridad</th><th>Equipo / cliente</th><th>Errores Windows</th><th>Errores copias</th><th>Último evento o alerta</th><th><span className="sr-only">Acciones</span></th></tr></thead><tbody>
         {pagina.items.map((e) => <tr key={e.id}><td><span className={`queue-priority level-${prioridad(e)}`}>{['En curso', 'Atención', 'Alta', 'Crítica'][prioridad(e)]}</span></td>
-          <td><a href={rutaHref(destino(e))} onClick={(event) => navegar(event, destino(e))}>{e.monitor_alias || e.nombre}</a><small>{e.cliente || 'Sin asignar'}{e.tipo === 'servidor' ? ' · Servidor' : ''}</small></td>
+          <td><a href={rutaHref(destino(e))} onClick={(event) => navegar(event, destino(e))}>{e.nombre}</a><small>{e.cliente || 'Sin asignar'}{e.tipo === 'servidor' ? ' · Servidor' : ''}</small></td>
           <td><div className="queue-badges">
             {Number(e.eventos_windows) > 0 && <span className="queue-badge error">{e.eventos_windows} {Number(e.eventos_windows) === 1 ? 'evento' : 'eventos'} de Windows</span>}
             {Number(e.alertas_hardware) > 0 && <span className="queue-badge error">{e.alertas_hardware} {Number(e.alertas_hardware) === 1 ? 'alerta crítica' : 'alertas críticas'} de hardware</span>}

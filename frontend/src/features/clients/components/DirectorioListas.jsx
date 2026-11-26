@@ -41,7 +41,7 @@ export function ListaEquiposCliente({ equipos, clienteId, onAbrir }) {
         <button type="button" className="equipo-navegable-abrir"
           onClick={() => onAbrir(`/clientes/${encodeURIComponent(String(clienteId))}/equipos/${equipo.id}`)}>
           <span className="equipo-navegable-info">
-            <strong>{equipo.nombre}{equipo.monitor_alias && <small className="equipo-alias-lista"> · {equipo.monitor_alias}</small>}</strong>
+            <strong>{equipo.nombre}</strong>
             <span>{unir(equipo.software, equipo.programa || TIPOS[equipo.tipo], equipo.fecha_creacion ? `Alta ${equipo.fecha_creacion}` : null)}</span>
             <span className="equipo-navegable-estados">
               <span className={`estado-chip${equipo.tiene_copias ? ' ok' : ''}`}>{equipo.tiene_copias ? 'Copias' : 'Sin copias'}</span>

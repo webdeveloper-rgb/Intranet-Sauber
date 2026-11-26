@@ -216,7 +216,7 @@ export async function generarPdfProgramasEquipo({ equipo, clienteNombre, monitor
   const xLogo = ancho - 14 - anchoLogo;
   await agregarLogoPdf(doc, xLogo, 5, anchoLogo);
 
-  const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
+  const nombreEquipo = equipo.nombre || `Equipo ${equipo.id}`;
   doc.setProperties({ title: `Programas instalados - ${nombreEquipo}`, subject: 'Inventario de programas', creator: 'Intranet-Sauber' });
   doc.setFillColor(46, 116, 151);
   doc.rect(0, 0, ancho, 3, 'F');
@@ -275,7 +275,7 @@ export async function generarPdfEquipo({ equipo, clienteNombre, monitor, alertas
   const anchoLogo = 86;
   const xLogo = ancho - 14 - anchoLogo;
   await agregarLogoPdf(doc, xLogo, 5, anchoLogo);
-  const nombreEquipo = [equipo.nombre || `Equipo ${equipo.id}`, equipo.monitor_alias].filter(Boolean).join(' · ');
+  const nombreEquipo = equipo.nombre || `Equipo ${equipo.id}`;
   const subtituloEquipo = [clienteNombre, equipo.tipo === 'servidor' ? 'Servidor' : equipo.tipo ? 'Equipo' : null].filter(Boolean).join('  ·  ');
   doc.setProperties({ title: `Informe técnico - ${nombreEquipo}`, subject: 'Estado y especificaciones del equipo', creator: 'Intranet-Sauber' });
   doc.setFillColor(46, 116, 151);

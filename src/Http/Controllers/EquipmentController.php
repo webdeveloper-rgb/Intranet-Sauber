@@ -110,6 +110,16 @@ final class EquipmentController
             }
         }
 
+        if ($action === 'equipo_nombre') {
+            exigir_admin($user);
+            try {
+                $nombre = equipo_nombre_guardar(db(), (int) ($input['id'] ?? 0), $input['nombre'] ?? null);
+                out(['ok' => true, 'nombre' => $nombre]);
+            } catch (ApiError $ex) {
+                fail($ex->getMessage());
+            }
+        }
+
         if ($action === 'equipo_tipo') {
             exigir_admin($user);
             try {
