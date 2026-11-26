@@ -49,6 +49,7 @@ function monitor_guardar_estado_copias(PDO $pdo, array $data, string $machineHea
     if (!hash_equals($machineId, $headerId)) {
         throw new InvalidArgumentException('X-Machine-Id no coincide con machineId');
     }
+    $machineId = monitor_machine_id_canonico($pdo, $machineId);
     $observed = strtotime((string) ($data['observedAtUtc'] ?? ''));
     if ($observed === false || $observed > time() + 300 || $observed < time() - 600) {
         throw new InvalidArgumentException('observedAtUtc no válido');

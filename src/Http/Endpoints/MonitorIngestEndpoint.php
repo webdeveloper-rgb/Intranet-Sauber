@@ -57,10 +57,12 @@ try {
     }
     rate_limit_clear([$rateKey]);
 
-    $equipmentId = monitor_guardar_informe($pdo, $report, $rustDeskPassword);
+    $canonicalMachineId = $report['machineId'];
+    $equipmentId = monitor_guardar_informe($pdo, $report, $rustDeskPassword, $canonicalMachineId);
     monitor_responder([
         'ok' => true,
         'equipo_id' => $equipmentId,
+        'machine_id' => $canonicalMachineId,
         'event_extraction_mode' => monitor_event_mode_obtener($pdo, $equipmentId),
         'alertas_activas' => count(monitor_evaluar_alertas($report)),
     ]);

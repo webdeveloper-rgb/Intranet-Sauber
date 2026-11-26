@@ -123,24 +123,49 @@ function monitor_enrollment_redimir(PDO $pdo, ?string $code, string $machineId, 
     }
 }
 
+/** Resuelve hasta varias generaciones de una identidad mientras equipos antiguos terminan de actualizarse. */
+function monitor_machine_id_canonico(PDO $pdo, string $machineId): string
+{
+    $query = $pdo->prepare('SELECT machine_id FROM monitor_machine_id_aliases WHERE previous_machine_id=?');
+    $seen = [];
+    for ($i = 0; $i < 8; $i++) {
+        if (isset($seen[$machineId])) break;
+        $seen[$machineId] = true;
+        $query->execute([$machineId]);
+        $next = $query->fetchColumn();
+        if (!is_string($next) || $next === '' || isset($seen[$next])) break;
+        $machineId = $next;
+    }
+    return $machineId;
+}
+
+function monitor_machine_id_alias_guardar(PDO $pdo, string $oldMachineId, string $newMachineId): void
+{
+    if ($oldMachineId === $newMachineId) return;
+    $pdo->prepare('INSERT INTO monitor_machine_id_aliases (previous_machine_id,machine_id) VALUES (?,?)
+        ON DUPLICATE KEY UPDATE machine_id=VALUES(machine_id)')->execute([$oldMachineId, $newMachineId]);
+}
+
 function monitor_agente_autenticar(PDO $pdo, ?string $token, string $machineId): bool
 {
     if (!monitor_credencial_agente_valida($token)) {
         return false;
     }
+    $canonicalId = monitor_machine_id_canonico($pdo, $machineId);
     $st = $pdo->prepare('SELECT credential_hash FROM monitor_agents WHERE machine_id=? AND active=1');
-    $st->execute([$machineId]);
-    $tokenHash = $st->fetchColumn();
-    if (!is_string($tokenHash) || !hash_equals($tokenHash, hash('sha256', $token))) {
+    $st->execute([$canonicalId]);
+    $storedHash = $st->fetchColumn();
+    if (!is_string($storedHash) || !hash_equals($storedHash, hash('sha256', $token))) {
         return false;
     }
-    $pdo->prepare('UPDATE monitor_agents SET last_used_at=NOW() WHERE machine_id=?')->execute([$machineId]);
+    $pdo->prepare('UPDATE monitor_agents SET last_used_at=NOW() WHERE machine_id=?')->execute([$canonicalId]);
     return true;
 }
 
 /** La comprobacion bajo bloqueo protege tambien envios autenticados antes de combinar. */
 function monitor_agente_comprobar_retirado(PDO $pdo, string $machineId): void
 {
+    $machineId = monitor_machine_id_canonico($pdo, $machineId);
     $q = $pdo->prepare('SELECT active FROM monitor_agents WHERE machine_id=? FOR UPDATE');
     $q->execute([$machineId]);
     $active = $q->fetchColumn();

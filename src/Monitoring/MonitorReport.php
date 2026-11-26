@@ -211,6 +211,43 @@ function monitor_evento_clave(string $machineId, array $event): string
     return hash('sha256', implode("\0", $identity));
 }
 
+/** Debe mantenerse alineado con MachineIdentity.cs: UUID determinista de UUID SMBIOS y seriales fiables. */
+function monitor_hardware_machine_id(array $data): ?string
+{
+    $normalizar = static function ($value): ?string {
+        if (!is_string($value) || trim($value) === '') return null;
+        $value = mb_strtoupper(preg_replace('/\\s+/u', ' ', trim($value)), 'UTF-8');
+        $compact = preg_replace('/[^A-Z0-9]/', '', $value);
+        if (strlen($compact) < 4 || preg_match('/\\A(?:0+|F+|UNKNOWN|NONE|NA|NULL|DEFAULTSTRING|SYSTEMSERIALNUMBER|TOBEFILLEDBYOEM)\\z/', $compact)) {
+            return null;
+        }
+        return $value;
+    };
+
+    $system = is_array($data['system'] ?? null) ? $data['system'] : [];
+    $board = is_array($data['board'] ?? null) ? $data['board'] : [];
+    $parts = [];
+    foreach ([
+        ['system-uuid', $data['hardwareUuid'] ?? null],
+        ['bios-serial', $system['serialNumber'] ?? null],
+        ['board-serial', $board['serialNumber'] ?? null],
+    ] as [$label, $value]) {
+        $value = $normalizar($value);
+        if ($value !== null) $parts[] = $label . '=' . $value;
+    }
+    if (!$parts) return null;
+
+    $hash = hash('sha256', 'SauberMonitorAgent|hardware-id|v1|' . implode('|', $parts), true);
+    $bytes = array_values(unpack('C*', substr($hash, 0, 16)));
+    $bytes[7] = ($bytes[7] & 0x0F) | 0x50;
+    $bytes[8] = ($bytes[8] & 0x3F) | 0x80;
+    // .NET Guid(byte[]) imprime los tres primeros bloques invirtiendo el orden de bytes.
+    return sprintf('%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x',
+        $bytes[3], $bytes[2], $bytes[1], $bytes[0], $bytes[5], $bytes[4],
+        $bytes[7], $bytes[6], $bytes[8], $bytes[9],
+        $bytes[10], $bytes[11], $bytes[12], $bytes[13], $bytes[14], $bytes[15]);
+}
+
 function monitor_normalizar_informe(array $data, string $machineHeader): array
 {
     $machineId = monitor_texto($data['machineId'] ?? null, 128, true, 'machineId');
@@ -227,6 +264,14 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     if (!in_array($eventMode, ['standard', 'full'], true)) {
         throw new InvalidArgumentException('El modo de extracción de eventos no es válido.');
     }
+
+    $stableIdCandidate = monitor_texto($data['stableMachineId'] ?? null, 128);
+    $hardwareMachineId = monitor_hardware_machine_id($data);
+    $stableMachineId = ($data['identityMigrationSupported'] ?? false) === true
+        && $stableIdCandidate !== null
+        && $hardwareMachineId !== null
+        && hash_equals($hardwareMachineId, strtolower($stableIdCandidate))
+            ? $hardwareMachineId : null;
 
     $systemFields = [
         'osName' => 'text',
@@ -314,6 +359,8 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     return [
         'agentVersion' => monitor_texto($data['agentVersion'] ?? null, 40),
         'machineId' => $machineId,
+        'stableMachineId' => $stableMachineId,
+        'identityMigrationSupported' => ($data['identityMigrationSupported'] ?? false) === true,
         'hardwareUuid' => monitor_texto($data['hardwareUuid'] ?? null, 128),
         'hostname' => $hostname,
         'clientNote' => monitor_texto($data['clientNote'] ?? null, 160),

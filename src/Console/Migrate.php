@@ -288,6 +288,10 @@ try {
         }
     };
 
+    $migrations[24] = static function (PDO $pdo): void {
+        monitor_migrar_esquema($pdo);
+    };
+
     foreach ($migrations as $version => $migration) {
         if ($version <= $current) {
             continue;

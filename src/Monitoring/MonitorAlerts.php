@@ -260,17 +260,20 @@ function monitor_equipo_por_hardware(PDO $pdo, array $report): ?array
     return null;
 }
 
-function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null): int
+function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null, ?string &$canonicalMachineId = null): int
 {
     $events = $report['events'] ?? [];
     unset($report['events']);
 
     $pdo->beginTransaction();
     try {
-        monitor_agente_comprobar_retirado($pdo, $report['machineId']);
-        $st = $pdo->prepare('SELECT id FROM equipos WHERE monitor_machine_id=?');
-        $st->execute([$report['machineId']]);
-        $equipmentId = $st->fetchColumn();
+        $requestedMachineId = $report['machineId'];
+        monitor_agente_comprobar_retirado($pdo, $requestedMachineId);
+        $currentMachineId = monitor_machine_id_canonico($pdo, $requestedMachineId);
+        $st = $pdo->prepare('SELECT id,monitor_machine_id FROM equipos WHERE monitor_machine_id=?');
+        $st->execute([$currentMachineId]);
+        $equipment = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        $equipmentId = $equipment['id'] ?? null;
         $previousMachineId = null;
 
         if (!$equipmentId) {
@@ -278,6 +281,7 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
             if ($previous) {
                 $equipmentId = (int) $previous['id'];
                 $previousMachineId = (string) $previous['monitor_machine_id'];
+                $equipment = $previous;
             }
         }
 
@@ -287,6 +291,7 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
             $matches = $st->fetchAll(PDO::FETCH_COLUMN);
             if (count($matches) === 1) {
                 $equipmentId = (int) $matches[0];
+                $equipment = ['id' => $equipmentId, 'monitor_machine_id' => null];
             } else {
                 $name = $report['hostname'];
                 $st = $pdo->prepare("SELECT id FROM equipos WHERE software='MonitorAgent' AND nombre=?");
@@ -296,10 +301,49 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
                     $name = mb_substr($name, 0, 188) . ' [' . ($suffix ?: 'monitor') . ']';
                 }
                 $pdo->prepare("INSERT INTO equipos (nombre,software,origen,monitor_machine_id,vigilar) VALUES (?,'MonitorAgent','Monitor-Equipos',?,0)")
-                    ->execute([$name, $report['machineId']]);
+                    ->execute([$name, $currentMachineId]);
                 $equipmentId = (int) $pdo->lastInsertId();
+                $equipment = ['id' => $equipmentId, 'monitor_machine_id' => $currentMachineId];
             }
         }
+
+        $targetMachineId = $currentMachineId;
+        if (!empty($report['identityMigrationSupported']) && !empty($report['stableMachineId'])) {
+            $targetMachineId = (string) $report['stableMachineId'];
+        }
+
+        if ($targetMachineId !== $currentMachineId) {
+            $targetEquipment = $pdo->prepare('SELECT id FROM equipos WHERE monitor_machine_id=? LIMIT 1 FOR UPDATE');
+            $targetEquipment->execute([$targetMachineId]);
+            $targetEquipmentId = $targetEquipment->fetchColumn();
+            $targetAgent = $pdo->prepare('SELECT machine_id FROM monitor_agents WHERE machine_id=? LIMIT 1 FOR UPDATE');
+            $targetAgent->execute([$targetMachineId]);
+            $targetAgentExists = $targetAgent->fetchColumn() !== false;
+
+            if (($targetEquipmentId !== false && (int) $targetEquipmentId !== (int) $equipmentId) || $targetAgentExists) {
+                $targetMachineId = $currentMachineId;
+            }
+        }
+
+        if ($targetMachineId !== $currentMachineId) {
+            $pdo->prepare('UPDATE monitor_agents SET machine_id=? WHERE machine_id=?')
+                ->execute([$targetMachineId, $currentMachineId]);
+            monitor_machine_id_alias_guardar($pdo, $currentMachineId, $targetMachineId);
+            $pdo->prepare('DELETE FROM monitor_backup_activity WHERE source_machine_key=?')
+                ->execute([hash('sha256', $currentMachineId)]);
+        }
+
+        if ($previousMachineId !== null && $previousMachineId !== $targetMachineId) {
+            $pdo->prepare('UPDATE monitor_agents SET active=0 WHERE machine_id=?')->execute([$previousMachineId]);
+            $pdo->prepare('DELETE FROM monitor_ingest_tokens WHERE machine_id=?')->execute([$previousMachineId]);
+            $pdo->prepare('DELETE FROM monitor_backup_activity WHERE source_machine_key=?')
+                ->execute([hash('sha256', $previousMachineId)]);
+            monitor_machine_id_alias_guardar($pdo, $previousMachineId, $targetMachineId);
+        }
+
+        $report['machineId'] = $targetMachineId;
+        $canonicalMachineId = $targetMachineId;
+        $equipment['monitor_machine_id'] = $targetMachineId;
 
         monitor_actualizar_nombre($pdo, (int) $equipmentId, $report['hostname']);
 
@@ -346,15 +390,6 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
         } else {
             $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
                 ->execute([$report['machineId'], $json, $equipmentId]);
-        }
-
-        if ($previousMachineId !== null && $previousMachineId !== $report['machineId']) {
-            // La ficha y sus alertas/historial mantienen su ID; se retira la identidad
-            // anterior para que una instalación ya formateada no siga autenticándose.
-            $pdo->prepare('UPDATE monitor_agents SET active=0 WHERE machine_id=?')->execute([$previousMachineId]);
-            $pdo->prepare('DELETE FROM monitor_ingest_tokens WHERE machine_id=?')->execute([$previousMachineId]);
-            $pdo->prepare('DELETE FROM monitor_backup_activity WHERE source_machine_key=?')
-                ->execute([hash('sha256', $previousMachineId)]);
         }
 
         $saveEvent = $pdo->prepare('INSERT INTO monitor_eventos

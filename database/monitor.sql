@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS monitor_agents (
   UNIQUE KEY uq_monitor_agent_credential_hash (credential_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Equivalencias para que un agente actualizado pueda recuperar su nueva identidad
+-- aunque se pierda la respuesta que confirma el cambio.
+CREATE TABLE IF NOT EXISTS monitor_machine_id_aliases (
+  previous_machine_id VARCHAR(128) NOT NULL PRIMARY KEY,
+  machine_id VARCHAR(128) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_monitor_machine_id_alias_target (machine_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS monitor_enrollments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code_hash CHAR(64) NOT NULL,
