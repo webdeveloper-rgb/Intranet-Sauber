@@ -215,6 +215,51 @@ function monitor_actualizar_nombre(PDO $pdo, int $equipmentId, string $hostname)
     $pdo->prepare('UPDATE equipos SET nombre=? WHERE id=?')->execute([$name, $equipmentId]);
 }
 
+/** Busca una ficha monitorizada previa cuando se reinstala el agente y cambia su MachineId local. */
+function monitor_equipo_por_hardware(PDO $pdo, array $report): ?array
+{
+    $normalizar = static function ($value): ?string {
+        if (!is_string($value) || trim($value) === '') return null;
+        $value = mb_strtoupper(preg_replace('/\s+/u', ' ', trim($value)), 'UTF-8');
+        $compact = preg_replace('/[^A-Z0-9]/', '', $value);
+        if ($compact === '' || preg_match('/\A(?:0+|F+|UNKNOWN|NONE|NA|NULL|DEFAULTSTRING|SYSTEMSERIALNUMBER|TOBEFILLEDBYOEM)\z/', $compact)) {
+            return null;
+        }
+        return $value;
+    };
+
+    $uuid = $normalizar($report['hardwareUuid'] ?? null);
+    $systemSerial = $normalizar($report['system']['serialNumber'] ?? null);
+    $boardSerial = $normalizar($report['board']['serialNumber'] ?? null);
+
+    if ($uuid !== null) {
+        $byUuid = $pdo->prepare("SELECT id,monitor_machine_id FROM equipos
+            WHERE monitor_machine_id IS NOT NULL AND monitor_report IS NOT NULL AND JSON_VALID(monitor_report)
+                AND UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(monitor_report,'$.hardwareUuid'))))=UPPER(?)
+            ORDER BY id LIMIT 2 FOR UPDATE");
+        $byUuid->execute([$uuid]);
+        $matches = $byUuid->fetchAll(PDO::FETCH_ASSOC);
+        if (count($matches) === 1) return $matches[0];
+    }
+
+    // Los informes antiguos no guardaban hardwareUuid en el servidor. Los seriales
+    // de BIOS/placa ya estaban incluidos y permiten recuperar esas fichas tras el formato.
+    foreach ([
+        ['$.system.serialNumber', $systemSerial],
+        ['$.board.serialNumber', $boardSerial],
+    ] as [$path, $serial]) {
+        if ($serial === null) continue;
+        $bySerial = $pdo->prepare("SELECT id,monitor_machine_id FROM equipos
+            WHERE monitor_machine_id IS NOT NULL AND monitor_report IS NOT NULL AND JSON_VALID(monitor_report)
+                AND UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(monitor_report,'{$path}'))))=UPPER(?)
+            ORDER BY id LIMIT 2 FOR UPDATE");
+        $bySerial->execute([$serial]);
+        $matches = $bySerial->fetchAll(PDO::FETCH_ASSOC);
+        if (count($matches) === 1) return $matches[0];
+    }
+    return null;
+}
+
 function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassword = null): int
 {
     $events = $report['events'] ?? [];
@@ -226,6 +271,15 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
         $st = $pdo->prepare('SELECT id FROM equipos WHERE monitor_machine_id=?');
         $st->execute([$report['machineId']]);
         $equipmentId = $st->fetchColumn();
+        $previousMachineId = null;
+
+        if (!$equipmentId) {
+            $previous = monitor_equipo_por_hardware($pdo, $report);
+            if ($previous) {
+                $equipmentId = (int) $previous['id'];
+                $previousMachineId = (string) $previous['monitor_machine_id'];
+            }
+        }
 
         if (!$equipmentId) {
             $st = $pdo->prepare('SELECT id FROM equipos WHERE nombre=? AND monitor_machine_id IS NULL');
@@ -292,6 +346,15 @@ function monitor_guardar_informe(PDO $pdo, array $report, ?string $rustDeskPassw
         } else {
             $pdo->prepare('UPDATE equipos SET monitor_machine_id=?,monitor_report=?,monitor_last_seen=NOW() WHERE id=?')
                 ->execute([$report['machineId'], $json, $equipmentId]);
+        }
+
+        if ($previousMachineId !== null && $previousMachineId !== $report['machineId']) {
+            // La ficha y sus alertas/historial mantienen su ID; se retira la identidad
+            // anterior para que una instalación ya formateada no siga autenticándose.
+            $pdo->prepare('UPDATE monitor_agents SET active=0 WHERE machine_id=?')->execute([$previousMachineId]);
+            $pdo->prepare('DELETE FROM monitor_ingest_tokens WHERE machine_id=?')->execute([$previousMachineId]);
+            $pdo->prepare('DELETE FROM monitor_backup_activity WHERE source_machine_key=?')
+                ->execute([hash('sha256', $previousMachineId)]);
         }
 
         $saveEvent = $pdo->prepare('INSERT INTO monitor_eventos

@@ -314,6 +314,7 @@ function monitor_normalizar_informe(array $data, string $machineHeader): array
     return [
         'agentVersion' => monitor_texto($data['agentVersion'] ?? null, 40),
         'machineId' => $machineId,
+        'hardwareUuid' => monitor_texto($data['hardwareUuid'] ?? null, 128),
         'hostname' => $hostname,
         'clientNote' => monitor_texto($data['clientNote'] ?? null, 160),
         'timestampUtc' => gmdate('c', $timestamp),
