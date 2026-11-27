@@ -41,28 +41,44 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
     } catch (e) { setError(e.message); setPlan(null); setConfirmado(false); }
     finally { setOcupado(false); }
   };
-  return <section className="equipo-combinar" aria-labelledby="titulo-combinar">
-    <h3 id="titulo-combinar">Combinar equipos duplicados</h3>
-    <p>Reúne las fichas que pertenecen al mismo equipo. El destino conserva su cliente y configuración de avisos. Su nombre será el que informe el agente elegido; los nombres de las copias se guardan como referencias de recepción.</p>
+  return <section className="equipo-combinar ficha-card" aria-labelledby="titulo-combinar">
+    <div className="combinar-cabecera">
+      <h3 id="titulo-combinar">Combinar equipos duplicados</h3>
+      <p>Reúne las fichas que pertenecen al mismo equipo. El destino conserva su cliente y configuración de avisos; su nombre será el que informe el agente elegido y los nombres de las copias se guardan como referencias de recepción.</p>
+    </div>
     <fieldset disabled={ocupado}>
-      <label htmlFor="combinar-destino">Equipo que se conserva</label>
-      <select id="combinar-destino" value={destinoId} onChange={(e) => { setDestinoId(e.target.value); setSeleccion([]); invalidar(); }}>
-        {equipos.map((item) => <option key={item.id} value={item.id}>{item.nombre} · {item.cliente || 'Sin asignar'} · {item.software}</option>)}
-      </select>
-      <label htmlFor="combinar-busqueda">Buscar equipos de origen</label>
-      <input id="combinar-busqueda" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Nombre, cliente o software" />
+      <div className="combinar-campo">
+        <label htmlFor="combinar-destino">Equipo que se conserva</label>
+        <select id="combinar-destino" value={destinoId} onChange={(e) => { setDestinoId(e.target.value); setSeleccion([]); invalidar(); }}>
+          {equipos.map((item) => <option key={item.id} value={item.id}>{item.nombre} · {item.cliente || 'Sin asignar'} · {item.software}</option>)}
+        </select>
+      </div>
+      <div className="combinar-campo">
+        <label htmlFor="combinar-busqueda">Buscar equipos de origen</label>
+        <input id="combinar-busqueda" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Filtrar por nombre, cliente o software…" />
+      </div>
       <div className="combinar-lista" role="group" aria-label="Equipos que se trasladan">
         {candidatos.map((item) => {
           const otroCliente = item.cliente_id && Number(item.cliente_id) !== Number(destino?.cliente_id);
-          return <label key={item.id} className="combinar-origen">
+          return <label key={item.id} className={`combinar-origen${seleccion.includes(item.id) ? ' seleccionada' : ''}`}>
             <input type="checkbox" checked={seleccion.includes(item.id)} disabled={Boolean(otroCliente) || (!seleccion.includes(item.id) && seleccion.length >= 20)}
               onChange={(e) => { setSeleccion((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)); invalidar(); }} />
-            <span><strong>{item.nombre}</strong><small>{item.cliente || 'Sin asignar'} · {item.software}{item.tiene_monitor ? ' · Con agente' : ''}{otroCliente ? ' · Otro cliente: cambia su asignación primero' : ''}</small></span>
+            <span className="combinar-origen-info">
+              <strong>{item.nombre}</strong>
+              <small>
+                <span>{item.cliente || 'Sin asignar'}</span>
+                <span>· {item.software}</span>
+                {item.tiene_monitor && <span className="combinar-badge">Con agente</span>}
+                {otroCliente && <span className="combinar-badge aviso">Otro cliente</span>}
+              </small>
+            </span>
           </label>;
         })}
-        {!candidatos.length && <p>No hay equipos con esa búsqueda.</p>}
+        {!candidatos.length && <p className="combinar-vacio">No hay equipos con esa búsqueda.</p>}
       </div>
-      <button type="button" className="btn sec" onClick={revisar} disabled={ocupado || !seleccion.length}>Revisar combinación ({seleccion.length})</button>
+      <div className="combinar-acciones">
+        <button type="button" className="btn sec" onClick={revisar} disabled={ocupado || !seleccion.length}>Revisar combinación ({seleccion.length})</button>
+      </div>
     </fieldset>
     {plan && <div className="combinar-preview">
       <h4>Destino: {plan.destino.nombre}</h4>
@@ -73,7 +89,7 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
         {plan.agentes.map((agent) => <label className="combinar-origen" key={agent.equipo_id}>
           <input type="radio" name="combinar-agente" value={agent.equipo_id} checked={agenteId === String(agent.equipo_id)}
             onChange={(e) => { setAgenteId(e.target.value); setConfirmado(false); }} />
-          <span><strong>{agent.nombre}</strong><small>ID: {agent.machine_id}</small>
+          <span className="combinar-origen-info"><strong>{agent.nombre}</strong><small>ID: {agent.machine_id}</small>
             <small>Última conexión: {agent.ultima_conexion || 'Sin informes'}</small>
             <small>{[agent.hostname, agent.sistema, agent.modelo].filter(Boolean).join(' · ') || 'Sin datos de hardware'}</small>
           </span>
@@ -84,9 +100,9 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
       <button type="button" className="btn" disabled={ocupado || !confirmado || (plan.agentes?.length > 0 && !agenteId)} onClick={combinar}>{ocupado ? 'Combinando…' : 'Confirmar y combinar'}</button>
     </div>}
     {error && <p className="errbox" role="alert">{error}</p>}
-    {resultado && <p role="status">{resultado}</p>}
-    {!!equipo.nombres_recepcion?.length && <details><summary>Nombres vinculados ({equipo.nombres_recepcion.length})</summary>
-      <ul>{equipo.nombres_recepcion.map((item) => <li key={`${item.software}|${item.nombre}`}>{item.nombre} · {item.software}</li>)}</ul>
+    {resultado && <p className="combinar-ok" role="status">{resultado}</p>}
+    {!!equipo.nombres_recepcion?.length && <details className="combinar-alias"><summary>Nombres vinculados ({equipo.nombres_recepcion.length})</summary>
+      <ul>{equipo.nombres_recepcion.map((item) => <li key={`${item.software}|${item.nombre}`}><strong>{item.nombre}</strong> · {item.software}</li>)}</ul>
     </details>}
   </section>;
 }

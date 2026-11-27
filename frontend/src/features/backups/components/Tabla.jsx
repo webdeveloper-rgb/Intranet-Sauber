@@ -32,7 +32,12 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
         <Tag c={c} />
         {notas > 0 && <span className="nb" title="Tiene notas de seguimiento">Notas: {notas}</span>}
         {c.acumuladas > 1 && <span className="nb wa" title={`Agrupa errores repetidos desde ${c.fecha_primera} hasta ${c.fecha_ultima}`}>Acumuladas: {c.acumuladas}</span>}
-        {c.codigo === 'SIN_COPIA' && <span className="nb al" title="No ha llegado ninguna copia de este equipo en 24 horas">Error crítico sin copia</span>}
+        {c.codigo === 'SIN_COPIA' && <span className="nb al" title="Tiempo real transcurrido desde la última copia">
+          {c.horas_sin_copia >= 72 ? `Sin copia · ${c.horas_sin_copia} h (72 h+)`
+            : c.horas_sin_copia >= 48 ? `Sin copia · ${c.horas_sin_copia} h (48 h+)`
+              : c.horas_sin_copia >= 24 ? `Sin copia · ${c.horas_sin_copia} h (24 h+)`
+                : 'Error crítico sin copia'}
+        </span>}
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
         {!sinCopia && r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>

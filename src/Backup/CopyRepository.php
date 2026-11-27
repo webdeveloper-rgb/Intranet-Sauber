@@ -59,11 +59,20 @@ function copias_sin_recibir(PDO $pdo): array
             DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL d.dias DAY),'%Y-%m-%d') AS fecha_esperada,
             c.nombre AS cliente, e.nombre AS equipo, e.tipo, e.programa, e.software,
             DATE_FORMAT(cp.ultima,'%Y-%m-%d %H:%i') AS ultima_copia,
+            TIMESTAMPDIFF(HOUR, COALESCE(cp.ultima,e.creado), NOW()) AS horas_sin_copia,
             'ERROR' AS estado,
             'critico' AS severidad,
-            CONCAT('ERROR CRÍTICO: no llegó la copia esperada el día ',
+            CONCAT('ERROR CRÍTICO: sin copia esperada el ',
                 DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL d.dias DAY),'%Y-%m-%d'),
-                ' y ya han pasado 24 horas. Última copia: ',
+                ' · han pasado ',
+                TIMESTAMPDIFF(HOUR, COALESCE(cp.ultima,e.creado), NOW()),
+                ' h (',
+                CASE
+                    WHEN TIMESTAMPDIFF(HOUR, COALESCE(cp.ultima,e.creado), NOW()) >= 72 THEN '72 h+'
+                    WHEN TIMESTAMPDIFF(HOUR, COALESCE(cp.ultima,e.creado), NOW()) >= 48 THEN '48 h+'
+                    ELSE '24 h+'
+                END,
+                '). Última copia: ',
                 COALESCE(DATE_FORMAT(cp.ultima,'%Y-%m-%d %H:%i'),'nunca')) AS desc_error,
             'SIN_COPIA' AS codigo, NULL AS destino, NULL AS tamano, NULL AS duracion,
             NULL AS intentos, 0 AS revisado, NULL AS revisado_por, NULL AS revisado_fecha,
@@ -78,6 +87,7 @@ function copias_sin_recibir(PDO $pdo): array
             UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
         ) d ON DATE_SUB(CURDATE(), INTERVAL d.dias DAY) > DATE(COALESCE(cp.ultima,e.creado))
             AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL d.dias DAY), INTERVAL 1 DAY) <= NOW()
+            AND TIMESTAMPDIFF(HOUR, COALESCE(cp.ultima,e.creado), NOW()) >= 24
             AND SUBSTRING(e.dias_copia,
                 MOD(DAYOFWEEK(DATE_SUB(CURDATE(), INTERVAL d.dias DAY)) + 5,7) + 1,1)='1'
         WHERE e.vigilar=1
@@ -89,6 +99,7 @@ function copias_sin_recibir(PDO $pdo): array
                 WHERE reciente.dias < d.dias
                     AND DATE_SUB(CURDATE(), INTERVAL reciente.dias DAY) > DATE(COALESCE(cp.ultima,e.creado))
                     AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL reciente.dias DAY), INTERVAL 1 DAY) <= NOW()
+                    AND TIMESTAMPDIFF(HOUR, COALESCE(cp.ultima,e.creado), NOW()) >= 24
                     AND SUBSTRING(e.dias_copia,
                         MOD(DAYOFWEEK(DATE_SUB(CURDATE(), INTERVAL reciente.dias DAY)) + 5,7) + 1,1)='1'
             )
