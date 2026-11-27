@@ -59,6 +59,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const [guardando, setGuardando] = useState(null);
   const [desasignandoMasivo, setDesasignandoMasivo] = useState(false);
   const [historial, setHistorial] = useState([]);
+  const [vistaHistorial, setVistaHistorial] = useState('lista');
   const [maquinasVirtuales, setMaquinasVirtuales] = useState([]);
   const [maquinaVirtualSeleccionada, setMaquinaVirtualSeleccionada] = useState(null);
   const [historialFallo, setHistorialFallo] = useState('');

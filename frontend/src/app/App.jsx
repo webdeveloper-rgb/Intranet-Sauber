@@ -119,12 +119,14 @@ export default function App() {
     if (actual.vista === 'clientes') {
       if (actual.equipoId) destino = actual.clienteId
         ? `/clientes/${encodeURIComponent(String(actual.clienteId))}`
-        : '/clientes';
+        : '/clientes/sin-asignar';
       else if (actual.clienteId) destino = '/clientes';
     } else if (actual.vista === 'eventos' && actual.equipoId) {
-      destino = '/clientes';
+      destino = `/clientes/${encodeURIComponent(String(actual.clienteId || 'sin-asignar'))}`;
     } else if (actual.vista === 'copias' && actual.copiaId) {
       destino = '/copias';
+    } else if (actual.vista === 'inicio' && actual.equipoId) {
+      destino = '/';
     }
     // Si no hay una ruta interna anterior, salir de esta vista sustituyendo
     // la entrada actual; empujarla de nuevo al historial crea un ciclo al volver.
