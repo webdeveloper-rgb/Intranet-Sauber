@@ -624,14 +624,6 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
           : !equipoActual && <div className="mapeo-kpi" aria-label={`${equiposSinAsignar.length} equipos sin asignar`}>
             <strong>{equiposSinAsignar.length}</strong><span>sin asignar</span>
           </div>} />
-      {equipoActual && <nav className="breadcrumbs" aria-label="Ruta">
-        <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('/clientes'); }}>Clientes</a>
-        <span aria-hidden="true">›</span>
-        {clienteActual && <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`/clientes/${encodeURIComponent(String(clienteAbierto))}`); }}>{clienteActual.nombre}</a>}
-        {!clienteActual && <span>Sin asignar</span>}
-        <span aria-hidden="true">›</span>
-        <span aria-current="page">{equipoActual.nombre}</span>
-      </nav>}
       {!equipoActual && !clienteActual && <BarraFiltros title="Filtrar clientes"
         search={{ id: 'clientes-buscar', value: busqueda, placeholder: 'Buscar cliente…',
           onChange: (event) => setBusqueda(event.target.value) }}

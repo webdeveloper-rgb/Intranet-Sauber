@@ -57,9 +57,8 @@ export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, on
         <span>Intranet <span className="topbar-divider">/</span> <strong>{NAV.find(([key]) => key === vista)?.[1] || 'Resumen'}</strong></span>
       </div>
       <div className="dashboard-topbar-actions">
-        {nombre && <button className="topbar-notifications" aria-label={denso ? 'Desactivar modo denso' : 'Activar modo denso'} type="button" onClick={() => setDenso((v) => !v)} title="Modo denso">
-          <Icon name="menu" size={16} />
-        </button>}
+        {nombre && <button className="topbar-notifications" aria-label={denso ? 'Desactivar modo denso' : 'Activar modo denso'} type="button" onClick={() => setDenso((v) => !v)} title="Modo denso"
+          style={{ fontSize: 11, fontWeight: 700 }}>Densidad</button>}
         {nombre && <button className="topbar-notifications" aria-label="Notificaciones" type="button" onClick={onNotificaciones}><Icon name="bell" size={20} /></button>}
         {nombre && <button className="topbar-account" type="button" onClick={onCuenta} aria-label={`Abrir cuenta de ${nombre}`}>
           <span className="user-avatar" aria-hidden="true">{nombre.trim().slice(0, 1).toUpperCase()}</span><span>{nombre}</span>
