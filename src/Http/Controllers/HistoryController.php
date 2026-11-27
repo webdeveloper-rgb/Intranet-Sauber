@@ -175,6 +175,5 @@ final class HistoryController
         }
         unset($row);
         out(['copias' => $rows, 'hay_mas_historial' => $hasMore]);
-        return true;
     }
 }

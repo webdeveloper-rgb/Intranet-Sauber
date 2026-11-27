@@ -15,8 +15,12 @@ jobs:
         with:
           php-version: '8.2'
           extensions: mbstring, pdo_sqlite, sqlite3
+      - name: Download PHPStan
+        run: curl -L -o phpstan.phar https://github.com/phpstan/phpstan/releases/latest/download/phpstan.phar
       - name: Run equipos_combinar tests
         run: php tests/equipos_combinar_test.php
+      - name: Run PHPStan
+        run: php phpstan.phar analyse --memory-limit=512M -c phpstan.neon
 
   frontend-build:
     runs-on: ubuntu-latest

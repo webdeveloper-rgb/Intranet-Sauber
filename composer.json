@@ -1,0 +1,30 @@
+{
+    "name": "sauber/intranet",
+    "description": "Panel de copias Sauber",
+    "type": "project",
+    "license": "proprietary",
+    "autoload": {
+        "files": [
+            "src/autoload.php"
+        ]
+    },
+    "autoload-dev": {
+        "files": [
+            "tests/equipos_combinar_test.php"
+        ]
+    },
+    "require": {
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^1.11"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "scripts": {
+        "stan": "phpstan analyse --memory-limit=512M",
+        "test": "php tests/equipos_combinar_test.php"
+    }
+}

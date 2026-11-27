@@ -243,7 +243,7 @@ function api_autenticar_usuario(string $identificador, string $password): ?array
 
             $apiUserId = api_sync_primero($row, ['Id', 'id', 'UserId', 'IdUsuario', 'uid'], 100);
             $identidadEstable = $apiUserId ?? $dniApi ?? $emailApi;
-            if ($identidadEstable === null) {
+            if ($identidadEstable === '') {
                 throw new ApiError('El usuario de la API no tiene un identificador estable.');
             }
             $usuarioLocal = 'api_' . substr(hash('sha256', $identidadEstable), 0, 40);
@@ -497,8 +497,8 @@ function api_sync(string $origen, ?int $cadaMinutos = null): ?array
             'omitidos' => $saltados,
             'servicio' => (string)$c['servicio_requerido'],
             'campos' => [
-                'clientes' => $clientes ? array_keys($clientes[0]) : [],
-                'cliservicios' => $cliservicios ? array_keys($cliservicios[0]) : [],
+                'clientes' => isset($clientes[0]) ? array_keys($clientes[0]) : [],
+                'cliservicios' => isset($cliservicios[0]) ? array_keys($cliservicios[0]) : [],
             ],
         ];
     } catch (Throwable $e) {

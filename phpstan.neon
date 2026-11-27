@@ -1,0 +1,8 @@
+parameters:
+    level: 5
+    paths:
+        - src
+    excludePaths:
+        - src/autoload.php
+    ignoreErrors:
+        - '#Function monitor_guardar_informe\(\) never assigns null to &\$canonicalMachineId#'

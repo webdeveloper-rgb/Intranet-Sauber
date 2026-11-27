@@ -23,12 +23,12 @@ header('Cache-Control: no-store');
 
 const MIN_PALABRAS = 15;
 
-function out($data, int $status = 200): void
+function out($data, int $status = 200): never
 {
     JsonResponse::send($data, $status);
 }
 
-function fail(string $message, int $status = 400): void
+function fail(string $message, int $status = 400): never
 {
     out(['error' => $message], $status);
 }

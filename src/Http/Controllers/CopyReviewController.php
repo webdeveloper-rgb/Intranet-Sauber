@@ -69,7 +69,6 @@ final class CopyReviewController
                 'clasificacion_fuente' => $source,
             ]
         ]);
-        return true;
     }
 
     private static function issueFilter(array $copy): array
@@ -212,6 +211,5 @@ final class CopyReviewController
         }
 
         out(['copia' => copia_obtener($id), 'actualizadas' => $updatedIds]);
-        return true;
     }
 }

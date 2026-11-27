@@ -357,7 +357,7 @@ final class ReadController
 
         if ($action === 'monitor_backup_activity') {
             $equipmentId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
-            if ($equipmentId === false || $equipmentId === null || $equipmentId < 1) {
+            if ($equipmentId === false || $equipmentId < 1) {
                 fail('El identificador de equipo no es válido.');
             }
             out(['actividades' => monitor_equipo_copias_en_curso(db(), (int) $equipmentId)]);

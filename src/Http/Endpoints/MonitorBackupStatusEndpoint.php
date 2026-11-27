@@ -10,7 +10,7 @@ require __DIR__ . '/../JsonResponse.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-function monitor_backup_status_responder(array $data, int $status = 200): void
+function monitor_backup_status_responder(array $data, int $status = 200) : never
 {
     JsonResponse::send($data, $status);
 }

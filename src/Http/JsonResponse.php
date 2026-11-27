@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 final class JsonResponse
 {
-    public static function send($data, int $status = 200): void
+    public static function send($data, int $status = 200): never
     {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
