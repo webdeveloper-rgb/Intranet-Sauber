@@ -6,14 +6,14 @@ import Tag from './Tag';
 import { ef, atrasado, etiquetaTipo, severidad } from '../../../shared/lib/logic';
 import { rutaHref } from '../../../app/routes';
 
-const Fila = memo(function Fila({ c, onOpen, r, h }) {
+const Fila = memo(function Fila({ c, onOpen, r, h, resuelto }) {
   const k = ef(c);
   const notas = (c.notas || []).length;
   const sinCopia = c.codigo === 'SIN_COPIA';
   const claseEstado = { ERR: `err sev-${severidad(c)}`, WA: 'warn', RUN: 'run', REV: 'pen', INC: 'por-clasificar' }[k] || '';
   const abrir = () => !sinCopia && onOpen(c.id);
   return (
-    <tr className={`${claseEstado}${sinCopia ? ' sin-copia' : ''}`}
+    <tr className={`${claseEstado}${sinCopia ? ' sin-copia' : ''}${resuelto ? ' resuelto' : ''}`}
       tabIndex={sinCopia ? undefined : 0}
       aria-label={sinCopia ? undefined : `Abrir detalle de la copia de ${c.equipo}, ${c.fecha}`}
       onClick={abrir}
@@ -47,6 +47,20 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
 });
 
 export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, claveEquipo, sinCopia = false }) {
+  const resueltos = new Set();
+  const porEquipo = new Map();
+  (rows || []).forEach((r) => {
+    if (!porEquipo.has(r.equipo)) porEquipo.set(r.equipo, []);
+    porEquipo.get(r.equipo).push(r);
+  });
+  porEquipo.forEach((list) => {
+    const ordenados = [...list].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+    ordenados.forEach((c, i) => {
+      if (c.estado === 'ERROR' && ordenados.slice(i + 1).some((x) => x.estado === 'OK')) {
+        resueltos.add(c.id);
+      }
+    });
+  });
   return (
     <div className="wrap">
       {sinCopia ? (
@@ -84,7 +98,7 @@ export default function Tabla({ rows, cargando, error = '', onOpen, rep, horas, 
         </thead>
         <tbody>
           {rows.map((c) => (
-            <Fila key={c.id} c={c} onOpen={onOpen} r={rep[claveEquipo(c)] || 0} h={horas} />
+            <Fila key={c.id} c={c} onOpen={onOpen} r={rep[claveEquipo(c)] || 0} h={horas} resuelto={resueltos.has(c.id)} />
           ))}
           {rows.length === 0 && (
             <tr><td colSpan="6" className="vacio">{cargando ? 'Cargando…' : error ? 'No se pudo comprobar si hay resultados.' : 'No hay resultados para estos filtros.'}</td></tr>

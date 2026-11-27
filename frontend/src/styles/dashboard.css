@@ -93,6 +93,8 @@
 .historial-vista-toggle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); margin-bottom: 10px; }
 .historial-vista-toggle button { border: 0; background: transparent; color: var(--mut); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .historial-vista-toggle button.activo { background: var(--card); color: var(--tx); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+tr.resuelto { opacity: .55; }
+tr.resuelto .c-desc { color: var(--mut); text-decoration: line-through; }
 .tooltip-wrap { position: relative; display: inline-block; max-width: 100%; }
 .tooltip { position: absolute; z-index: 50; left: 50%; transform: translateX(-50%); padding: 6px 8px; border-radius: 6px; background: #1f2a37; color: #fff; font-size: 11px; line-height: 1.3; white-space: normal; max-width: 320px; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
 .tooltip--top { bottom: 100%; margin-bottom: 6px; }
