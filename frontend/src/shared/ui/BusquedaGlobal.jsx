@@ -15,8 +15,13 @@ export default function BusquedaGlobal({ onNavigate }) {
       }
       if (e.key === 'Escape') setAbierto(false);
     };
+    const abrir = () => setAbierto(true);
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('open-global-search', abrir);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('open-global-search', abrir);
+    };
   }, []);
 
   useEffect(() => {

@@ -41,7 +41,7 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
         {!sinCopia && r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
-      <td className="c-desc">{c.codigo && c.codigo !== 'SIN_COPIA' ? `[${c.codigo}] ` : ''}{c.desc_error || '—'}</td>
+      <td className="c-desc" title={c.desc_error || ''}>{c.codigo && c.codigo !== 'SIN_COPIA' ? `[${c.codigo}] ` : ''}{c.desc_error || '—'}</td>
     </tr>
   );
 });

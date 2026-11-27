@@ -7,6 +7,11 @@ const navPath = (key) => key === 'inicio' ? '/' : `/${key}`;
 
 export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, onNotificaciones, onVolver, mostrarVolver = false }) {
   const [abierto, setAbierto] = useState(false);
+  const [denso, setDenso] = useState(() => localStorage.getItem('modoDenso') === '1');
+  useEffect(() => {
+    document.body.classList.toggle('modo-denso', denso);
+    localStorage.setItem('modoDenso', denso ? '1' : '0');
+  }, [denso]);
   const toggle = useRef(null);
   useEffect(() => { setAbierto(false); }, [vista]);
   useEffect(() => {
@@ -52,6 +57,9 @@ export default function Header({ nombre, vista, onNavegar, esAdmin, onCuenta, on
         <span>Intranet <span className="topbar-divider">/</span> <strong>{NAV.find(([key]) => key === vista)?.[1] || 'Resumen'}</strong></span>
       </div>
       <div className="dashboard-topbar-actions">
+        {nombre && <button className="topbar-notifications" aria-label={denso ? 'Desactivar modo denso' : 'Activar modo denso'} type="button" onClick={() => setDenso((v) => !v)} title="Modo denso">
+          <Icon name="menu" size={16} />
+        </button>}
         {nombre && <button className="topbar-notifications" aria-label="Notificaciones" type="button" onClick={onNotificaciones}><Icon name="bell" size={20} /></button>}
         {nombre && <button className="topbar-account" type="button" onClick={onCuenta} aria-label={`Abrir cuenta de ${nombre}`}>
           <span className="user-avatar" aria-hidden="true">{nombre.trim().slice(0, 1).toUpperCase()}</span><span>{nombre}</span>
