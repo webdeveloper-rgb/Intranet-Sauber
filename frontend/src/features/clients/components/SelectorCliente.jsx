@@ -16,7 +16,7 @@ export default function SelectorCliente({ clientes, value, onChange, disabled = 
   const seleccionado = clientes.find((c) => Number(c.id) === Number(value));
   const totalConSatbk = useMemo(() => clientes.filter((c) => c.tiene_satbk).length, [clientes]);
   const totalConSat18 = useMemo(() => clientes.filter((c) => c.tiene_sat18).length, [clientes]);
-  const totalConSat = useMemo(() => clientes.filter((c) => c.tiene_satbk || c.tiene_sat18).length, [clientes]);
+  const totalConSat = useMemo(() => clientes.filter((c) => c.tiene_satbk && c.tiene_sat18).length, [clientes]);
   const opciones = useMemo(() => {
     const q = norm(busqueda.trim());
     return clientes.filter((c) => {
