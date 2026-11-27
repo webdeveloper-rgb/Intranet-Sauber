@@ -134,28 +134,6 @@ export default function App() {
   }, [navegar]);
 
   useEffect(() => {
-    let prefijo = false;
-    let timer = null;
-    const esCampo = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-    const handler = (e) => {
-      if (esCampo(document.activeElement)) return;
-      if (e.key === '/') { e.preventDefault(); window.dispatchEvent(new Event('open-global-search')); return; }
-      if (e.key.toLowerCase() === 'g') { prefijo = true; clearTimeout(timer); timer = setTimeout(() => { prefijo = false; }, 900); return; }
-      if (prefijo) {
-        const k = e.key.toLowerCase();
-        if (k === 'i') navegar('/');
-        else if (k === 'c') navegar('/clientes');
-        else if (k === 'e') navegar('/equipos');
-        else if (k === 'o') navegar('/copias');
-        prefijo = false;
-        clearTimeout(timer);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => { window.removeEventListener('keydown', handler); clearTimeout(timer); };
-  }, [navegar]);
-
-  useEffect(() => {
     const sincronizarRuta = () => {
       const actual = `${window.location.pathname}${window.location.search}`;
       const anterior = hrefActual.current;
