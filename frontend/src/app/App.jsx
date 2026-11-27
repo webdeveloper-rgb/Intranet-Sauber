@@ -298,7 +298,8 @@ export default function App() {
           <Clientes key={vista} copiaId={ruta.copiaId} sesion={sesion} refreshSignal={actualizacionEquipos}
             clienteId={ruta.clienteId} equipoId={ruta.equipoId} pestana={ruta.pestana} onNavigate={navegar} />
         ) : (
-          <>
+          <div className="copias-split">
+            <div className="copias-split-main">
             <PageHeading id="copias-titulo" eyebrow="Operaciones"
               title={filtro === 'sin' ? 'Errores críticos sin copia' : 'Historial de copias'}
               description={filtro === 'sin'
@@ -318,10 +319,15 @@ export default function App() {
               onOpen={abrir} rep={rep} horas={f.horas} claveEquipo={claveEquipo} />
             <Paginacion total={rows.length} pagina={paginaCopias.page} paginas={paginaCopias.pageCount}
               porPagina={paginaCopias.pageSize} onCambiar={paginaCopias.setPage} etiqueta="copias" />
-          </>
+            </div>
+            <div className="copias-split-side">
+              {cur ? <Detalle c={cur} modo="drawer" manejarEscape={false} onClose={cerrar} onAbrirEquipo={abrirEquipoDeCopia}
+                onRevisar={null} onReabrir={null} onSeg={null} onNote={null} /> : <div className="mapeo-vacio">Selecciona una copia para ver su detalle.</div>}
+            </div>
+          </div>
         )}
       </main>
-      {cur && vista === 'copias' && (
+      {false && cur && vista === 'copias' && (
         <Detalle c={cur} onClose={cerrar} onAbrirEquipo={abrirEquipoDeCopia} />
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}

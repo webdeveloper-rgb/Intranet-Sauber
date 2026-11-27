@@ -104,6 +104,16 @@
 .breadcrumbs a { color: var(--brand-t); text-decoration: none; }
 .breadcrumbs a:hover { text-decoration: underline; }
 .breadcrumbs span[aria-current="page"] { color: var(--tx); font-weight: 600; }
+.equipos-masterdetail { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+.equipos-detalle-panel { position: sticky; top: 80px; background: var(--card); border: 1px solid var(--bd); border-radius: 8px; padding: 16px; display: grid; gap: 8px; }
+.equipos-detalle-panel h3 { margin: 0; font-size: 16px; }
+.equipos-detalle-panel dl { display: grid; grid-template-columns: 110px 1fr; gap: 4px 8px; font-size: 12px; margin: 0; }
+.equipos-detalle-panel dt { color: var(--mut); }
+.equipos-row-link.seleccionado { background: var(--brand-s); }
+.copias-split { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+.copias-split-side { position: sticky; top: 80px; }
+.copias-split-side .ov { display: none; }
+.copias-split-side aside { position: static; width: 100%; max-height: calc(100vh - 120px); overflow: auto; }
 .duplicados-lote { margin-bottom: 20px; }
 .maquinas-virtuales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; padding: 0 16px 16px; }
 .maquina-virtual-card { display: grid; align-content: start; justify-items: start; gap: 7px; min-width: 0; padding: 13px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); }
