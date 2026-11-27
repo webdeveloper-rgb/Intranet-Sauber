@@ -301,7 +301,13 @@ export default function App() {
         )}
       </main>
       {cur && vista === 'copias' && (
-        <Detalle c={cur} onClose={cerrar} onAbrirEquipo={abrirEquipoDeCopia} />
+        <>
+          <div className="drawer-overlay" onClick={cerrar} />
+          <aside className="drawer-panel abierto" aria-label="Detalle de la copia">
+            <button className="drawer-close" type="button" onClick={cerrar} aria-label="Cerrar">✕</button>
+            <Detalle c={cur} modo="drawer" manejarEscape={false} onClose={cerrar} onAbrirEquipo={abrirEquipoDeCopia} />
+          </aside>
+        </>
       )}
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
       {sesion && notificacionesAbiertas && <Notificaciones onClose={() => setNotificacionesAbiertas(false)}

@@ -121,10 +121,7 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
     setSeleccionado(equipo);
     setPanelAbierto(true);
   };
-  const abrirFila = (event, path) => {
-    if (event.target.closest('a,button,input,select,textarea')) return;
-    abrir(event, path);
-  };
+
   return <section className="equipos-page" aria-labelledby="equipos-titulo" aria-busy={cargando}>
     <PageHeading id="equipos-titulo" eyebrow="Sauber Ofimática" title="Equipos"
       description="Todos los equipos registrados, sus clientes y su estado de monitoreo."
@@ -148,12 +145,13 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
         <th>Equipo / tipo</th><th>Cliente</th><th>Estado de copias</th><th>Último informe del agente</th><th>Atención</th><th><span className="sr-only">Acciones</span></th>
       </tr></thead><tbody>{pagina.items.map((e) => {
         const path = `/clientes/${e.cliente_id || 'sin-asignar'}/equipos/${e.id}`;
-        return <tr key={e.id} className="equipos-row-link" tabIndex={0} role="link"
-          aria-label={`Abrir ficha de ${e.nombre}`} onClick={(event) => abrirFila(event, path)}
+        return <tr key={e.id} className="equipos-row-link" tabIndex={0} role="button"
+          aria-label={`Ver detalle de ${e.nombre}`} onClick={(event) => abrirFila(event, e)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              onNavigate(path);
+              setSeleccionado(e);
+              setPanelAbierto(true);
             }
           }}><td><a href={rutaHref(path)} onClick={(event) => abrir(event, path)}>{e.nombre}</a>
           <small>{e.tipo === 'servidor' ? 'Servidor' : e.tipo === 'usuario' ? 'Equipo de usuario' : e.tipo === 'programa' ? 'Programa' : 'Sin tipo'}</small></td>
@@ -173,5 +171,24 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
       <Paginacion total={filas.length} pagina={pagina.page} paginas={pagina.pageCount} porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="equipos" />
       <p className="dashboard-queue-note">Las fechas corresponden a los últimos datos recibidos. La falta de informes no confirma una desconexión. «Sin copias recibidas» indica que no hay historial, no un fallo confirmado.</p>
     </div>}
+  {panelAbierto && seleccionado && (
+    <div className="drawer-overlay" onClick={() => setPanelAbierto(false)} />
+  )}
+  <aside className={`drawer-panel${panelAbierto && seleccionado ? ' abierto' : ''}`} aria-label="Detalle del equipo">
+    {seleccionado && (
+      <>
+        <button className="drawer-close" type="button" onClick={() => setPanelAbierto(false)} aria-label="Cerrar">✕</button>
+        <h3>{seleccionado.nombre}</h3>
+        <p className="equipos-muted">{seleccionado.cliente || 'Sin asignar'} · {seleccionado.software || 'Sin software'}</p>
+        <dl>
+          <dt>Tipo</dt><dd>{seleccionado.tipo || '—'}</dd>
+          <dt>Copias</dt><dd>{seleccionado.sin_copia ? 'Error crítico sin copia' : Number(seleccionado.errores_pendientes) ? `${seleccionado.errores_pendientes} fallos` : seleccionado.tiene_copias ? 'Sin fallos' : 'Sin copias recibidas'}</dd>
+          <dt>Última copia</dt><dd>{seleccionado.ultima_copia || '—'}</dd>
+          <dt>Agente</dt><dd>{seleccionado.tiene_monitor ? (seleccionado.sin_informe ? 'Sin informar >24 h' : seleccionado.monitor_last_seen || 'Sin fecha') : 'Sin agente'}</dd>
+        </dl>
+        <button className="btn" onClick={() => onNavigate(`/clientes/${seleccionado.cliente_id || 'sin-asignar'}/equipos/${seleccionado.id}`)}>Abrir ficha completa</button>
+      </>
+    )}
+  </aside>
   </section>;
 }
