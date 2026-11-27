@@ -4,6 +4,7 @@ import TipoEquipoEditor from '../../equipment/components/TipoEquipoEditor';
 import RustDeskAcceso from '../../equipment/components/RustDeskAcceso';
 import HorarioSemana from '../../equipment/components/HorarioSemana';
 import CombinarEquipos from '../../equipment/components/CombinarEquipos';
+import TimelineEquipo from '../../equipment/components/TimelineEquipo.jsx';
 import CombinarDuplicados from '../../equipment/components/CombinarDuplicados';
 /**
  * Vistas jerarquicas de clientes, equipos, asignacion y detalle del historial por equipo.
@@ -583,7 +584,14 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                       {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
                     </button>)}
                   </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
-                {historialFallo && <div className="errbox" role="alert">{historialFallo}
+                {historial.length > 0 && <section className="historial-equipo" aria-labelledby="titulo-timeline-equipo">
+  <div className="historial-equipo-heading">
+    <h3 id="titulo-timeline-equipo">Línea de tiempo</h3>
+    <span>{historial.length}</span>
+  </div>
+  <TimelineEquipo items={historial} />
+</section>}
+{historialFallo && <div className="errbox" role="alert">{historialFallo}
                   <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
                 </div>}
                 {hayMasHistorial && <button className="btn sec" disabled={cargandoMas} onClick={() => {

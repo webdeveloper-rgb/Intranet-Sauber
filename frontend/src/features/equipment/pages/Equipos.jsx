@@ -6,6 +6,9 @@ import { usePagination } from '../../../shared/hooks/usePagination';
 import BarraFiltros from '../../../shared/ui/BarraFiltros';
 import PageHeading from '../../../shared/ui/PageHeading';
 import Paginacion from '../../../shared/ui/Paginacion';
+import { useToast } from '../../../shared/components/Toast.jsx';
+import EmptyState from '../../../shared/components/EmptyState.jsx';
+import Skeleton from '../../../shared/components/Skeleton.jsx';
 
 const ESTADOS = [['', 'Todos los estados'], ['incidencias', 'Con incidencias'], ['copias', 'Con fallos de copia'],
   ['sin-copia', 'Error crítico sin copia'], ['sin-informe', 'Sin informe >24 h'], ['sin-asignar', 'Sin asignar'], ['en-curso', 'Copias en curso']];
@@ -25,6 +28,7 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
   const [errorEstados, setErrorEstados] = useState('');
   const [cargando, setCargando] = useState(true);
   const [revision, setRevision] = useState(0);
+  const toast = useToast();
   const cargaInicialCompletada = useRef(false);
   const q = filtros.q || '';
   const cliente = filtros.cliente || '';
@@ -45,12 +49,12 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
       if (!activo) return;
       if (listado.status === 'fulfilled' && Array.isArray(listado.value.equipos)) {
         setDatos(listado.value.equipos); setError('');
-      } else setError(listado.status === 'rejected' ? listado.reason.message : 'La respuesta de equipos no es válida.');
+      } else { const m = listado.status === 'rejected' ? listado.reason.message : 'La respuesta de equipos no es válida.'; setError(m); toast.push({ type: 'error', message: m }); }
       if (resumen.status === 'fulfilled' && Array.isArray(resumen.value.equipos)) {
         setEstados(resumen.value.equipos); setErrorEstados('');
       } else {
         setEstados(null);
-        setErrorEstados(resumen.status === 'rejected' ? resumen.reason.message : 'La respuesta de estados no es válida.');
+        const m2 = resumen.status === 'rejected' ? resumen.reason.message : 'La respuesta de estados no es válida.'; setErrorEstados(m2); toast.push({ type: 'warning', message: m2 });
       }
       setCargando(false); pendiente = false; cargaInicialCompletada.current = true;
     };
@@ -125,7 +129,13 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
         ariaLabel: label, options: opciones, onChange: (e) => actualizar({ [key]: e.target.value }) }))}
       count={filtroNoDisponible ? 'Estado de monitoreo no disponible' : datos ? `${filas.length} de ${datos.length} equipos` : 'Esperando equipos'}
       activeFilters={activos} onRemoveFilter={(key) => actualizar({ [key]: '' })} onClear={limpiar} />
-    <div className="dashboard-panel equipos-listado">
+    {cargando && !datos && <Skeleton lines={6} height={18} />}
+    {!cargando && filas.length === 0 && (
+      <EmptyState icon="🔍" title="Sin equipos con estos filtros"
+        description="Prueba a limpiar los filtros o cambiar la búsqueda."
+        actionLabel="Limpiar filtros" onAction={limpiar} />
+    )}
+    {(!cargando || datos) && <div className="dashboard-panel equipos-listado">
       <div className="equipos-table-wrap"><table className="equipos-table"><thead><tr>
         <th>Equipo / tipo</th><th>Cliente</th><th>Estado de copias</th><th>Último informe del agente</th><th>Atención</th><th><span className="sr-only">Acciones</span></th>
       </tr></thead><tbody>{pagina.items.map((e) => {
@@ -154,6 +164,6 @@ export default function Equipos({ filtros = {}, refreshSignal = 0, onNavigate })
       {!filas.length && <div className="empty-state" role="status">{filtroNoDisponible ? 'No se puede aplicar este filtro hasta recuperar los estados de monitoreo.' : !datos ? cargando ? 'Cargando equipos…' : 'No se pudieron cargar los equipos.' : datos.length ? 'No hay equipos que coincidan con los filtros.' : 'Todavía no hay equipos registrados.'}</div>}
       <Paginacion total={filas.length} pagina={pagina.page} paginas={pagina.pageCount} porPagina={pagina.pageSize} onCambiar={pagina.setPage} etiqueta="equipos" />
       <p className="dashboard-queue-note">Las fechas corresponden a los últimos datos recibidos. La falta de informes no confirma una desconexión. «Sin copias recibidas» indica que no hay historial, no un fallo confirmado.</p>
-    </div>
+    </div>}
   </section>;
 }

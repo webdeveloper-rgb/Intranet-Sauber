@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../../shared/api/client';
 import { norm } from '../../../shared/lib/logic';
+import { useToast } from '../../../shared/components/Toast.jsx';
 
 export default function CombinarEquipos({ equipo, equipos, onSaved }) {
   const [destinoId, setDestinoId] = useState(String(equipo.id));
@@ -12,6 +13,7 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState('');
+  const toast = useToast();
   const destino = equipos.find((item) => String(item.id) === destinoId);
   useEffect(() => {
     setDestinoId(String(equipo.id)); setSeleccion([]); setPlan(null); setConfirmado(false); setError('');
@@ -27,7 +29,7 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
       setPlan(preview);
       setAgenteId(preview.agentes?.length === 1 ? String(preview.agentes[0].equipo_id) : '');
     }
-    catch (e) { setError(e.message); }
+    catch (e) { setError(e.message); toast.push({ type: 'error', message: e.message }); }
     finally { setOcupado(false); }
   };
   const combinar = async () => {
@@ -37,8 +39,9 @@ export default function CombinarEquipos({ equipo, equipos, onSaved }) {
         agente_equipo_id: agenteId ? Number(agenteId) : null });
       setPlan(null); setSeleccion([]); setConfirmado(false);
       setResultado(`${response.combinados} equipo(s) combinados en ${response.nombre || plan.destino.nombre}.`);
+      toast.push({ type: 'success', message: `${response.combinados} equipo(s) combinados.` });
       await onSaved(plan.destino);
-    } catch (e) { setError(e.message); setPlan(null); setConfirmado(false); }
+    } catch (e) { setError(e.message); setPlan(null); setConfirmado(false); toast.push({ type: 'error', message: e.message }); }
     finally { setOcupado(false); }
   };
   return <section className="equipo-combinar ficha-card" aria-labelledby="titulo-combinar">

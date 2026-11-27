@@ -21,6 +21,7 @@ import InformeCopias from '../features/backups/pages/InformeCopias';
 import PorClasificar from '../features/backups/pages/PorClasificar';
 import PageHeading from '../shared/ui/PageHeading';
 import Paginacion from '../shared/ui/Paginacion';
+import BusquedaGlobal from '../shared/ui/BusquedaGlobal.jsx';
 import { usePagination } from '../shared/hooks/usePagination';
 import { leerRuta, rutaHref } from './routes';
 
@@ -303,6 +304,7 @@ export default function App() {
       {sesion && cuentaAbierta && <Usuarios sesion={sesion} onClose={() => setCuentaAbierta(false)} />}
       {sesion && notificacionesAbiertas && <Notificaciones onClose={() => setNotificacionesAbiertas(false)}
         onAbrir={abrirNotificacion} />}
+      {sesion && <BusquedaGlobal onNavigate={navegar} />}
     </>
   );
 }
