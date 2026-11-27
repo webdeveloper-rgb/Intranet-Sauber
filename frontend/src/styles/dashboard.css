@@ -34,6 +34,26 @@
 .combinar-alias summary { cursor: pointer; font-weight: 600; color: var(--tx); }
 .combinar-alias ul { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--mut); }
 .equipo-combinar .btn { justify-self: start; }
+
+/* Toasts */
+.toast-stack { position: fixed; bottom: 20px; right: 20px; display: grid; gap: 8px; z-index: 2000; max-width: 360px; }
+.toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 8px; background: var(--card); color: var(--tx); box-shadow: var(--sh); border: 1px solid var(--bd); font-size: 13px; animation: toast-in .18s ease; }
+.toast--success { border-color: var(--ok); color: var(--ok); }
+.toast--error { border-color: var(--er); color: var(--er); }
+.toast--warning { border-color: var(--wa); color: var(--wa); }
+.toast__close { background: none; border: 0; cursor: pointer; font-size: 16px; color: inherit; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Empty state */
+.empty-state { display: grid; place-items: center; gap: 8px; padding: 32px 16px; text-align: center; color: var(--mut); }
+.empty-state__icon { font-size: 32px; opacity: .6; }
+.empty-state__title { font-size: 15px; font-weight: 650; color: var(--tx); margin: 0; }
+.empty-state__desc { font-size: 13px; margin: 0; max-width: 320px; }
+
+/* Skeleton */
+.skeleton { display: grid; gap: 8px; }
+.skeleton__line { background: linear-gradient(90deg, var(--bd) 0%, var(--bg) 50%, var(--bd) 100%); background-size: 200% 100%; border-radius: 4px; animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .duplicados-lote { margin-bottom: 20px; }
 .maquinas-virtuales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; padding: 0 16px 16px; }
 .maquina-virtual-card { display: grid; align-content: start; justify-items: start; gap: 7px; min-width: 0; padding: 13px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); }

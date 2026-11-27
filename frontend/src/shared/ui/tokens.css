@@ -1,0 +1,38 @@
+/* Design tokens compartidos. Importar en index.css o main.jsx */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 13px;
+  --font-base: 15px;
+  --font-lg: 16px;
+  --font-xl: 18px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 30, 50, .06);
+  --shadow-md: 0 4px 14px rgba(20, 30, 50, .05);
+  --shadow-lg: 0 8px 24px rgba(20, 30, 50, .08);
+
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+}
+
+/* Espaciado utilitario */
+.u-gap-1 { gap: var(--space-1); }
+.u-gap-2 { gap: var(--space-2); }
+.u-gap-3 { gap: var(--space-3); }
+.u-gap-4 { gap: var(--space-4); }
+
+.u-stack { display: flex; flex-direction: column; }
+.u-row { display: flex; align-items: center; }
+.u-center { display: flex; align-items: center; justify-content: center; }
