@@ -6,10 +6,17 @@ function dashboard_inicio_listar(PDO $pdo): array
 {
     $estadisticas = [];
     $copias = $pdo->query("SELECT equipo_id,SUM(total) AS total FROM (
-            SELECT equipo_id,COUNT(*) AS total FROM copias WHERE equipo_id IS NOT NULL AND estado='ERROR' GROUP BY equipo_id
+            SELECT cp.equipo_id,COUNT(*) AS total FROM copias cp
+                WHERE cp.equipo_id IS NOT NULL AND cp.estado='ERROR'
+                  AND NOT EXISTS (SELECT 1 FROM copias ok WHERE ok.equipo_id=cp.equipo_id AND ok.estado='OK' AND ok.fecha >= cp.fecha)
+                  AND NOT EXISTS (SELECT 1 FROM correo_copias ok WHERE ok.equipo_id=cp.equipo_id AND ok.importada=0 AND ok.estado='OK' AND ok.fecha >= cp.fecha)
+                GROUP BY cp.equipo_id
             UNION ALL
-            SELECT equipo_id,COUNT(*) AS total FROM correo_copias
-                WHERE equipo_id IS NOT NULL AND importada=0 AND estado='ERROR' GROUP BY equipo_id
+            SELECT cc.equipo_id,COUNT(*) AS total FROM correo_copias cc
+                WHERE cc.equipo_id IS NOT NULL AND cc.importada=0 AND cc.estado='ERROR'
+                  AND NOT EXISTS (SELECT 1 FROM copias ok WHERE ok.equipo_id=cc.equipo_id AND ok.estado='OK' AND ok.fecha >= cc.fecha)
+                  AND NOT EXISTS (SELECT 1 FROM correo_copias ok WHERE ok.equipo_id=cc.equipo_id AND ok.importada=0 AND ok.estado='OK' AND ok.fecha >= cc.fecha)
+                GROUP BY cc.equipo_id
         ) errores GROUP BY equipo_id")->fetchAll();
     foreach ($copias as $row) {
         $id = (int) $row['equipo_id'];

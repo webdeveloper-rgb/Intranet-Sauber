@@ -154,6 +154,8 @@ final class CopyReviewController
                 if ($update->rowCount() !== 1) {
                     fail('La copia ya fue revisada por otro usuario. Actualiza la lista.', 409);
                 }
+                // Al rellenar la revision, se cierra la incidencia y se marca como OK.
+                $updatedIds = self::closeIssue(copia_obtener($id) ?: $copy, $user);
                 break;
 
             case 'reabrir':
