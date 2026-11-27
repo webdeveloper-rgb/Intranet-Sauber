@@ -3903,8 +3903,8 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   align-self: center;
 }
 .filter-bar {
-  gap: 12px;
-  padding: 12px;
+  gap: 16px;
+  padding: 18px 20px;
 }
 .filter-bar-heading {
   align-items: start;
@@ -3913,11 +3913,22 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   font-size: 14px;
 }
 .filter-bar-controls {
-  grid-template-columns: minmax(240px, 1.25fr) repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(240px, 1.25fr) repeat(auto-fit, minmax(175px, 1fr));
+  gap: 14px 16px;
+}
+.filter-bar.fil .filter-bar-controls {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1020px) {
+  .filter-bar.fil .filter-bar-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .filter-bar-controls .filter-bar-search {
   grid-column: auto;
+}
+.filter-bar-controls label {
+  gap: 7px;
 }
 .filter-bar-controls label > span {
   overflow: hidden;
@@ -3930,7 +3941,7 @@ aside[role="dialog"]:not(.detalle-modal) .ucard { margin: 0; padding: 0; border:
   background: var(--card);
 }
 .filter-bar-footer {
-  padding-top: 2px;
+  padding-top: 10px;
   border-top: 1px solid color-mix(in srgb, var(--bd) 62%, transparent);
 }
 .filter-bar-count {
@@ -4583,7 +4594,8 @@ header.app-header {
   .filter-bar-controls .filter-bar-search { grid-column: 1 / -1; }
   .filter-bar-actions { grid-column: 1 / -1; }
   .cliente-grid { grid-template-columns: minmax(0, 1fr); }
-  .filter-bar-controls { grid-template-columns: minmax(0, 1fr); }
+  .filter-bar-controls,
+  .filter-bar.fil .filter-bar-controls { grid-template-columns: minmax(0, 1fr); }
   .equipo-asignacion-campos { grid-template-columns: minmax(0, 1fr); }
   .equipo-asignacion-campos .btn { width: 100%; }
   .filter-bar-controls .filter-bar-search,
