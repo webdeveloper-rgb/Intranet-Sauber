@@ -13,6 +13,20 @@ function Campo({ t, v }) {
   return (<><dt>{t}</dt><dd>{v}</dd></>);
 }
 
+const ETIQUETA_FUENTE = {
+  vmx_reglas: 'Reglas VM Explorer (n8n)',
+  n8n_ai: 'IA (n8n)',
+  n8n_ai_gpt4o_mini: 'IA gpt-4o-mini (n8n)',
+  n8n_tag_fallback: 'TAG del asunto (respaldo n8n)',
+  'sistema:copias-esperadas': 'Control de copias esperadas',
+  api_directa: 'API directa',
+};
+
+function formatoFuente(fuente) {
+  if (!fuente) return null;
+  return ETIQUETA_FUENTE[fuente] || fuente;
+}
+
 export default function Detalle({
   c, onClose, modo = 'drawer', manejarEscape = true,
   onRevisar = null, onReabrir = null, onSeg = null, onNote = null,
@@ -42,6 +56,8 @@ export default function Detalle({
           <Campo t="Nombre recibido en la copia" v={c.nombre_recibido} />
           <Campo t="Tipo" v={c.tipo ? etiquetaTipo(c) : null} />
           <Campo t="Software" v={c.software} />
+          <Campo t="Resultado original" v={c.resultado_original} />
+          <Campo t="Origen de clasificación" v={formatoFuente(c.clasificacion_fuente)} />
           <Campo t="Evidencia registrada" v={c.clasificacion_evidencia} />
           <Campo t="Destino" v={c.destino} />
           <Campo t="Tamaño" v={c.tamano} />

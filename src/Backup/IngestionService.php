@@ -125,6 +125,85 @@ function ingesta_recibir(PDO $pdo, $item): array
 // Programas (software de gestión del cliente) que se copian aparte de los equipos de usuario y los servidores.
 const INGESTA_PROGRAMAS = ['EuroAgro', 'EuroPos', 'EuroExtintor', 'EuroMetrics', 'DivaCon', 'DivaGes', 'BDP'];
 
+/** Limpia sufijos de dominio local y espacios sobrantes en hostnames recibidos. */
+function ingesta_limpiar_hostname(?string $nombre): ?string
+{
+    $n = trim((string) preg_replace('/\s+/u', ' ', (string) $nombre));
+    $n = trim($n, " \t\n\r\0\x0B\"':");
+    if ($n === '') {
+        return null;
+    }
+    if (!filter_var($n, FILTER_VALIDATE_IP)) {
+        $sinDominio = preg_replace('/\.(?:[a-z0-9-]+\.)?(?:local|lan|internal|localdomain|ad|corp|home)$/iu', '', $n);
+        if (is_string($sinDominio) && trim($sinDominio) !== '') {
+            $n = trim($sinDominio);
+        }
+    }
+    return $n;
+}
+
+/** Clave normalizada para comparar nombres de equipo sin depender de guiones, espacios o tildes. */
+function ingesta_normalizar_clave_equipo(string $nombre): string
+{
+    $limpio = ingesta_limpiar_hostname($nombre) ?? $nombre;
+    $ascii = strtr($limpio, [
+        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+    ]);
+    return strtolower((string) preg_replace('/[^a-z0-9]+/i', '', $ascii));
+}
+
+/** Normaliza un nombre de empresa eliminando tildes y formas jurídicas comunes. */
+function ingesta_normalizar_cliente(string $nombre): string
+{
+    $ascii = strtr(mb_strtolower(trim($nombre), 'UTF-8'), [
+        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+    ]);
+    $sinForma = preg_replace('/\b(?:s\.?\s*l\.?\s*u\.?|s\.?\s*l\.?|s\.?\s*a\.?|s\.?\s*c\.?|coop(?:erativa)?)\b/iu', ' ', $ascii);
+    return trim((string) preg_replace('/[^a-z0-9]+/i', ' ', (string) $sinForma));
+}
+
+/** Busca un único cliente activo con SATBK, primero exacto y si no, por nombre normalizado inequívoco. */
+function ingesta_buscar_cliente_unico(PDO $pdo, ?string $sugerido): ?int
+{
+    $sug = trim((string) $sugerido);
+    if ($sug === '') {
+        return null;
+    }
+    $q = $pdo->prepare('SELECT id FROM clientes WHERE activo=1 AND tiene_satbk=1 AND LOWER(nombre)=LOWER(?)');
+    $q->execute([$sug]);
+    $exactos = $q->fetchAll(PDO::FETCH_COLUMN);
+    if (count($exactos) === 1) {
+        return (int) $exactos[0];
+    }
+
+    $normSug = ingesta_normalizar_cliente($sug);
+    if ($normSug === '') {
+        return null;
+    }
+    $todos = $pdo->query('SELECT id, nombre FROM clientes WHERE activo=1 AND tiene_satbk=1')->fetchAll();
+    $coincidenciasExactasNorm = [];
+    $coincidenciasPalabra = [];
+    foreach ($todos as $fila) {
+        $normCli = ingesta_normalizar_cliente((string) $fila['nombre']);
+        if ($normCli === '') {
+            continue;
+        }
+        if ($normCli === $normSug) {
+            $coincidenciasExactasNorm[] = (int) $fila['id'];
+        } elseif (mb_strlen($normSug, 'UTF-8') >= 4 && preg_match('/(?:^|\s)' . preg_quote($normSug, '/') . '(?:\s|$)/', $normCli)) {
+            $coincidenciasPalabra[] = (int) $fila['id'];
+        }
+    }
+    if (count($coincidenciasExactasNorm) === 1) {
+        return $coincidenciasExactasNorm[0];
+    }
+    if (count($coincidenciasExactasNorm) === 0 && count($coincidenciasPalabra) === 1) {
+        return $coincidenciasPalabra[0];
+    }
+    return null;
+}
+
 /** Normaliza el nombre de cliente extraido de un nombre de equipo. */
 function ingesta_limpiar_empresa(string $e): ?string
 {
@@ -207,12 +286,14 @@ function ingesta_severidad(string $estado, ?string $desc, ?string $codigo, $valo
         return $map[$raw];
     }
     $texto = mb_strtolower(trim((string) $codigo . ' ' . (string) $desc), 'UTF-8');
-    if (str_contains($texto, 'sin_copia') || str_contains($texto, 'critico')
-        || str_contains($texto, 'crítico') || str_contains($texto, 'critical')) {
-        return 'critico';
+    foreach (['sin_copia', 'critico', 'crítico', 'critical', 'corrupt', 'corrupción', 'ransomware', 'cifrado'] as $needle) {
+        if (str_contains($texto, $needle)) {
+            return 'critico';
+        }
     }
     foreach (['not enough space', 'falta de espacio', 'sin espacio', 'disco lleno', 'space',
-        'destino', 'destination', 'conectar', 'connect', 'servidor remoto'] as $needle) {
+        'destino', 'destination', 'conectar', 'connect', 'servidor remoto',
+        'access denied', 'acceso denegado', 'permission', 'permiso', 'timeout', 'tiempo de espera', 'vss', 'snapshot'] as $needle) {
         if (str_contains($texto, $needle)) {
             return 'grave';
         }
@@ -309,12 +390,18 @@ function ingesta_adaptar($it)
     }
     $software = $software ?? 'Otro';
 
-    // Nombre del equipo: el del asunto; si no se reconoce, el que diga la IA, luego el cliente, luego el asunto.
-    $equipo = trim((string) ($it['equipo'] ?? ''));
-    $nombre = $p['nombre'] ?? ($equipo !== '' ? $equipo : ($cliente !== '' ? $cliente : $asunto));
+    // Nombre del equipo: prioriza el hostname real del cuerpo si n8n lo marcó explícitamente;
+    // en caso contrario usa el asunto determinista, luego el equipo enviado, cliente o asunto.
+    $equipo = ingesta_limpiar_hostname((string) ($it['equipo'] ?? '')) ?? '';
+    $equipoOrigen = strtolower(trim((string) ($it['equipo_origen'] ?? '')));
+    if ($equipoOrigen === 'cuerpo' && $equipo !== '') {
+        $nombre = $equipo;
+    } else {
+        $nombre = ingesta_limpiar_hostname($p['nombre']) ?? ($equipo !== '' ? $equipo : ($cliente !== '' ? $cliente : $asunto));
+    }
 
-    $motivo = trim((string) ($it['motivo'] ?? ''));
-    $desc = $estado !== 'OK' ? $etiqueta . ': ' . ($motivo !== '' ? $motivo : $asunto) : null;
+    $motivo = trim((string) preg_replace('/\s+/u', ' ', (string) ($it['motivo'] ?? '')));
+    $desc = $estado !== 'OK' ? ($motivo !== '' ? $motivo : $etiqueta . ': ' . $asunto) : null;
 
     return [
         'message_id' => $it['message_id'] ?? null,
@@ -326,7 +413,7 @@ function ingesta_adaptar($it)
         'origen' => $asunto !== '' ? $asunto : $nombre,
         'sugerido' => $cliente !== '' ? $cliente : (ingesta_clasificar_nombre($nombre)['empresa'] ?? $p['sugerido']),
         'estado' => $estado,
-        'severidad' => $estado === 'ERROR' && $res === 'FALLO_GRAVE' ? 'grave' : ingesta_severidad($estado, $desc, $it['codigo'] ?? null, $it['severidad'] ?? null),
+        'severidad' => ingesta_severidad($estado, $desc, $it['codigo'] ?? null, $it['severidad'] ?? ($res === 'FALLO_GRAVE' ? 'grave' : null)),
         'desc_error' => $desc,
         'clasificacion_motivo' => $motivo,
         'clasificacion_evidencia' => (string) ($it['evidencia'] ?? ''),
@@ -510,12 +597,42 @@ function ingesta_guardar(PDO $pdo, array $d): array
         }
 
         $matches = array_values($matchesById);
+        $clienteSugeridoId = ingesta_buscar_cliente_unico($pdo, $d['sugerido']);
         if (!$matches) {
             // El mismo hostname puede recibir copias de distintos programas. Reutiliza
             // la ficha existente solo si el nombre identifica un unico equipo.
             $sameName = $pdo->prepare('SELECT id,cliente_id FROM equipos WHERE nombre=? LIMIT 3 FOR UPDATE');
             $sameName->execute([$d['nombre']]);
             $matches = $sameName->fetchAll();
+        }
+        if (!$matches) {
+            // Respaldo por clave normalizada (sin guiones, espacios ni sufijos) solo si identifica una única ficha.
+            $claveBuscada = ingesta_normalizar_clave_equipo($d['nombre']);
+            if ($claveBuscada !== '') {
+                $candidatosSql = $clienteSugeridoId !== null
+                    ? 'SELECT id,cliente_id,nombre FROM equipos WHERE cliente_id=?'
+                    : 'SELECT id,cliente_id,nombre FROM equipos';
+                $candidatosSt = $pdo->prepare($candidatosSql);
+                $candidatosSt->execute($clienteSugeridoId !== null ? [$clienteSugeridoId] : []);
+                $normMatches = [];
+                foreach ($candidatosSt->fetchAll() as $cand) {
+                    if (ingesta_normalizar_clave_equipo((string) $cand['nombre']) === $claveBuscada) {
+                        $normMatches[] = ['id' => $cand['id'], 'cliente_id' => $cand['cliente_id']];
+                    }
+                }
+                if (count($normMatches) === 1) {
+                    $matches = $normMatches;
+                }
+            }
+        }
+        if (count($matches) > 1 && $clienteSugeridoId !== null) {
+            $delCliente = array_values(array_filter(
+                $matches,
+                static fn(array $m): bool => (int) ($m['cliente_id'] ?? 0) === $clienteSugeridoId
+            ));
+            if (count($delCliente) === 1) {
+                $matches = $delCliente;
+            }
         }
         if (count($matches) > 1) {
             throw new IngestaConflicto('El nombre de recepción «' . $d['nombre'] . '» coincide con varias fichas. Hay que combinar o revisar esos equipos antes de importar más copias.');
@@ -542,15 +659,13 @@ function ingesta_guardar(PDO $pdo, array $d): array
             throw new RuntimeException('No se pudo recuperar el equipo después de insertarlo.');
         }
 
-        // Si el equipo aún no tiene cliente y el nombre sugerido (el de las llaves del asunto) coincide
-        // con UN solo cliente activo, se asigna solo. Si no coincide, queda "Sin asignar" con la sugerencia.
+        // Si el equipo aún no tiene cliente y el nombre sugerido coincide
+        // con UN solo cliente activo con SATBK (exacto o normalizado), se asigna solo.
         if ($eq['cliente_id'] === null && $d['sugerido'] !== null) {
-            $q = $pdo->prepare('SELECT id FROM clientes WHERE activo=1 AND tiene_satbk=1 AND LOWER(nombre)=LOWER(?)');
-            $q->execute([$d['sugerido']]);
-            $ids = $q->fetchAll(PDO::FETCH_COLUMN);
-            if (count($ids) === 1) {
-                $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([(int) $ids[0], $eq['id']]);
-                $eq['cliente_id'] = (int) $ids[0];
+            $clienteAutoId = $clienteSugeridoId ?? ingesta_buscar_cliente_unico($pdo, $d['sugerido']);
+            if ($clienteAutoId !== null) {
+                $pdo->prepare('UPDATE equipos SET cliente_id=? WHERE id=?')->execute([$clienteAutoId, $eq['id']]);
+                $eq['cliente_id'] = $clienteAutoId;
             }
         }
 

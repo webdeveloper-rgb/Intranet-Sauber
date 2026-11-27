@@ -26,7 +26,7 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
       <td>{sinCopia ? c.fecha : <a className="copia-fila-enlace" href={rutaHref(`/copias/${c.id}`)}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); abrir(); }}>{c.fecha}</a>}</td>
       <td>{c.cliente}</td>
-      <td>{c.equipo}</td>
+      <td>{c.equipo}{c.maquina_virtual ? ` · ${c.maquina_virtual}` : ''}</td>
       <td>{etiquetaTipo(c)}</td>
       <td className="estado-celda">
         <Tag c={c} />
@@ -36,7 +36,8 @@ const Fila = memo(function Fila({ c, onOpen, r, h }) {
         {atrasado(c, h) && <span className="nb al" title="Error sin revisar a tiempo">Atrasado: {h} h</span>}
         {!sinCopia && r > 1 && c.estado === 'ERROR' && <span className="nb wa" title="Errores repetidos en este equipo">Repetidos: {r}</span>}
       </td>
-      <td className="c-desc">{c.desc_error || '—'}</td>    </tr>
+      <td className="c-desc">{c.codigo && c.codigo !== 'SIN_COPIA' ? `[${c.codigo}] ` : ''}{c.desc_error || '—'}</td>
+    </tr>
   );
 });
 

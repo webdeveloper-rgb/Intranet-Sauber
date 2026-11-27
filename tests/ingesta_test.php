@@ -64,4 +64,23 @@ $same('RUNNING', ingesta_normalizar(ingesta_adaptar($baseAviso + ['resultado' =>
 $same('OK', ingesta_normalizar(ingesta_adaptar($baseAviso + ['resultado' => 'CORRECTA']))['estado'], 'copia correcta confirmada');
 $same('REVISION', ingesta_normalizar(ingesta_adaptar($baseAviso + ['resultado' => 'DESCONOCIDO']))['estado'], 'resultado sin clasificar pasa a revision');
 
+$same('SRV-DATOS', ingesta_limpiar_hostname('SRV-DATOS.empresa.local'), 'limpia sufijo .local en hostname');
+$same('192.168.1.10', ingesta_limpiar_hostname('192.168.1.10'), 'conserva IPv4 intacta');
+$same('srvsql01', ingesta_normalizar_clave_equipo('SRV-SQL_01.empresa.local'), 'normaliza clave de equipo');
+$same('el cortijo', ingesta_normalizar_cliente('El Cortijo S.L.U.'), 'normaliza nombre de cliente sin forma jurídica');
+
+$cuerpoPrioridad = ingesta_normalizar(ingesta_adaptar([
+    'message_id' => '<iperius-cuerpo@example.test>',
+    'asunto' => 'Copia de seguridad diaria - TAREA-CLIENTE - Iperius Backup',
+    'fecha' => '2026-11-17T01:22:28+01:00',
+    'software' => 'Iperius',
+    'equipo' => 'COPIAS-PC.dominio.local',
+    'equipo_origen' => 'cuerpo',
+    'resultado' => 'FALLO_GRAVE',
+    'motivo' => 'Error de corrupción en archivo destino',
+]));
+$same('COPIAS-PC', $cuerpoPrioridad['nombre'], 'prioriza equipo del cuerpo y limpia dominio');
+$same('critico', $cuerpoPrioridad['severidad'], 'escala a crítico ante corrupción');
+$same('Error de corrupción en archivo destino', $cuerpoPrioridad['desc_error'], 'desc_error sin prefijo redundante cuando hay motivo');
+
 echo "{$checks} comprobaciones de ingesta correctas.\n";

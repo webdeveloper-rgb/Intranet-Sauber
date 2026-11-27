@@ -27,6 +27,13 @@ import { leerRuta, rutaHref } from './routes';
 const filtrosIniciales = () => {
   return { cli: '', tipo: '', software: '', desde: '', hasta: '', orden: 'fecha-desc', horas: 24 };
 };
+const normalizarMotivoAgrupacion = (texto) => String(texto || '')
+  .replace(/\b\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?\b/g, '')
+  .replace(/\b\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?\b/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
 const claveIncidenciaCopia = (c) => [
   c.equipo_id || `${c.cliente}|${c.equipo}`,
   c.maquina_virtual || '',
@@ -34,7 +41,7 @@ const claveIncidenciaCopia = (c) => [
   c.software || '',
   c.severidad || 'normal',
   c.codigo || '',
-  c.desc_error || '',
+  normalizarMotivoAgrupacion(c.desc_error),
 ].join('\u001f');
 const acumularErrores = (copias) => {
   const grupos = new Map();
