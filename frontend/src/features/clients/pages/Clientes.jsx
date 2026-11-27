@@ -729,7 +729,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
     {copiaSeleccionada && <Detalle modo="dialog" c={copiaSeleccionada}
       onClose={cerrarDetalleCopia} onRevisar={accionesCopia.revisar}
       onReabrir={accionesCopia.reabrir} onSeg={accionesCopia.seguimiento} onNote={accionesCopia.nota}
-      onAbrirEquipo={(copia) => {
+      onAbrirEquipo={equipoAbierto ? null : (copia) => {
         setCopiaSeleccionada(null);
         const cliente = copia.cliente_id || clienteAbierto || 'sin-asignar';
         onNavigate(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}`);

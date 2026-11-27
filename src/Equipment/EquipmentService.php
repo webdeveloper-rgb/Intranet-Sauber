@@ -414,6 +414,17 @@ function correo_importar_equipo(int $equipoId, ?int $clienteId, ?PDO $pdo = null
     return $count;
 }
 
+/** Normaliza el nombre de una tarea quitando verbos de resultado para emparejar OK y ERROR de la misma tarea. */
+function correo_normalizar_tarea(?string $tarea): string
+{
+    $t = mb_strtolower(trim((string) $tarea), 'UTF-8');
+    if ($t === '') {
+        return '';
+    }
+    $t = preg_replace('/\b(?:se ha realizado|ha fallado|fall[oó]|ha terminado|completad[oa]|finalizad[oa]|correctamente|satisfactoriamente|failed|completed|succeeded|successfully|finished)\b/iu', ' ', $t);
+    return trim((string) preg_replace('/\s+/u', ' ', (string) $t));
+}
+
 /** Cierra los errores de copia pendientes tras una copia correcta y evita que reaparezcan. */
 function correo_resolver_errores_equipo(int $equipoId, ?PDO $pdo = null, ?string $maquinaVirtual = null, ?string $tarea = null): int
 {
@@ -436,20 +447,41 @@ function correo_resolver_errores_equipo(int $equipoId, ?PDO $pdo = null, ?string
         return 0;
     }
 
+    // Incluye tareas cuyo único cambio entre OK y ERROR sea el verbo de resultado (p. ej. "se ha realizado" vs "falló").
+    $tareaNorm = correo_normalizar_tarea($tarea);
+    $tareasCoincidentes = [$tarea];
+    if ($tareaNorm !== '') {
+        $qTareas = $pdo->prepare("SELECT DISTINCT tarea FROM (
+            SELECT tarea FROM copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm} AND tarea IS NOT NULL
+            UNION ALL
+            SELECT tarea FROM correo_copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm} AND tarea IS NOT NULL
+        ) t");
+        $qTareas->execute(array_merge([$equipoId], $paramsVm, [$equipoId], $paramsVm));
+        foreach ($qTareas->fetchAll(PDO::FETCH_COLUMN) as $tExistente) {
+            if (correo_normalizar_tarea((string) $tExistente) === $tareaNorm && !in_array($tExistente, $tareasCoincidentes, true)) {
+                $tareasCoincidentes[] = $tExistente;
+            }
+        }
+    }
+    $condicionTarea = count($tareasCoincidentes) === 1 && $tarea === null
+        ? ' AND tarea IS NULL'
+        : ' AND tarea IN (' . implode(',', array_fill(0, count($tareasCoincidentes), '?')) . ')';
+    $paramsTareas = count($tareasCoincidentes) === 1 && $tarea === null ? [] : $tareasCoincidentes;
+
     $rememberDeleted = $pdo->prepare("INSERT IGNORE INTO correo_copias_eliminadas (message_key,equipo_id)
         SELECT CONVERT(message_key USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
-        FROM correo_copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm}{$filtroTarea}
+        FROM correo_copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm}{$condicionTarea}
         UNION ALL
         SELECT CONVERT(huella USING utf8mb4) COLLATE utf8mb4_unicode_ci,equipo_id
-        FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL{$filtroVm}{$filtroTarea}");
-    $rememberDeleted->execute(array_merge([$equipoId], $paramsVm, $paramsTarea, [$equipoId], $paramsVm, $paramsTarea));
+        FROM copias WHERE equipo_id=? AND estado='ERROR' AND huella IS NOT NULL{$filtroVm}{$condicionTarea}");
+    $rememberDeleted->execute(array_merge([$equipoId], $paramsVm, $paramsTareas, [$equipoId], $paramsVm, $paramsTareas));
 
-    $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm}{$filtroTarea}");
-    $deleteHistory->execute(array_merge([$equipoId], $paramsVm, $paramsTarea));
+    $deleteHistory = $pdo->prepare("DELETE FROM copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm}{$condicionTarea}");
+    $deleteHistory->execute(array_merge([$equipoId], $paramsVm, $paramsTareas));
     $deleted = $deleteHistory->rowCount();
 
-    $pdo->prepare("DELETE FROM correo_copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm}{$filtroTarea}")
-        ->execute(array_merge([$equipoId], $paramsVm, $paramsTarea));
+    $pdo->prepare("DELETE FROM correo_copias WHERE equipo_id=? AND estado='ERROR'{$filtroVm}{$condicionTarea}")
+        ->execute(array_merge([$equipoId], $paramsVm, $paramsTareas));
     $pendingErrors = $pdo->prepare("SELECT
         (SELECT COUNT(*) FROM copias WHERE equipo_id=? AND estado='ERROR')
         + (SELECT COUNT(*) FROM correo_copias WHERE equipo_id=? AND importada=0 AND estado='ERROR')");

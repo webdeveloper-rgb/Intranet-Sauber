@@ -228,7 +228,12 @@ export default function App() {
   const abrirEquipoDeCopia = useCallback((copia) => {
     if (!copia?.equipo_id) return;
     const cliente = copia.cliente_id || 'sin-asignar';
-    navegar(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}?tab=copias&copia=${copia.id}`);
+    const baseUrl = `/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}`;
+    if (copia.estado === 'ERROR' && copia.codigo !== 'SIN_COPIA') {
+      navegar(`${baseUrl}?tab=copias&copia=${copia.id}`);
+      return;
+    }
+    navegar(baseUrl);
   }, [navegar]);
   const abrirNotificacion = useCallback((notificacion) => {
     setNotificacionesAbiertas(false);
