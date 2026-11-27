@@ -34,7 +34,7 @@ function fixture(): PDO
     $p->exec('PRAGMA foreign_keys=ON');
     $p->exec("CREATE TABLE clientes(id INTEGER PRIMARY KEY,nombre TEXT,activo INT);
         INSERT INTO clientes VALUES(1,'Sauber',1),(2,'Otro cliente',1);
-        CREATE TABLE equipos(id INTEGER PRIMARY KEY,nombre TEXT,software TEXT,cliente_id INT,monitor_machine_id TEXT UNIQUE,
+        CREATE TABLE equipos(id INTEGER PRIMARY KEY,nombre TEXT,nombre_manual INT DEFAULT 0,software TEXT,cliente_id INT,monitor_machine_id TEXT UNIQUE,
           monitor_report TEXT,monitor_last_seen TEXT,monitor_event_mode TEXT DEFAULT 'standard',monitor_alias TEXT,
           rustdesk_password_enc TEXT,origen TEXT,sugerido TEXT,tipo TEXT,tipo_manual TEXT,programa TEXT,
           error_reviewed_at TEXT,error_reviewed_by TEXT,error_review_desc TEXT,vigilar INT DEFAULT 1,dias_copia TEXT DEFAULT '1111100');
@@ -69,6 +69,7 @@ function fixture(): PDO
         CREATE TABLE monitor_agents(machine_id TEXT PRIMARY KEY,credential_hash TEXT,active INT,last_used_at TEXT);
         INSERT INTO monitor_agents(machine_id,active) VALUES('machine-alba',1),('machine-otro',1);
         CREATE TABLE monitor_ingest_tokens(id INTEGER PRIMARY KEY,machine_id TEXT,token_hash TEXT,consumed_at TEXT,expires_at TEXT);
+        CREATE TABLE monitor_machine_id_aliases(previous_machine_id TEXT PRIMARY KEY,machine_id TEXT);
         INSERT INTO monitor_ingest_tokens(machine_id,token_hash,expires_at) VALUES('machine-alba','old-token','2099-01-01');");
     return $p;
 }

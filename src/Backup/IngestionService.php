@@ -678,11 +678,11 @@ function ingesta_guardar(PDO $pdo, array $d): array
             $d['message_key'],
             $eq['id'],
             $d['nombre'],
-            $d['maquina_virtual'],
-            $d['tarea'],
+            $d['maquina_virtual'] ?? null,
+            $d['tarea'] ?? null,
             $d['fecha'],
             $d['estado'],
-            $d['severidad'],
+            $d['severidad'] ?? 'normal',
             $d['desc_error'],
             $d['codigo'],
             $d['resultado_original'],
@@ -698,7 +698,7 @@ function ingesta_guardar(PDO $pdo, array $d): array
         if ($nuevo) {
             correo_importar_equipo((int) $eq['id'], $eq['cliente_id'] !== null ? (int) $eq['cliente_id'] : null, $pdo);
             if ($d['estado'] === 'OK') {
-                $erroresEliminados = correo_resolver_errores_equipo((int) $eq['id'], $pdo, $d['maquina_virtual'], $d['tarea']);
+                $erroresEliminados = correo_resolver_errores_equipo((int) $eq['id'], $pdo, $d['maquina_virtual'] ?? null, $d['tarea'] ?? null);
             }
         }
         $clienteNombre = null;
