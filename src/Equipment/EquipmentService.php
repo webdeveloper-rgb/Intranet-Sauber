@@ -112,8 +112,16 @@ function equipos_listado(): array
     asegurar_tablas_equipos($pdo);
     $rows = $pdo->query("SELECT e.id,e.nombre,e.nombre_manual,e.monitor_alias,e.software,e.origen,e.sugerido,e.tipo,e.tipo_manual,e.programa,e.vigilar,e.dias_copia,e.cliente_id,c.nombre AS cliente,
         e.error_reviewed_at,e.error_reviewed_by,e.error_review_desc,
-        ((SELECT COUNT(*) FROM copias review_cp WHERE review_cp.equipo_id=e.id AND review_cp.estado='ERROR')
-            + (SELECT COUNT(*) FROM correo_copias review_cc WHERE review_cc.equipo_id=e.id AND review_cc.importada=0 AND review_cc.estado='ERROR')) AS errores_pendientes,
+        ((SELECT COUNT(*) FROM copias review_cp WHERE review_cp.equipo_id=e.id AND review_cp.estado='ERROR'
+            AND review_cp.fecha > COALESCE((SELECT MAX(ok.fecha) FROM (
+                SELECT fecha FROM copias WHERE equipo_id=e.id AND estado='OK'
+                UNION ALL SELECT fecha FROM correo_copias WHERE equipo_id=e.id AND importada=0 AND estado='OK'
+            ) ok), '1970-01-01'))
+            + (SELECT COUNT(*) FROM correo_copias review_cc WHERE review_cc.equipo_id=e.id AND review_cc.importada=0 AND review_cc.estado='ERROR'
+            AND review_cc.fecha > COALESCE((SELECT MAX(ok.fecha) FROM (
+                SELECT fecha FROM copias WHERE equipo_id=e.id AND estado='OK'
+                UNION ALL SELECT fecha FROM correo_copias WHERE equipo_id=e.id AND importada=0 AND estado='OK'
+            ) ok), '1970-01-01'))) AS errores_pendientes,
         DATE_FORMAT(e.creado,'%Y-%m-%d') AS fecha_creacion,
         DATE_FORMAT(ult.ultima_copia,'%Y-%m-%d %H:%i') AS ultima_copia,
         (e.monitor_report IS NOT NULL) AS tiene_monitor,e.monitor_last_seen,
