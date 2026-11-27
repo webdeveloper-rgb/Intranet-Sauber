@@ -570,8 +570,14 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                   <h3 id="titulo-historial-equipo">Historial de copias</h3>
                   <span>{historial.length}{hayMasHistorial ? '+' : ''}</span>
                 </div>
+                {historial.length > 0 && <div className="historial-vista-toggle" role="tablist" aria-label="Vista del historial">
+                  <button type="button" role="tab" aria-selected={vistaHistorial === 'lista'}
+                    className={vistaHistorial === 'lista' ? 'activo' : ''} onClick={() => setVistaHistorial('lista')}>Lista</button>
+                  <button type="button" role="tab" aria-selected={vistaHistorial === 'timeline'}
+                    className={vistaHistorial === 'timeline' ? 'activo' : ''} onClick={() => setVistaHistorial('timeline')}>Línea de tiempo</button>
+                </div>}
                 {cargandoHistorial && !historial.length ? <div className="mapeo-vacio">Cargando historial…</div>
-                  : historial.length ? <div className="historial-equipo-lista">
+                  : historial.length ? (vistaHistorial === 'lista' ? <div className="historial-equipo-lista">
                     {historial.map((copia) => <button type="button" className="historial-equipo-fila historial-equipo-boton" key={copia.id}
                       onClick={() => setCopiaSeleccionada(copia)} aria-label={`Ver detalle de la copia del ${copia.fecha}`}>
                       <span className="historial-equipo-datos">
@@ -584,15 +590,8 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                       </span>
                       {copia.desc_error && <span className="historial-equipo-error">{copia.codigo ? `${copia.codigo} · ` : ''}{copia.desc_error}</span>}
                     </button>)}
-                  </div> : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
-                {historial.length > 0 && <section className="historial-equipo" aria-labelledby="titulo-timeline-equipo">
-  <div className="historial-equipo-heading">
-    <h3 id="titulo-timeline-equipo">Línea de tiempo</h3>
-    <span>{historial.length}</span>
-  </div>
-  <TimelineEquipo items={historial} />
-</section>}
-{historialFallo && <div className="errbox" role="alert">{historialFallo}
+                  </div> : <TimelineEquipo items={historial} />) : !historialFallo && <div className="mapeo-vacio">Todavía no hay copias registradas para este equipo.</div>}
+                {historialFallo && <div className="errbox" role="alert">{historialFallo}
                   <button className="btn sec" onClick={() => cargarHistorial(equipoActual.id)}>Reintentar</button>
                 </div>}
                 {hayMasHistorial && <button className="btn sec" disabled={cargandoMas} onClick={() => {
