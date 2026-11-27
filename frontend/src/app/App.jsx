@@ -90,27 +90,6 @@ export default function App() {
     iniciarSesion().then(setSesion).catch((error) => setFalloSesion(error.message));
   }, []);
   useEffect(() => { cargarSesion(); }, [cargarSesion]);
-  useEffect(() => {
-    let prefijo = false;
-    let timer = null;
-    const esCampo = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-    const handler = (e) => {
-      if (esCampo(document.activeElement)) return;
-      if (e.key === '/') { e.preventDefault(); window.dispatchEvent(new Event('open-global-search')); return; }
-      if (e.key.toLowerCase() === 'g') { prefijo = true; clearTimeout(timer); timer = setTimeout(() => { prefijo = false; }, 900); return; }
-      if (prefijo) {
-        const k = e.key.toLowerCase();
-        if (k === 'i') navegar('/');
-        else if (k === 'c') navegar('/clientes');
-        else if (k === 'e') navegar('/equipos');
-        else if (k === 'o') navegar('/copias');
-        prefijo = false;
-        clearTimeout(timer);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => { window.removeEventListener('keydown', handler); clearTimeout(timer); };
-  }, [navegar]);
 
   const estadoSesion = falloSesion
     ? <div className="empty-state" role="alert"><strong>No se pudo cargar el panel</strong><span>{falloSesion}</span><button className="btn sec" onClick={cargarSesion}>Reintentar</button></div>
@@ -152,6 +131,28 @@ export default function App() {
     // Si no hay una ruta interna anterior, salir de esta vista sustituyendo
     // la entrada actual; empujarla de nuevo al historial crea un ciclo al volver.
     navegar(destino, { replace: true });
+  }, [navegar]);
+
+  useEffect(() => {
+    let prefijo = false;
+    let timer = null;
+    const esCampo = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const handler = (e) => {
+      if (esCampo(document.activeElement)) return;
+      if (e.key === '/') { e.preventDefault(); window.dispatchEvent(new Event('open-global-search')); return; }
+      if (e.key.toLowerCase() === 'g') { prefijo = true; clearTimeout(timer); timer = setTimeout(() => { prefijo = false; }, 900); return; }
+      if (prefijo) {
+        const k = e.key.toLowerCase();
+        if (k === 'i') navegar('/');
+        else if (k === 'c') navegar('/clientes');
+        else if (k === 'e') navegar('/equipos');
+        else if (k === 'o') navegar('/copias');
+        prefijo = false;
+        clearTimeout(timer);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => { window.removeEventListener('keydown', handler); clearTimeout(timer); };
   }, [navegar]);
 
   useEffect(() => {
