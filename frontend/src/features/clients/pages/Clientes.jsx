@@ -17,6 +17,7 @@ import MonitorDetalle from '../../equipment/components/MonitorDetalle';
 import FichaEquipo from '../../equipment/components/FichaEquipo';
 import Eventos from '../../events/pages/Eventos';
 import RevisionEquipo from '../../equipment/components/RevisionEquipo';
+import HistorialMaquinaVirtual from '../../equipment/components/HistorialMaquinaVirtual';
 import Paginacion from '../../../shared/ui/Paginacion';
 import SelectorCliente from '../components/SelectorCliente';
 import PageHeading from '../../../shared/ui/PageHeading';
@@ -58,6 +59,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
   const [desasignandoMasivo, setDesasignandoMasivo] = useState(false);
   const [historial, setHistorial] = useState([]);
   const [maquinasVirtuales, setMaquinasVirtuales] = useState([]);
+  const [maquinaVirtualSeleccionada, setMaquinaVirtualSeleccionada] = useState(null);
   const [historialFallo, setHistorialFallo] = useState('');
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
@@ -161,6 +163,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
       cargaHistorialActual.current += 1;
       setHistorial([]);
       setMaquinasVirtuales([]);
+      setMaquinaVirtualSeleccionada(null);
       setHistorialFallo('');
       setHayMasHistorial(false);
       return;
@@ -532,8 +535,10 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         <h3 id="titulo-maquinas-virtuales">Máquinas virtuales</h3>
         <span>{maquinasVirtualesAgrupadas.length}</span>
       </div>
+      <p className="historial-vm-ayuda">Selecciona una máquina virtual para consultar su historial completo de copias.</p>
       <div className="maquinas-virtuales-grid">
-        {maquinasVirtualesAgrupadas.map((vm) => <article className="maquina-virtual-card" key={vm.nombre}>
+        {maquinasVirtualesAgrupadas.map((vm) => <button type="button" className="maquina-virtual-card maquina-virtual-card-clickable" key={vm.nombre}
+          onClick={() => setMaquinaVirtualSeleccionada(vm.nombre)} aria-label={`Abrir historial de ${vm.nombre}`}>
           <strong>{vm.nombre}</strong>
           <div className="maquina-virtual-tareas">
             {vm.tareas.map((tarea) => <div className="maquina-virtual-tarea" key={tarea.tarea || 'sin-tarea'}>
@@ -544,7 +549,8 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
               {tarea.desc_error && <span className="historial-equipo-error">{tarea.codigo ? `${tarea.codigo} · ` : ''}{tarea.desc_error}</span>}
             </div>)}
           </div>
-        </article>)}
+          <span className="maquina-virtual-abrir">Ver historial completo <Icon name="arrow" size={13} /></span>
+        </button>)}
       </div>
     </section>}
     <details className="equipo-vigilancia">
@@ -557,7 +563,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                 {equipoActual.vigilar !== 0 && <HorarioSemana equipo={equipoActual} onSaved={actualizarHorario} />}
               </div>
             </details>
-    <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
+    {!maquinasVirtualesAgrupadas.length && <section className="historial-equipo" aria-labelledby="titulo-historial-equipo">
                 <div className="historial-equipo-heading">
                   <h3 id="titulo-historial-equipo">Historial de copias</h3>
                   <span>{historial.length}{hayMasHistorial ? '+' : ''}</span>
@@ -584,7 +590,7 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
                   const ultima = historial[historial.length - 1];
                   cargarHistorial(equipoActual.id, ultima, true);
                 }}>{cargandoMas ? 'Cargando…' : 'Cargar copias anteriores'}</button>}
-              </section>
+              </section>}
   </div>;
   const monitorFicha = equipoActual && <MonitorDetalle equipo={equipoActual} datos={detalleMonitor}
                   cargando={cargandoMonitor} error={falloMonitor} esAdmin={admin}
@@ -728,5 +734,9 @@ export default function Clientes({ sesion, refreshSignal = 0, clienteId = null, 
         const cliente = copia.cliente_id || clienteAbierto || 'sin-asignar';
         onNavigate(`/clientes/${encodeURIComponent(String(cliente))}/equipos/${copia.equipo_id}`);
       }} />}
+    {maquinaVirtualSeleccionada && equipoActual && <HistorialMaquinaVirtual
+      equipoId={equipoActual.id} equipoNombre={equipoActual.nombre} nombre={maquinaVirtualSeleccionada}
+      onClose={() => setMaquinaVirtualSeleccionada(null)}
+      onSelectCopy={(copia) => { setMaquinaVirtualSeleccionada(null); setCopiaSeleccionada(copia); }} />}
   </div>;
 }

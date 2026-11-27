@@ -77,12 +77,19 @@ final class HistoryController
                 fail('Equipo no encontrado', 404);
             }
 
+            $maquinaVirtual = $input['maquina_virtual'] ?? null;
+            if ($maquinaVirtual !== null && (!is_string($maquinaVirtual) || trim($maquinaVirtual) === '' || mb_strlen($maquinaVirtual) > 200)) {
+                fail('Máquina virtual no válida');
+            }
             $cursorFecha = $input['cursor_fecha'] ?? null;
             $cursorId = filter_var($input['cursor_id'] ?? null, FILTER_VALIDATE_INT);
-            if ($cursorFecha === null) {
-                $where = 'equipo_id=?';
-                $params = [$equipoId];
-            } else {
+            $where = 'equipo_id=?';
+            $params = [$equipoId];
+            if ($maquinaVirtual !== null) {
+                $where .= ' AND maquina_virtual=?';
+                $params[] = trim($maquinaVirtual);
+            }
+            if ($cursorFecha !== null) {
                 $cursorFechaValida = is_string($cursorFecha)
                     ? DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $cursorFecha)
                     : false;
@@ -94,8 +101,8 @@ final class HistoryController
                 ) {
                     fail('Cursor de historial no válido');
                 }
-                $where = 'equipo_id=? AND (fecha < ? OR (fecha = ? AND id < ?))';
-                $params = [$equipoId, $cursorFecha, $cursorFecha, $cursorId];
+                $where .= ' AND (fecha < ? OR (fecha = ? AND id < ?))';
+                array_push($params, $cursorFecha, $cursorFecha, $cursorId);
             }
 
             $pdo = db();

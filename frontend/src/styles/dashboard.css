@@ -9,12 +9,25 @@
 .duplicados-lote { margin-bottom: 20px; }
 .maquinas-virtuales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; padding: 0 16px 16px; }
 .maquina-virtual-card { display: grid; align-content: start; justify-items: start; gap: 7px; min-width: 0; padding: 13px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); }
+.maquina-virtual-card-clickable { width: 100%; color: var(--tx); text-align: left; font: inherit; cursor: pointer; transition: border-color .15s, background-color .15s, transform .15s; }
+.maquina-virtual-card-clickable:hover, .maquina-virtual-card-clickable:focus-visible { border-color: var(--brand); background: var(--brand-s); outline: 2px solid var(--brand); outline-offset: 1px; }
+.maquina-virtual-card-clickable:active { transform: translateY(1px); }
+.maquina-virtual-abrir { display: flex; align-items: center; gap: 6px; margin-top: 3px; color: var(--brand-t); font-size: 12px; font-weight: 650; }
+.historial-vm-ayuda { margin: -2px 0 12px; padding: 0 16px; color: var(--mut); font-size: 13px; }
 .maquina-virtual-card strong, .maquina-virtual-card small, .maquina-virtual-card time { overflow-wrap: anywhere; }
 .maquina-virtual-card time, .maquina-virtual-card small { color: var(--mut); font-size: 12px; }
 .maquina-virtual-tareas { display: grid; width: 100%; gap: 8px; }
 .maquina-virtual-tarea { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; padding-top: 8px; border-top: 1px solid var(--bd); }
 .maquina-virtual-tarea>span:first-child { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 600; }
 .maquina-virtual-tarea .historial-equipo-error { grid-column: 1 / -1; }
+.historial-vm-overlay { z-index: 60; }
+aside.historial-vm-modal { display: flex; flex-direction: column; gap: 5px; top: 50%; right: auto; bottom: auto; left: 50%; z-index: 70; width: min(1080px, calc(100vw - 32px)); height: min(88vh, 980px); padding: 24px; transform: translate(-50%, -50%); overflow: hidden; border: 1px solid var(--bd); border-top: 3px solid var(--brand); border-radius: 14px; box-shadow: 0 24px 80px rgba(0, 0, 0, .48); animation: fade .16s ease-out; }
+.historial-vm-modal > h2 { margin: 0; overflow-wrap: anywhere; font-size: 24px; }
+.historial-vm-equipo { margin: 0 0 12px; color: var(--mut); }
+.historial-vm-contenido { min-height: 0; flex: 1; overflow: auto; padding: 2px 3px 8px 0; }
+.historial-vm-contenido .historial-equipo-fila { padding: 14px 10px; }
+.historial-vm-mas { display: block; margin: 16px auto 0; }
+@media (max-width: 600px) { aside.historial-vm-modal { width: calc(100vw - 20px); height: calc(100dvh - 24px); padding: 18px 14px; } .historial-vm-modal > h2 { font-size: 20px; } }
 .historial-equipo-vm { color: var(--brand-t); }
 .historial-equipo-tarea { color: var(--mut); }
 .equipo-combinar h3, .equipo-combinar h4, .equipo-combinar p { margin: 0; }
